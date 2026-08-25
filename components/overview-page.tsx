@@ -281,21 +281,21 @@ function TopKpiCard({
   iconColor: string;
 }) {
   return (
-    <div className="flex items-start justify-between rounded-xl border border-zinc-200/90 bg-white p-5 shadow-sm transition-all hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950/60 dark:hover:border-zinc-700">
+    <div className="flex items-start justify-between rounded-xl border border-zinc-200/90 bg-white p-3.5 shadow-sm transition-all hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950/60 dark:hover:border-zinc-700">
       <div>
-        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{title}</span>
-        <div className="mt-2 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{value}</div>
-        <div className="mt-2 flex items-center gap-1.5 text-xs">
+        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">{title}</span>
+        <div className="mt-1 text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{value}</div>
+        <div className="mt-1.5 flex items-center gap-1 text-[11px]">
           <span className="inline-flex items-center gap-0.5 font-semibold text-emerald-600 dark:text-emerald-400">
-            <ArrowUpRight size={13} />
+            <ArrowUpRight size={12} />
             {change}
           </span>
-          <span className="text-zinc-400 dark:text-zinc-500">{period}</span>
+          <span className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate">{period}</span>
         </div>
       </div>
 
-      <div className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-xl", iconBg, iconColor)}>
-        <Icon size={20} />
+      <div className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-lg", iconBg, iconColor)}>
+        <Icon size={18} />
       </div>
     </div>
   );
@@ -308,25 +308,25 @@ function MultiLinePerformanceChart() {
   const [granularity, setGranularity] = useState("Daily");
 
   return (
-    <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 pb-4 dark:border-zinc-800">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Performance Overview</h2>
+    <div className="rounded-xl border border-zinc-200/90 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 pb-3 dark:border-zinc-800">
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">Performance Overview</h2>
           <span title="Multi-channel advertising trends" className="text-zinc-400 cursor-pointer">
-            <Info size={14} />
+            <Info size={13} />
           </span>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {/* Legends */}
-          <div className="flex items-center gap-3 text-xs font-medium">
-            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
+          <div className="flex items-center gap-2.5 text-[11px] font-medium">
+            <span className="flex items-center gap-1 text-zinc-600 dark:text-zinc-400">
               <span className="h-2 w-2 rounded-full bg-indigo-500" /> Spend
             </span>
-            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
+            <span className="flex items-center gap-1 text-zinc-600 dark:text-zinc-400">
               <span className="h-2 w-2 rounded-full bg-sky-500" /> Clicks
             </span>
-            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
+            <span className="flex items-center gap-1 text-zinc-600 dark:text-zinc-400">
               <span className="h-2 w-2 rounded-full bg-emerald-500" /> Conversions
             </span>
           </div>
@@ -335,7 +335,7 @@ function MultiLinePerformanceChart() {
           <select
             value={granularity}
             onChange={(e) => setGranularity(e.target.value)}
-            className="h-7 rounded-lg border border-zinc-200 bg-white px-2 text-xs font-medium text-zinc-700 outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+            className="h-6 rounded border border-zinc-200 bg-white px-1.5 text-[11px] font-medium text-zinc-700 outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
           >
             <option>Daily</option>
             <option>Weekly</option>
@@ -344,14 +344,14 @@ function MultiLinePerformanceChart() {
         </div>
       </div>
 
-      <div className="mt-4 h-64 w-full">
+      <div className="mt-3 h-56 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={PERFORMANCE_SERIES} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+          <LineChart data={PERFORMANCE_SERIES} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
             <CartesianGrid stroke="#f4f4f5" strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="date" stroke="#a1a1aa" fontSize={10} tickLine={false} axisLine={false} />
+            <XAxis dataKey="date" stroke="#a1a1aa" fontSize={9} tickLine={false} axisLine={false} />
             <YAxis
               stroke="#a1a1aa"
-              fontSize={10}
+              fontSize={9}
               tickLine={false}
               axisLine={false}
               tickFormatter={(val) => `$${val >= 1000 ? `${val / 1000}k` : val}`}
@@ -360,18 +360,18 @@ function MultiLinePerformanceChart() {
               content={({ active, payload, label }) => {
                 if (active && payload && payload.length) {
                   return (
-                    <div className="rounded-lg border border-zinc-200 bg-white p-3 shadow-lg text-xs dark:border-zinc-800 dark:bg-zinc-900">
+                    <div className="rounded-lg border border-zinc-200 bg-white p-2.5 shadow-lg text-xs dark:border-zinc-800 dark:bg-zinc-900">
                       <div className="font-semibold text-zinc-900 dark:text-zinc-100">{label}</div>
-                      <div className="mt-1.5 space-y-1">
-                        <div className="flex items-center justify-between gap-4 text-indigo-600 dark:text-indigo-400">
+                      <div className="mt-1 space-y-0.5 text-[11px]">
+                        <div className="flex items-center justify-between gap-3 text-indigo-600 dark:text-indigo-400">
                           <span>Spend:</span>
                           <strong>{money(payload[0]?.value as number)}</strong>
                         </div>
-                        <div className="flex items-center justify-between gap-4 text-sky-600 dark:text-sky-400">
+                        <div className="flex items-center justify-between gap-3 text-sky-600 dark:text-sky-400">
                           <span>Clicks:</span>
                           <strong>{Number(payload[1]?.value).toLocaleString()}</strong>
                         </div>
-                        <div className="flex items-center justify-between gap-4 text-emerald-600 dark:text-emerald-400">
+                        <div className="flex items-center justify-between gap-3 text-emerald-600 dark:text-emerald-400">
                           <span>Conversions:</span>
                           <strong>{Number(payload[2]?.value).toLocaleString()}</strong>
                         </div>
@@ -386,25 +386,25 @@ function MultiLinePerformanceChart() {
               type="monotone"
               dataKey="spend"
               stroke="#6366f1"
-              strokeWidth={2.5}
-              dot={{ r: 3, fill: "#6366f1" }}
-              activeDot={{ r: 5 }}
+              strokeWidth={2}
+              dot={{ r: 2.5, fill: "#6366f1" }}
+              activeDot={{ r: 4 }}
             />
             <Line
               type="monotone"
               dataKey="clicks"
               stroke="#0ea5e9"
-              strokeWidth={2.5}
-              dot={{ r: 3, fill: "#0ea5e9" }}
-              activeDot={{ r: 5 }}
+              strokeWidth={2}
+              dot={{ r: 2.5, fill: "#0ea5e9" }}
+              activeDot={{ r: 4 }}
             />
             <Line
               type="monotone"
               dataKey="conversions"
               stroke="#10b981"
-              strokeWidth={2.5}
-              dot={{ r: 3, fill: "#10b981" }}
-              activeDot={{ r: 5 }}
+              strokeWidth={2}
+              dot={{ r: 2.5, fill: "#10b981" }}
+              activeDot={{ r: 4 }}
             />
           </LineChart>
         </ResponsiveContainer>
@@ -420,10 +420,10 @@ function SpendByPlatformCard() {
   const router = useRouter();
 
   return (
-    <div className="flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
+    <div className="flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
       <div>
-        <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-          <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Spend by Platform</h2>
+        <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
+          <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">Spend by Platform</h2>
           <select className="h-6 rounded border border-zinc-200 bg-white px-1.5 text-[11px] font-medium text-zinc-600 outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
             <option>Total Spend</option>
             <option>This Month</option>
@@ -431,8 +431,8 @@ function SpendByPlatformCard() {
         </div>
 
         {/* Donut Chart & Legend */}
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <div className="relative h-40 w-36 shrink-0">
+        <div className="mt-3 flex items-center justify-between gap-2.5">
+          <div className="relative h-36 w-32 shrink-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                 <Pie
@@ -441,8 +441,8 @@ function SpendByPlatformCard() {
                   nameKey="label"
                   cx="50%"
                   cy="50%"
-                  innerRadius={42}
-                  outerRadius={60}
+                  innerRadius={38}
+                  outerRadius={54}
                   paddingAngle={3}
                   stroke="#fff"
                   strokeWidth={2}
@@ -468,11 +468,11 @@ function SpendByPlatformCard() {
           </div>
 
           {/* Platform Legend List */}
-          <div className="flex-1 space-y-2 text-xs min-w-0">
+          <div className="flex-1 space-y-1.5 text-xs min-w-0">
             {SPEND_PLATFORMS.map((item) => (
-              <div key={item.label} className="flex items-center justify-between gap-1">
+              <div key={item.label} className="flex items-center justify-between gap-1 text-[11px]">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: item.color }} />
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: item.color }} />
                   <span className="truncate text-zinc-600 dark:text-zinc-400">{item.label}</span>
                 </div>
                 <span className="font-semibold text-zinc-900 shrink-0 dark:text-zinc-100">${item.value.toLocaleString()}</span>
@@ -482,7 +482,7 @@ function SpendByPlatformCard() {
         </div>
       </div>
 
-      <div className="mt-4 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+      <div className="mt-3 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
         <button
           onClick={() => router.push("/reports")}
           className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
@@ -533,26 +533,26 @@ function QuickActionsPanel() {
   ];
 
   return (
-    <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
-      <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 border-b border-zinc-100 pb-3 dark:border-zinc-800">
+    <div className="rounded-xl border border-zinc-200/90 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
+      <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100 border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
         Quick Actions
       </h2>
 
-      <div className="mt-3 space-y-2">
+      <div className="mt-2.5 space-y-1.5">
         {actions.map((act) => {
           const Icon = act.icon;
           return (
             <button
               key={act.title}
               onClick={() => router.push(act.href)}
-              className="flex w-full items-center gap-3 rounded-lg p-2.5 text-left transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
+              className="flex w-full items-center gap-2.5 rounded-lg p-2 text-left transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
             >
-              <div className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-lg", act.iconBg)}>
-                <Icon size={16} />
+              <div className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-md", act.iconBg)}>
+                <Icon size={14} />
               </div>
               <div>
                 <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{act.title}</div>
-                <div className="text-[11px] text-zinc-500 dark:text-zinc-400">{act.desc}</div>
+                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">{act.desc}</div>
               </div>
             </button>
           );
@@ -569,10 +569,10 @@ function RecentCampaignsCard() {
   const router = useRouter();
 
   return (
-    <div className="flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
+    <div className="flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
       <div>
-        <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-          <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Recent Campaigns</h2>
+        <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
+          <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">Recent Campaigns</h2>
           <button
             onClick={() => router.push("/campaigns")}
             className="text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
@@ -581,18 +581,18 @@ function RecentCampaignsCard() {
           </button>
         </div>
 
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full text-left text-xs whitespace-nowrap">
             <thead>
               <tr className="border-b border-zinc-100 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:border-zinc-800">
-                <th className="pb-2.5 pl-1">Campaign</th>
-                <th className="pb-2.5 px-2">Platform</th>
-                <th className="pb-2.5 px-2">Status</th>
-                <th className="pb-2.5 px-2">Spend</th>
-                <th className="pb-2.5 px-2">Clicks</th>
-                <th className="pb-2.5 px-2">Conversions</th>
-                <th className="pb-2.5 px-2">ROAS</th>
-                <th className="pb-2.5 pr-1 text-right">Actions</th>
+                <th className="pb-2 pl-1">Campaign</th>
+                <th className="pb-2 px-2">Platform</th>
+                <th className="pb-2 px-2">Status</th>
+                <th className="pb-2 px-2">Spend</th>
+                <th className="pb-2 px-2">Clicks</th>
+                <th className="pb-2 px-2">Conversions</th>
+                <th className="pb-2 px-2">ROAS</th>
+                <th className="pb-2 pr-1 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 text-xs font-medium text-zinc-700 dark:divide-zinc-800 dark:text-zinc-300">
@@ -602,21 +602,21 @@ function RecentCampaignsCard() {
                   onClick={() => router.push(`/campaigns/${c.id}`)}
                   className="cursor-pointer transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
                 >
-                  <td className="py-3 pl-1">
+                  <td className="py-2.5 pl-1">
                     <div className="font-semibold text-zinc-900 dark:text-zinc-100">{c.name}</div>
                     <div className="text-[10px] text-zinc-400">{c.objective}</div>
                   </td>
-                  <td className="py-3 px-2">
-                    <PlatformIcon platform={c.platform} size={18} />
+                  <td className="py-2.5 px-2">
+                    <PlatformIcon platform={c.platform} size={16} />
                   </td>
-                  <td className="py-3 px-2">
+                  <td className="py-2.5 px-2">
                     <StatusBadge status={c.status} />
                   </td>
-                  <td className="py-3 px-2 font-semibold text-zinc-900 dark:text-zinc-100">${c.spend.toLocaleString()}</td>
-                  <td className="py-3 px-2 text-zinc-600 dark:text-zinc-400">{c.clicks.toLocaleString()}</td>
-                  <td className="py-3 px-2 text-zinc-600 dark:text-zinc-400">{c.conversions.toLocaleString()}</td>
-                  <td className="py-3 px-2 font-semibold text-zinc-900 dark:text-zinc-100">{c.roas.toFixed(2)}</td>
-                  <td className="py-3 pr-1 text-right text-zinc-400">
+                  <td className="py-2.5 px-2 font-semibold text-zinc-900 dark:text-zinc-100">${c.spend.toLocaleString()}</td>
+                  <td className="py-2.5 px-2 text-zinc-600 dark:text-zinc-400">{c.clicks.toLocaleString()}</td>
+                  <td className="py-2.5 px-2 text-zinc-600 dark:text-zinc-400">{c.conversions.toLocaleString()}</td>
+                  <td className="py-2.5 px-2 font-semibold text-zinc-900 dark:text-zinc-100">{c.roas.toFixed(2)}</td>
+                  <td className="py-2.5 pr-1 text-right text-zinc-400">
                     <MoreHorizontal size={14} className="inline hover:text-zinc-900 dark:hover:text-zinc-100" />
                   </td>
                 </tr>
@@ -626,7 +626,7 @@ function RecentCampaignsCard() {
         </div>
       </div>
 
-      <div className="mt-4 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+      <div className="mt-3 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
         <button
           onClick={() => router.push("/campaigns")}
           className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
@@ -646,12 +646,12 @@ function AiInsightsPanel() {
   const router = useRouter();
 
   return (
-    <div className="flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
+    <div className="flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
       <div>
-        <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-          <div className="flex items-center gap-2">
-            <Sparkles size={15} className="text-zinc-900 dark:text-zinc-100" />
-            <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">AI Insights</h2>
+        <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
+          <div className="flex items-center gap-1.5">
+            <Sparkles size={14} className="text-zinc-900 dark:text-zinc-100" />
+            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">AI Insights</h2>
           </div>
           <button
             onClick={() => router.push("/ai-insights")}
@@ -661,20 +661,20 @@ function AiInsightsPanel() {
           </button>
         </div>
 
-        <div className="mt-3 space-y-3">
+        <div className="mt-2.5 space-y-2">
           {AI_INSIGHTS_DATA.map((ins) => {
             const Icon = ins.icon;
             return (
               <div
                 key={ins.id}
-                className="flex items-start gap-3 rounded-lg p-2.5 transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
+                className="flex items-start gap-2.5 rounded-lg p-2 transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
               >
-                <div className={cn("mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full", ins.badgeBg)}>
-                  <Icon size={15} />
+                <div className={cn("mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full", ins.badgeBg)}>
+                  <Icon size={12} />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{ins.title}</div>
-                  <div className="mt-0.5 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+                  <div className="mt-0.5 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400">
                     {ins.description}
                   </div>
                 </div>
@@ -694,10 +694,10 @@ function TasksPanel() {
   const router = useRouter();
 
   return (
-    <div className="flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
+    <div className="flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
       <div>
-        <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-          <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Tasks</h2>
+        <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
+          <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">Tasks</h2>
           <button
             onClick={() => router.push("/tasks")}
             className="text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
@@ -706,23 +706,23 @@ function TasksPanel() {
           </button>
         </div>
 
-        <div className="mt-3 space-y-3">
+        <div className="mt-2.5 space-y-2">
           {TASKS_DATA.map((task) => (
             <div
               key={task.id}
-              className="flex items-center justify-between rounded-lg p-2.5 transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
+              className="flex items-center justify-between rounded-lg p-2 transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
             >
-              <div className="flex items-center gap-3">
-                <div className="grid h-6 w-6 place-items-center rounded-full border border-zinc-300 text-zinc-400 dark:border-zinc-700">
-                  <Check size={12} />
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-5 w-5 place-items-center rounded-full border border-zinc-300 text-zinc-400 dark:border-zinc-700">
+                  <Check size={11} />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{task.title}</div>
-                  <div className="text-[11px] text-zinc-400">{task.subtitle}</div>
+                  <div className="text-[10px] text-zinc-400">{task.subtitle}</div>
                 </div>
               </div>
 
-              <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold", task.priorityBg)}>
+              <span className={cn("rounded-full border px-2 py-0.2 text-[9px] font-bold", task.priorityBg)}>
                 {task.priority}
               </span>
             </div>
@@ -747,9 +747,9 @@ function PerformanceSummaryGrid() {
   ];
 
   return (
-    <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
-      <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-        <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Performance Summary</h2>
+    <div className="rounded-xl border border-zinc-200/90 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
+      <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
+        <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">Performance Summary</h2>
         <select className="h-6 rounded border border-zinc-200 bg-white px-1.5 text-[11px] font-medium text-zinc-600 outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
           <option>This Month</option>
           <option>Last 30 Days</option>
@@ -757,25 +757,25 @@ function PerformanceSummaryGrid() {
         </select>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
         {metrics.map((m) => {
           const Icon = m.icon;
           return (
             <div
               key={m.label}
-              className="rounded-lg border border-zinc-100 p-3 transition hover:border-zinc-200 dark:border-zinc-800/80 dark:hover:border-zinc-700"
+              className="rounded-lg border border-zinc-100 p-2.5 transition hover:border-zinc-200 dark:border-zinc-800/80 dark:hover:border-zinc-700"
             >
-              <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                <div className={cn("grid h-5 w-5 place-items-center rounded-md", m.color)}>
-                  <Icon size={11} />
+              <div className="flex items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+                <div className={cn("grid h-4 w-4 place-items-center rounded", m.color)}>
+                  <Icon size={10} />
                 </div>
                 <span className="truncate">{m.label}</span>
               </div>
 
-              <div className="mt-2 text-lg font-bold text-zinc-900 dark:text-zinc-100">{m.value}</div>
+              <div className="mt-1 text-base font-bold text-zinc-900 dark:text-zinc-100">{m.value}</div>
 
-              <div className="mt-1 flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                <ArrowUpRight size={11} />
+              <div className="mt-0.5 flex items-center gap-0.5 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">
+                <ArrowUpRight size={10} />
                 <span>{m.change}</span>
               </div>
             </div>
@@ -791,23 +791,23 @@ function PerformanceSummaryGrid() {
    ========================================================================= */
 function SpendingTrendCard() {
   return (
-    <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
-      <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-        <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Spending Trend</h2>
+    <div className="rounded-xl border border-zinc-200/90 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
+      <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
+        <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">Spending Trend</h2>
         <select className="h-6 rounded border border-zinc-200 bg-white px-1.5 text-[11px] font-medium text-zinc-600 outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
           <option>This Month</option>
           <option>Last 30 Days</option>
         </select>
       </div>
 
-      <div className="mt-4 h-44 w-full">
+      <div className="mt-3 h-36 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={DAILY_SPENDING_BARS} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+          <BarChart data={DAILY_SPENDING_BARS} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
             <CartesianGrid stroke="#f4f4f5" strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="day" stroke="#a1a1aa" fontSize={9} tickLine={false} axisLine={false} interval={5} />
+            <XAxis dataKey="day" stroke="#a1a1aa" fontSize={8} tickLine={false} axisLine={false} interval={5} />
             <YAxis
               stroke="#a1a1aa"
-              fontSize={9}
+              fontSize={8}
               tickLine={false}
               axisLine={false}
               tickFormatter={(val) => `$${val >= 1000 ? `${val / 1000}k` : val}`}
@@ -820,7 +820,7 @@ function SpendingTrendCard() {
                 fontSize: "11px"
               }}
             />
-            <Bar dataKey="value" fill="#6366f1" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="value" fill="#6366f1" radius={[2, 2, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -842,13 +842,13 @@ export function OverviewPage() {
           onClick={() => router.push("/campaigns/create")}
           className="btn-primary"
         >
-          <Plus size={14} /> Create Campaign
+          <Plus size={13} /> Create Campaign
         </button>
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* ROW 1: TOP 5 STAT CARDS */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
           <TopKpiCard
             title="Total Spend"
             value="$24,500"
@@ -892,37 +892,37 @@ export function OverviewPage() {
         </div>
 
         {/* ROW 2: PERFORMANCE OVERVIEW (3-LINE GRAPH) + SPEND DONUT + QUICK ACTIONS */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          <div className="lg:col-span-6">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+          <div className="xl:col-span-6">
             <MultiLinePerformanceChart />
           </div>
-          <div className="lg:col-span-3">
+          <div className="xl:col-span-3">
             <SpendByPlatformCard />
           </div>
-          <div className="lg:col-span-3">
+          <div className="xl:col-span-3">
             <QuickActionsPanel />
           </div>
         </div>
 
         {/* ROW 3: RECENT CAMPAIGNS + AI INSIGHTS + TASKS */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          <div className="lg:col-span-6">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+          <div className="xl:col-span-6">
             <RecentCampaignsCard />
           </div>
-          <div className="lg:col-span-3">
+          <div className="xl:col-span-3">
             <AiInsightsPanel />
           </div>
-          <div className="lg:col-span-3">
+          <div className="xl:col-span-3">
             <TasksPanel />
           </div>
         </div>
 
         {/* ROW 4: PERFORMANCE SUMMARY (6 METRICS) + SPENDING TREND (BAR CHART) */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          <div className="lg:col-span-8">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+          <div className="xl:col-span-8">
             <PerformanceSummaryGrid />
           </div>
-          <div className="lg:col-span-4">
+          <div className="xl:col-span-4">
             <SpendingTrendCard />
           </div>
         </div>

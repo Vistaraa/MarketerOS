@@ -564,8 +564,8 @@ export function AppShell({
           onMobileMenuOpen={() => setMobileOpen(true)}
         />
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          <div className="mx-auto max-w-7xl pb-16">{children}</div>
+        <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6">
+          <div className="mx-auto max-w-[1550px] w-full pb-16">{children}</div>
         </main>
       </div>
 
