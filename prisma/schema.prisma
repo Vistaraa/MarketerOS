@@ -53,13 +53,18 @@ enum IntegrationStatus {
 
 enum Platform {
   GOOGLE_ADS
-  META_ADS
   GOOGLE_ANALYTICS
-  INSTAGRAM
+  GOOGLE_SEARCH_CONSOLE
+  YOUTUBE
+  GOOGLE_BUSINESS_PROFILE
+  FIREBASE_ADMOB
+  META_ADS
   FACEBOOK
+  INSTAGRAM
+  MESSENGER
+  WHATSAPP
   LINKEDIN
   TIKTOK
-  YOUTUBE
   X
   SHOPIFY
   OTHER
@@ -288,14 +293,12 @@ model User {
   lastLoginAt         DateTime?
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
-  memberships         WorkspaceMember[]
   ownedWorkspaces     Workspace[]              @relation("WorkspaceOwner")
   sessions            Session[]
   refreshTokens       RefreshToken[]
   verificationTokens  EmailVerificationToken[]
   passwordResetTokens PasswordResetToken[]
   createdCampaigns    Campaign[]               @relation("CampaignCreator")
-  campaignChanges     CampaignChange[]
   createdContent      Content[]                @relation("ContentCreator")
   assignedLeads       Lead[]                   @relation("LeadOwner")
   leadActivities      LeadActivity[]
@@ -306,7 +309,6 @@ model User {
   auditLogs           AuditLog[]
   uploadedAssets      MediaAsset[]             @relation("AssetUploader")
   savedFilters        SavedFilter[]
-  invitedMembers      WorkspaceMember[]        @relation("MemberInviter")
   oauthStates         OAuthState[]
   aiRequests          AIRequest[]
 }
@@ -361,6 +363,12 @@ model Workspace {
   currency         String                @default("USD")
   timezone         String                @default("UTC")
   monthlyBudget    Decimal?              @db.Decimal(14, 2)
+  marketingGoals   String[]              @default([])
+  targetAudience   String?
+  targetAgeRange   String?
+  targetGeo        String?
+  targetLanguages  String?
+  targetInterests  String?
   defaultDashboard String                @default("overview")
   dateFormat       String                @default("MMM d, yyyy")
   timeFormat       String                @default("h:mm a")
@@ -368,8 +376,7 @@ model Workspace {
   theme            String                @default("light")
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
-  owner            User                  @relation("WorkspaceOwner", fields: [ownerId], references: [id])
-  members          WorkspaceMember[]
+  owner            User                  @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   clients          Client[]
   audiences        Audience[]
   integrations     Integration[]
@@ -401,24 +408,6 @@ model Workspace {
 
   @@index([ownerId])
   @@index([status])
-}
-
-model WorkspaceMember {
-  id          String       @id @default(cuid())
-  workspaceId String
-  userId      String
-  role        MemberRole   @default(VIEWER)
-  status      MemberStatus @default(INVITED)
-  invitedById String?
-  joinedAt    DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  invitedBy   User?        @relation("MemberInviter", fields: [invitedById], references: [id])
-
-  @@unique([workspaceId, userId])
-  @@index([workspaceId, role])
 }
 
 model Client {
@@ -458,7 +447,8 @@ model Integration {
   platform              Platform
   accountName           String?
   accountId             String?
-  status                IntegrationStatus    @default(PENDING)
+  apiKey                String?
+  status                IntegrationStatus    @default(DISCONNECTED)
   accessTokenEncrypted  String?
   refreshTokenEncrypted String?
   tokenExpiresAt        DateTime?
@@ -503,7 +493,7 @@ model Campaign {
   platform           Platform
   status             CampaignStatus        @default(DRAFT)
   objective          CampaignObjective
-  type               CampaignType
+  type               CampaignType          @default(SEARCH)
   description        String?
   budget             Decimal?              @db.Decimal(14, 2)
   dailyBudget        Decimal?              @db.Decimal(14, 2)
@@ -528,6 +518,8 @@ model Campaign {
   roas               Decimal               @default(0) @db.Decimal(8, 2)
   externalId         String?
   externalData       Json?
+  deviceStats        Json?
+  metadata           Json?
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
   workspace          Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -535,20 +527,16 @@ model Campaign {
   createdBy          User                  @relation("CampaignCreator", fields: [createdById], references: [id])
   integration        Integration?          @relation(fields: [integrationId], references: [id], onDelete: SetNull)
   adGroups           AdGroup[]
-  audiences          CampaignAudience[]
-  placements         Placement[]
-  metrics            CampaignMetricDaily[]
-  changes            CampaignChange[]
-  insights           AIInsight[]
-  automations        Automation[]
   ads                Ad[]
   keywords           Keyword[]
-  deviceMetrics      DeviceMetricDaily[]
-  locationMetrics    LocationMetricDaily[]
+  metrics            CampaignMetricDaily[]
+  insights           AIInsight[]
+  automations        Automation[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, platform])
   @@index([clientId])
+  @@index([integrationId])
 }
 
 model AdGroup {
@@ -650,37 +638,6 @@ model Audience {
   updatedAt   DateTime           @updatedAt
   workspace   Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   client      Client?            @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  campaigns   CampaignAudience[]
-}
-
-model CampaignAudience {
-  id         String   @id @default(cuid())
-  campaignId String
-  audienceId String
-  isExcluded Boolean  @default(false)
-  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  audience   Audience @relation(fields: [audienceId], references: [id], onDelete: Cascade)
-
-  @@unique([campaignId, audienceId])
-}
-
-model Placement {
-  id          String   @id @default(cuid())
-  workspaceId String
-  campaignId  String
-  name        String
-  platform    Platform
-  impressions Int      @default(0)
-  clicks      Int      @default(0)
-  conversions Int      @default(0)
-  spend       Decimal  @default(0) @db.Decimal(14, 2)
-  ctr         Decimal  @default(0) @db.Decimal(8, 4)
-  cpa         Decimal  @default(0) @db.Decimal(14, 2)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-
-  @@index([campaignId])
 }
 
 model CampaignMetricDaily {
@@ -719,51 +676,6 @@ model PlatformMetricDaily {
 
   @@unique([workspaceId, clientId, platform, date])
   @@index([workspaceId, date])
-}
-
-model DeviceMetricDaily {
-  id          String   @id @default(cuid())
-  workspaceId String
-  campaignId  String
-  date        DateTime
-  device      String
-  impressions Int      @default(0)
-  clicks      Int      @default(0)
-  conversions Int      @default(0)
-  spend       Decimal  @default(0) @db.Decimal(14, 2)
-  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId, campaignId, date])
-}
-
-model LocationMetricDaily {
-  id          String   @id @default(cuid())
-  workspaceId String
-  campaignId  String
-  date        DateTime
-  country     String
-  region      String?
-  city        String?
-  impressions Int      @default(0)
-  clicks      Int      @default(0)
-  conversions Int      @default(0)
-  spend       Decimal  @default(0) @db.Decimal(14, 2)
-  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId, campaignId, date])
-}
-
-model CampaignChange {
-  id         String   @id @default(cuid())
-  campaignId String
-  userId     String
-  action     String
-  fieldName  String?
-  oldValue   String?
-  newValue   String?
-  createdAt  DateTime @default(now())
-  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id])
 }
 
 model SocialAccount {

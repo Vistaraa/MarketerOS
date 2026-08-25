@@ -1,9 +1,49 @@
-import { CampaignObjective, CampaignStatus, CampaignType, LeadSource, LeadStatus, Platform } from "@prisma/client";
+
+import { Prisma, CampaignObjective, CampaignStatus, CampaignType, LeadSource, LeadStatus, Platform } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { Campaign, Integration, Insight, Lead, SocialPost } from "@/lib/types";
 
-const platformMap: Record<string, Platform> = { "Google Ads": Platform.GOOGLE_ADS, "Meta Ads": Platform.META_ADS, Instagram: Platform.INSTAGRAM, LinkedIn: Platform.LINKEDIN, TikTok: Platform.TIKTOK, GA4: Platform.GOOGLE_ANALYTICS, Shopify: Platform.SHOPIFY };
-const platformName: Partial<Record<Platform, Campaign["platform"]>> = { GOOGLE_ADS: "Google Ads", META_ADS: "Meta Ads", GOOGLE_ANALYTICS: "GA4", INSTAGRAM: "Instagram", FACEBOOK: "Facebook", LINKEDIN: "LinkedIn", TIKTOK: "TikTok", YOUTUBE: "YouTube", X: "X", SHOPIFY: "Shopify", OTHER: "WordPress" };
+const platformMap: Record<string, Platform> = {
+  "Google Ads": Platform.GOOGLE_ADS,
+  "Google Analytics": Platform.GOOGLE_ANALYTICS,
+  "GA4": Platform.GOOGLE_ANALYTICS,
+  "Google Search Console": Platform.GOOGLE_SEARCH_CONSOLE,
+  "Search Console": Platform.GOOGLE_SEARCH_CONSOLE,
+  "YouTube": Platform.YOUTUBE,
+  "Google Business Profile": Platform.GOOGLE_BUSINESS_PROFILE,
+  "Firebase": Platform.FIREBASE_ADMOB,
+  "AdMob": Platform.FIREBASE_ADMOB,
+  "Meta Ads": Platform.META_ADS,
+  Meta: Platform.META_ADS,
+  Instagram: Platform.INSTAGRAM,
+  Facebook: Platform.FACEBOOK,
+  Messenger: Platform.MESSENGER,
+  "Facebook Messenger": Platform.MESSENGER,
+  WhatsApp: Platform.WHATSAPP,
+  "WhatsApp Business": Platform.WHATSAPP,
+  LinkedIn: Platform.LINKEDIN,
+  TikTok: Platform.TIKTOK,
+  Shopify: Platform.SHOPIFY
+};
+
+const platformName: Partial<Record<Platform, Campaign["platform"]>> = {
+  GOOGLE_ADS: "Google Ads",
+  GOOGLE_ANALYTICS: "GA4",
+  GOOGLE_SEARCH_CONSOLE: "Google Search Console" as unknown as Campaign["platform"],
+  YOUTUBE: "YouTube",
+  GOOGLE_BUSINESS_PROFILE: "Google Business Profile" as unknown as Campaign["platform"],
+  FIREBASE_ADMOB: "Firebase" as unknown as Campaign["platform"],
+  META_ADS: "Meta Ads",
+  INSTAGRAM: "Instagram",
+  FACEBOOK: "Facebook",
+  MESSENGER: "Messenger" as unknown as Campaign["platform"],
+  WHATSAPP: "WhatsApp" as unknown as Campaign["platform"],
+  LINKEDIN: "LinkedIn",
+  TIKTOK: "TikTok",
+  X: "X",
+  SHOPIFY: "Shopify",
+  OTHER: "WordPress"
+};
 const titleStatus: Record<string, Campaign["status"]> = { DRAFT: "Draft", ACTIVE: "Active", PAUSED: "Paused", COMPLETED: "Completed", ARCHIVED: "Archived", DELETED: "Archived" };
 
 function campaignFromRow(row: { id: string; name: string; platform: Platform; status: string; objective: string; budget: unknown; spend: unknown; clicks: number; conversions: number; roas: unknown; ctr: unknown; cpa: unknown; startDate: Date | null; client?: { name: string } | null; clientId?: string | null }): Campaign {
@@ -11,20 +51,59 @@ function campaignFromRow(row: { id: string; name: string; platform: Platform; st
 }
 
 export async function listPersistedCampaigns(workspaceId: string, query = "") {
-  const rows = await prisma.campaign.findMany({ where: { workspaceId, ...(query ? { name: { contains: query, mode: "insensitive" } } : {}) }, include: { client: true }, orderBy: { updatedAt: "desc" } });
+  const rows = await prisma.campaign.findMany({ where: { workspaceId, ...(query ? { name: { contains: query, mode: "insensitive" } } : {}) }, include: { client: true, integration: true }, orderBy: { updatedAt: "desc" } });
   return rows.map(campaignFromRow);
 }
 
 export async function getPersistedCampaign(workspaceId: string, id: string) {
-  const row = await prisma.campaign.findFirst({ where: { id, workspaceId }, include: { client: true, adGroups: { include: { ads: true, keywords: true } }, ads: true, keywords: true, audiences: { include: { audience: true } }, metrics: { orderBy: { date: "asc" }, take: 90 } } });
+  const row = await prisma.campaign.findFirst({ where: { id, workspaceId }, include: { client: true, integration: true, adGroups: { include: { ads: true, keywords: true } }, ads: true, keywords: true, metrics: { orderBy: { date: "asc" }, take: 90 } } });
   return row ? { campaign: campaignFromRow(row), detail: row } : null;
 }
 
-export async function createPersistedCampaign(input: { workspaceId: string; createdById: string; name: string; platform: string; objective: string; budget: number }) {
+const objectiveMap: Record<string, CampaignObjective> = {
+  Sales: CampaignObjective.SALES,
+  SALES: CampaignObjective.SALES,
+  Conversions: CampaignObjective.CONVERSIONS,
+  CONVERSIONS: CampaignObjective.CONVERSIONS,
+  Leads: CampaignObjective.LEADS,
+  LEADS: CampaignObjective.LEADS,
+  Traffic: CampaignObjective.TRAFFIC,
+  TRAFFIC: CampaignObjective.TRAFFIC,
+  "Website Traffic": CampaignObjective.TRAFFIC,
+  WEBSITE_TRAFFIC: CampaignObjective.TRAFFIC,
+  Awareness: CampaignObjective.AWARENESS,
+  AWARENESS: CampaignObjective.AWARENESS,
+  "Brand Awareness": CampaignObjective.AWARENESS,
+  BRAND_AWARENESS: CampaignObjective.AWARENESS,
+  Engagement: CampaignObjective.ENGAGEMENT,
+  ENGAGEMENT: CampaignObjective.ENGAGEMENT,
+  "App Promotion": CampaignObjective.APP_INSTALLS,
+  "App Installs": CampaignObjective.APP_INSTALLS,
+  APP_PROMOTION: CampaignObjective.APP_INSTALLS,
+  APP_INSTALLS: CampaignObjective.APP_INSTALLS
+};
+
+export async function createPersistedCampaign(input: { workspaceId: string; createdById: string; integrationId?: string; name: string; platform: string; objective: string; budget: number; dailyBudget?: number; targetRoas?: number; targetCpa?: number; biddingStrategy?: string; metadata?: Record<string, unknown> | null }) {
   const platform = platformMap[input.platform] || Platform.GOOGLE_ADS;
-  const objective = (input.objective.toUpperCase().replace(" ", "_") as CampaignObjective) || CampaignObjective.SALES;
+  const objective = objectiveMap[input.objective] || objectiveMap[input.objective.toUpperCase()] || CampaignObjective.SALES;
   const type = platform === Platform.GOOGLE_ADS ? CampaignType.SEARCH : CampaignType.SOCIAL;
-  return prisma.campaign.create({ data: { workspaceId: input.workspaceId, createdById: input.createdById, name: input.name, platform, objective, type, budget: input.budget, dailyBudget: input.budget / 30 } });
+  return prisma.campaign.create({
+    data: {
+      workspaceId: input.workspaceId,
+      createdById: input.createdById,
+      integrationId: input.integrationId,
+      name: input.name,
+      platform,
+      objective,
+      type,
+      budget: input.budget,
+      dailyBudget: input.dailyBudget || input.budget / 30,
+      targetRoas: input.targetRoas,
+      targetCpa: input.targetCpa,
+      biddingStrategy: input.biddingStrategy,
+      externalData: (input.metadata as Prisma.InputJsonValue) ?? undefined
+    }
+  });
 }
 
 export async function updatePersistedCampaignStatus(workspaceId: string, id: string, status: string) {
@@ -41,7 +120,7 @@ export async function listPersistedLeads(workspaceId: string, query = "") {
   return rows.map(leadFromRow);
 }
 
-function leadFromRow(row: { id: string; firstName: string; lastName: string; company: string | null; source: string; status: string; score: number; owner?: { firstName: string; lastName: string } | null; createdAt: Date; revenue: unknown }) : Lead {
+function leadFromRow(row: { id: string; firstName: string; lastName: string; company: string | null; source: string; status: string; score: number; owner?: { firstName: string; lastName: string } | null; createdAt: Date; revenue: unknown }): Lead {
   return { id: row.id, name: `${row.firstName} ${row.lastName}`, company: row.company || "—", source: row.source.replaceAll("_", " "), status: row.status.replace("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) as Lead["status"], score: row.score, owner: row.owner ? `${row.owner.firstName} ${row.owner.lastName}` : "Unassigned", created: row.createdAt.toISOString(), revenue: Number(row.revenue || 0) };
 }
 
@@ -68,8 +147,87 @@ export async function listPersistedIntegrations(workspaceId: string, clientId?: 
   return rows.map(integrationFromRow);
 }
 
+export async function connectPersistedIntegrationCredentials(input: {
+  workspaceId: string;
+  platform: string;
+  accountName: string;
+  accountId: string;
+  apiKey?: string;
+  metadata?: Record<string, unknown>;
+}) {
+  const platformEnum = platformMap[input.platform] || Platform.GOOGLE_ADS;
+  const existing = await prisma.integration.findFirst({
+    where: { workspaceId: input.workspaceId, platform: platformEnum }
+  });
+
+  if (existing) {
+    return prisma.integration.update({
+      where: { id: existing.id },
+      data: {
+        accountName: input.accountName,
+        accountId: input.accountId,
+        apiKey: input.apiKey,
+        status: "CONNECTED",
+        errorMessage: null,
+        lastSyncedAt: new Date(),
+        metadata: (input.metadata || {}) as never
+      }
+    });
+  }
+
+  return prisma.integration.create({
+    data: {
+      workspaceId: input.workspaceId,
+      platform: platformEnum,
+      accountName: input.accountName,
+      accountId: input.accountId,
+      apiKey: input.apiKey,
+      status: "CONNECTED",
+      lastSyncedAt: new Date(),
+      metadata: (input.metadata || {}) as never
+    }
+  });
+}
+
+export async function disconnectPersistedIntegration(workspaceId: string, integrationId: string) {
+  return prisma.integration.updateMany({
+    where: { id: integrationId, workspaceId },
+    data: {
+      status: "DISCONNECTED",
+      accountName: null,
+      accountId: null,
+      apiKey: null,
+      accessTokenEncrypted: null,
+      refreshTokenEncrypted: null,
+      errorMessage: null
+    }
+  });
+}
+
 export async function getPersistedIntegration(workspaceId: string, id: string) {
-  const row = await prisma.integration.findFirst({ where: { id, workspaceId }, select: { id: true, workspaceId: true, clientId: true, platform: true, accountName: true, accountId: true, status: true, tokenExpiresAt: true, scopes: true, metadata: true, providerKey: true, errorMessage: true, lastSyncedAt: true, lastSyncStarted: true, lastSyncFinished: true, createdAt: true, updatedAt: true, syncLogs: { orderBy: { startedAt: "desc" }, take: 20 } } });
+  const row = await prisma.integration.findFirst({
+    where: { id, workspaceId },
+    select: {
+      id: true,
+      workspaceId: true,
+      clientId: true,
+      platform: true,
+      accountName: true,
+      accountId: true,
+      status: true,
+      tokenExpiresAt: true,
+      scopes: true,
+      metadata: true,
+      providerKey: true,
+      errorMessage: true,
+      lastSyncedAt: true,
+      lastSyncStarted: true,
+      lastSyncFinished: true,
+      createdAt: true,
+      updatedAt: true,
+      syncLogs: { orderBy: { startedAt: "desc" }, take: 20 }
+    }
+  });
   return row ? { integration: integrationFromRow(row), detail: row } : null;
 }
 
@@ -123,6 +281,7 @@ export async function listPersistedAutomations(workspaceId: string) {
 }
 
 export async function listPersistedTeam(workspaceId: string) {
-  const rows = await prisma.workspaceMember.findMany({ where: { workspaceId }, include: { user: true }, orderBy: { createdAt: "asc" } });
-  return rows.map((row) => ({ id: row.id, name: `${row.user.firstName} ${row.user.lastName}`, email: row.user.email, role: row.role, status: row.status, lastLoginAt: row.user.lastLoginAt }));
+  const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId }, include: { owner: true } });
+  if (!workspace) return [];
+  return [{ id: workspace.owner.id, name: `${workspace.owner.firstName} ${workspace.owner.lastName}`, email: workspace.owner.email, role: "OWNER", status: "ACTIVE", lastLoginAt: workspace.owner.lastLoginAt }];
 }

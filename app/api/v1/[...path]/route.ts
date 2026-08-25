@@ -11,15 +11,29 @@ import { recordAudit } from "@/lib/audit";
 import { enqueueJob } from "@/lib/jobs";
 import { paged, parseListQuery } from "@/lib/api-contracts";
 import { buildPersistedOverview, parseOverviewQuery } from "@/lib/overview-service";
-import { archivePersistedCampaign, createPersistedCampaign, createPersistedLead, getPersistedCampaign, getPersistedIntegration, getPersistedLead, listPersistedAutomations, listPersistedCampaigns, listPersistedClients, listPersistedContent, listPersistedInsights, listPersistedIntegrations, listPersistedLeads, listPersistedNotifications, listPersistedReports, listPersistedSocialPosts, listPersistedTeam, searchPersisted, updatePersistedCampaignStatus } from "@/lib/repositories";
+import { archivePersistedCampaign, connectPersistedIntegrationCredentials, createPersistedCampaign, createPersistedLead, disconnectPersistedIntegration, getPersistedCampaign, getPersistedIntegration, getPersistedLead, listPersistedAutomations, listPersistedCampaigns, listPersistedClients, listPersistedContent, listPersistedInsights, listPersistedIntegrations, listPersistedLeads, listPersistedNotifications, listPersistedReports, listPersistedSocialPosts, listPersistedTeam, searchPersisted, updatePersistedCampaignStatus } from "@/lib/repositories";
 
 export const runtime = "nodejs";
 
 const campaignInput = z.object({
   name: z.string().min(2),
   objective: z.string().min(2),
+  platform: z.string().optional(),
+  platforms: z.array(z.string()).optional(),
+  budget: z.coerce.number().positive(),
+  dailyBudget: z.coerce.number().positive().optional(),
+  targetRoas: z.coerce.number().positive().optional(),
+  targetCpa: z.coerce.number().positive().optional(),
+  biddingStrategy: z.string().optional(),
+  integrationId: z.string().optional()
+});
+
+const integrationCredentialInput = z.object({
   platform: z.string().min(2),
-  budget: z.coerce.number().positive()
+  accountName: z.string().min(1),
+  accountId: z.string().min(1),
+  apiKey: z.string().min(1, "API Key / Access Token is required to authenticate with this platform."),
+  metadata: z.record(z.unknown()).optional()
 });
 
 const leadInput = z.object({
@@ -111,7 +125,7 @@ export async function GET(request: Request, { params }: { params: { path: string
   if (path === "automation") return ok({ items: await listPersistedAutomations(auth.session.workspaceId), filters: listQuery });
   if (path === "billing") { const subscription = await prisma.subscription.findUnique({ where: { workspaceId: auth.session.workspaceId }, include: { plan: true } }); const plans = await prisma.plan.findMany({ orderBy: { monthlyPrice: "asc" } }); const invoices = await prisma.invoice.findMany({ where: { workspaceId: auth.session.workspaceId }, orderBy: { invoiceDate: "desc" }, take: 50 }); return ok({ subscription: subscription ? { id: subscription.id, status: subscription.status, interval: subscription.billingInterval, cancelAtPeriodEnd: subscription.cancelAtPeriodEnd, currentPeriodEnd: subscription.currentPeriodEnd, plan: { id: subscription.plan.id, name: subscription.plan.name, monthlyPrice: Number(subscription.plan.monthlyPrice), yearlyPrice: Number(subscription.plan.yearlyPrice) } } : null, plans: plans.map((plan) => ({ id: plan.slug, name: plan.name, monthlyPrice: Number(plan.monthlyPrice), yearlyPrice: Number(plan.yearlyPrice), features: plan.features })), invoices }); }
   if (path === "team") return ok({ items: await listPersistedTeam(auth.session.workspaceId), filters: listQuery });
-  if (path === "settings") { const workspace = await prisma.workspace.findUnique({ where: { id: auth.session.workspaceId }, select: { id: true, name: true, slug: true, website: true, industry: true, businessType: true, description: true, country: true, currency: true, timezone: true, monthlyBudget: true, dateFormat: true, timeFormat: true, language: true, theme: true, defaultDashboard: true } }); return ok({ workspace }); }
+  if (path === "settings") { const workspace = await prisma.workspace.findUnique({ where: { id: auth.session.workspaceId }, select: { id: true, name: true, slug: true, website: true, industry: true, businessType: true, description: true, country: true, currency: true, timezone: true, monthlyBudget: true, marketingGoals: true, targetAudience: true, targetAgeRange: true, targetGeo: true, targetLanguages: true, targetInterests: true, dateFormat: true, timeFormat: true, language: true, theme: true, defaultDashboard: true } }); return ok({ workspace }); }
   if (["analytics", "ad-manager", "social-media"].includes(path)) return ok({ items: [], filters: listQuery });
   if (path === "search") {
     const items = await searchPersisted(auth.session.workspaceId, query);
@@ -192,12 +206,103 @@ export async function POST(request: Request, { params }: { params: { path: strin
   if (path === "automation") {
     const auth = await context("automation.manage"); if (auth.error) return auth.error; const parsed = automationInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid automation."); const created = await prisma.automation.create({ data: { workspaceId: auth.session.workspaceId, name: parsed.data.name, trigger: parsed.data.trigger, action: parsed.data.action, campaignId: parsed.data.campaignId, triggerConfig: parsed.data.triggerConfig as never, actionConfig: parsed.data.actionConfig as never } }); return ok(created, undefined, { status: 201 });
   }
+  if (path === "integrations/connect-credentials") {
+    const auth = await context("settings.manage");
+    if (auth.error) return auth.error;
+    const parsed = integrationCredentialInput.safeParse(body);
+    if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid integration credentials.");
+    const result = await connectPersistedIntegrationCredentials({
+      workspaceId: auth.session.workspaceId,
+      ...parsed.data
+    });
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CONNECT", module: "integrations", entityType: "Integration", entityId: result.id, afterData: result });
+    return ok(result, undefined, { status: 200 });
+  }
+  if (path === "integrations/disconnect") {
+    const auth = await context("settings.manage");
+    if (auth.error) return auth.error;
+    const parsed = z.object({ integrationId: z.string().min(1) }).safeParse(body);
+    if (!parsed.success) return error("Integration ID is required.");
+    await disconnectPersistedIntegration(auth.session.workspaceId, parsed.data.integrationId);
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "DISCONNECT", module: "integrations", entityType: "Integration", entityId: parsed.data.integrationId });
+    return ok({ success: true, message: "Integration disconnected." });
+  }
   if (path === "campaigns") {
     const parsed = campaignInput.safeParse(body);
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid campaign.");
-    const created = await createPersistedCampaign({ workspaceId: auth.session.workspaceId, createdById: auth.session.userId, ...parsed.data });
-    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CREATE", module: "campaigns", entityType: "Campaign", entityId: created.id, afterData: created });
-    return ok(created, undefined, { status: 201 });
+
+    // Check if platform(s) are connected in Integrations
+    const platformMap: Record<string, string> = {
+      "Google Ads": "GOOGLE_ADS",
+      "Google Analytics": "GOOGLE_ANALYTICS",
+      "GA4": "GOOGLE_ANALYTICS",
+      "Google Search Console": "GOOGLE_SEARCH_CONSOLE",
+      "Search Console": "GOOGLE_SEARCH_CONSOLE",
+      "YouTube": "YOUTUBE",
+      "Google Business Profile": "GOOGLE_BUSINESS_PROFILE",
+      "Firebase": "FIREBASE_ADMOB",
+      "AdMob": "FIREBASE_ADMOB",
+      "Meta Ads": "META_ADS",
+      Meta: "META_ADS",
+      Instagram: "INSTAGRAM",
+      Facebook: "FACEBOOK",
+      Messenger: "MESSENGER",
+      "Facebook Messenger": "MESSENGER",
+      WhatsApp: "WHATSAPP",
+      "WhatsApp Business": "WHATSAPP",
+      LinkedIn: "LINKEDIN",
+      TikTok: "TIKTOK",
+      Shopify: "SHOPIFY"
+    };
+
+    const platformList: string[] = parsed.data.platforms && parsed.data.platforms.length > 0
+      ? parsed.data.platforms
+      : parsed.data.platform
+      ? [parsed.data.platform]
+      : [];
+
+    if (platformList.length === 0) {
+      return error("Please select at least one connected marketing platform.", 400, "NO_PLATFORM_SELECTED");
+    }
+
+    const matchedIntegrations = await prisma.integration.findMany({
+      where: {
+        workspaceId: auth.session.workspaceId,
+        status: "CONNECTED"
+      }
+    });
+
+    for (const plat of platformList) {
+      const pEnum = platformMap[plat] || plat.toUpperCase().replace(/\s+/g, "_");
+      const found = matchedIntegrations.find((intg) => intg.platform === pEnum || intg.platform === plat);
+      if (!found) {
+        return error(`The platform "${plat}" is not connected. Please connect it in Integrations before creating a campaign.`, 400, "PLATFORM_NOT_CONNECTED");
+      }
+    }
+
+    const primaryPlatform = platformList[0];
+    const primaryIntegration = matchedIntegrations.find((intg) => {
+      const pEnum = platformMap[primaryPlatform] || primaryPlatform.toUpperCase().replace(/\s+/g, "_");
+      return intg.platform === pEnum || intg.platform === primaryPlatform;
+    });
+
+    try {
+      const created = await createPersistedCampaign({
+        workspaceId: auth.session.workspaceId,
+        createdById: auth.session.userId,
+        integrationId: primaryIntegration?.id,
+        ...parsed.data,
+        platform: primaryPlatform,
+        metadata: {
+          selectedPlatforms: platformList,
+          integrationIds: matchedIntegrations.map((m) => m.id)
+        }
+      });
+      await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CREATE", module: "campaigns", entityType: "Campaign", entityId: created.id, afterData: created });
+      return ok(created, undefined, { status: 201 });
+    } catch (err) {
+      return error(err instanceof Error ? err.message : "Failed to create campaign record.", 400, "CAMPAIGN_CREATE_ERROR");
+    }
   }
   if (path === "leads") {
     const parsed = leadInput.safeParse(body);
@@ -220,7 +325,34 @@ export async function PATCH(request: Request, { params }: { params: { path: stri
   if (path.startsWith("leads/")) { const id = path.split("/")[1]; if (!body?.status) return error("A lead status is required."); const updated = await prisma.lead.updateMany({ where: { id, workspaceId: auth.session.workspaceId }, data: { status: body.status.toUpperCase().replaceAll(" ", "_") as never } }); if (!updated.count) return error("Lead not found.", 404); await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE_STATUS", module: "leads", entityType: "Lead", entityId: id, afterData: { status: body.status } }); return ok({ id, status: body.status }); }
   if (path.startsWith("content/")) { const id = path.split("/")[1]; const updated = await prisma.content.updateMany({ where: { id, workspaceId: auth.session.workspaceId }, data: { ...(body?.status ? { status: body.status as never } : {}) } }); return updated.count ? ok({ id, status: body?.status }) : error("Content not found.", 404); }
   if (path.startsWith("social/posts/")) { const id = path.split("/")[2]; const updated = await prisma.socialPost.updateMany({ where: { id, workspaceId: auth.session.workspaceId }, data: { ...(body?.status ? { status: body.status as never } : {}) } }); return updated.count ? ok({ id, status: body?.status }) : error("Social post not found.", 404); }
-  if (path === "settings") { const settings = z.object({ name: z.string().min(2).optional(), website: z.string().url().optional().or(z.literal("")), industry: z.string().optional(), businessType: z.string().optional(), description: z.string().optional(), country: z.string().optional(), currency: z.string().length(3).optional(), timezone: z.string().optional(), monthlyBudget: z.coerce.number().nonnegative().optional(), dateFormat: z.string().optional(), timeFormat: z.string().optional(), language: z.string().optional(), theme: z.string().optional(), defaultDashboard: z.string().optional() }).safeParse(body); if (!settings.success) return error(settings.error.issues[0]?.message || "Invalid settings."); const updated = await prisma.workspace.update({ where: { id: auth.session.workspaceId }, data: settings.data }); await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE", module: "settings", entityType: "Workspace", entityId: updated.id, afterData: settings.data }); return ok(updated); }
+  if (path === "settings") {
+    const settings = z.object({
+      name: z.string().min(2).optional(),
+      website: z.string().url().optional().or(z.literal("")),
+      industry: z.string().optional(),
+      businessType: z.string().optional(),
+      description: z.string().optional(),
+      country: z.string().optional(),
+      currency: z.string().min(2).max(10).optional(),
+      timezone: z.string().optional(),
+      monthlyBudget: z.coerce.number().nonnegative().optional(),
+      marketingGoals: z.array(z.string()).optional(),
+      targetAudience: z.string().optional(),
+      targetAgeRange: z.string().optional(),
+      targetGeo: z.string().optional(),
+      targetLanguages: z.string().optional(),
+      targetInterests: z.string().optional(),
+      dateFormat: z.string().optional(),
+      timeFormat: z.string().optional(),
+      language: z.string().optional(),
+      theme: z.string().optional(),
+      defaultDashboard: z.string().optional()
+    }).safeParse(body);
+    if (!settings.success) return error(settings.error.issues[0]?.message || "Invalid settings.");
+    const updated = await prisma.workspace.update({ where: { id: auth.session.workspaceId }, data: settings.data });
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE", module: "settings", entityType: "Workspace", entityId: updated.id, afterData: settings.data });
+    return ok(updated);
+  }
   if (path.startsWith("campaigns/")) {
     const id = path.split("/")[1];
     if (!body?.status) return error("A campaign status is required.");

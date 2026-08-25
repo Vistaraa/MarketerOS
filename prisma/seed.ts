@@ -1,4 +1,4 @@
-import { PrismaClient, CampaignObjective, CampaignStatus, CampaignType, MemberRole, MemberStatus, Platform } from "@prisma/client";
+import { PrismaClient, CampaignObjective, CampaignStatus, CampaignType, Platform } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -17,12 +17,6 @@ async function main() {
     create: { name: "Acme Corp", slug: "acme-corp", ownerId: user.id, industry: "E-commerce", businessType: "B2C", country: "India", currency: "USD", timezone: "Asia/Kolkata", monthlyBudget: 10000 }
   });
 
-  await prisma.workspaceMember.upsert({
-    where: { workspaceId_userId: { workspaceId: workspace.id, userId: user.id } },
-    update: { role: MemberRole.OWNER, status: MemberStatus.ACTIVE, joinedAt: new Date() },
-    create: { workspaceId: workspace.id, userId: user.id, role: MemberRole.OWNER, status: MemberStatus.ACTIVE, joinedAt: new Date() }
-  });
-
   const client = await prisma.client.upsert({
     where: { workspaceId_slug: { workspaceId: workspace.id, slug: "acme-corp" } },
     update: {},
@@ -36,9 +30,25 @@ async function main() {
   });
 
   const providerProducts: Array<{ key: string; platform: Platform }> = [
-    { key: "google_analytics", platform: Platform.GOOGLE_ANALYTICS }, { key: "google_search_console", platform: Platform.GOOGLE_ANALYTICS }, { key: "google_firebase", platform: Platform.GOOGLE_ANALYTICS }, { key: "google_admob", platform: Platform.GOOGLE_ANALYTICS }, { key: "google_youtube", platform: Platform.YOUTUBE }, { key: "google_business_profile", platform: Platform.OTHER }, { key: "meta_ads", platform: Platform.META_ADS }, { key: "meta_facebook", platform: Platform.FACEBOOK }, { key: "meta_instagram", platform: Platform.INSTAGRAM }, { key: "meta_messenger", platform: Platform.FACEBOOK }, { key: "meta_whatsapp", platform: Platform.FACEBOOK }
+    { key: "google_analytics", platform: Platform.GOOGLE_ANALYTICS },
+    { key: "google_search_console", platform: Platform.GOOGLE_SEARCH_CONSOLE },
+    { key: "google_firebase", platform: Platform.FIREBASE_ADMOB },
+    { key: "google_admob", platform: Platform.FIREBASE_ADMOB },
+    { key: "google_youtube", platform: Platform.YOUTUBE },
+    { key: "google_business_profile", platform: Platform.GOOGLE_BUSINESS_PROFILE },
+    { key: "meta_ads", platform: Platform.META_ADS },
+    { key: "meta_facebook", platform: Platform.FACEBOOK },
+    { key: "meta_instagram", platform: Platform.INSTAGRAM },
+    { key: "meta_messenger", platform: Platform.FACEBOOK },
+    { key: "meta_whatsapp", platform: Platform.FACEBOOK }
   ];
-  for (const product of providerProducts) await prisma.integration.upsert({ where: { id: `seed-${product.key}` }, update: { providerKey: product.key, status: "PENDING", accountName: null, accountId: null, errorMessage: "Provider credentials are not configured." }, create: { id: `seed-${product.key}`, workspaceId: workspace.id, clientId: client.id, platform: product.platform, providerKey: product.key, status: "PENDING", scopes: [] } });
+  for (const product of providerProducts) {
+    await prisma.integration.upsert({
+      where: { id: `seed-${product.key}` },
+      update: { providerKey: product.key, status: "DISCONNECTED", accountName: null, accountId: null, errorMessage: "Provider credentials are not configured." },
+      create: { id: `seed-${product.key}`, workspaceId: workspace.id, clientId: client.id, platform: product.platform, providerKey: product.key, status: "DISCONNECTED", scopes: [] }
+    });
+  }
 
   await prisma.campaign.upsert({
     where: { id: "seed-campaign-summer" },
