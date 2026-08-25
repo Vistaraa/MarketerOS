@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { decryptSecret } from "@/lib/crypto";
 import { getProvider } from "@/lib/integrations/provider";
-import { syncPlatformMetrics } from "@/lib/integrations/sync";
 
 export type JobName = "integration.sync" | "metrics.aggregate" | "report.generate" | "automation.evaluate";
 
@@ -53,35 +52,13 @@ export async function processNextJob() {
 async function processIntegrationSync(jobId: string, workspaceId: string, integrationId: string | null, payload: JobPayload) {
   if (!integrationId) throw new Error("Integration sync jobs require an integrationId.");
   const integration = await prisma.integration.findFirst({ where: { id: integrationId, workspaceId } });
-  if (!integration) throw new Error("Integration not found.");
+  if (!integration?.accessTokenEncrypted) throw new Error("This integration is not connected. Configure OAuth credentials before syncing.");
+  const provider = getProvider((integration.providerKey || integration.platform) as never);
+  const accessToken = decryptSecret(integration.accessTokenEncrypted);
   const from = new Date(typeof payload.from === "string" ? payload.from : Date.now() - 30 * 24 * 60 * 60 * 1000);
   const to = new Date(typeof payload.to === "string" ? payload.to : Date.now());
   await prisma.integration.update({ where: { id: integration.id }, data: { lastSyncStarted: new Date(), errorMessage: null } });
-
-  let metrics: Array<{ externalId: string; date: string; impressions: number; clicks: number; conversions: number; spend: number; revenue: number }> = [];
-  let providerKey = integration.providerKey || integration.platform;
-
-  if (integration.accessTokenEncrypted) {
-    const provider = getProvider((integration.providerKey || integration.platform) as never);
-    const accessToken = decryptSecret(integration.accessTokenEncrypted);
-    metrics = await provider.syncMetrics(accessToken, integration.accountId || "", from, to);
-  } else if (integration.apiKey) {
-    const decryptedKey = decryptSecret(integration.apiKey);
-    const metadata = (integration.metadata as Record<string, unknown>) || {};
-    const syncResult = await syncPlatformMetrics({
-      platform: integration.platform,
-      accountId: integration.accountId || "",
-      apiKey: decryptedKey,
-      metadata,
-      from,
-      to
-    });
-    metrics = syncResult.metrics;
-    providerKey = `manual_${integration.platform.toLowerCase()}`;
-  } else {
-    throw new Error("This integration has no credentials. Please reconnect.");
-  }
-
+  const metrics = await provider.syncMetrics(accessToken, integration.accountId || "", from, to);
   let recordsSynced = 0;
   for (const metric of metrics) {
     const date = new Date(`${metric.date}T00:00:00.000Z`);
@@ -90,7 +67,7 @@ async function processIntegrationSync(jobId: string, workspaceId: string, integr
     else await prisma.platformMetricDaily.create({ data: { workspaceId, clientId: integration.clientId, platform: integration.platform, date, impressions: metric.impressions, clicks: metric.clicks, conversions: metric.conversions, spend: metric.spend, revenue: metric.revenue } });
     recordsSynced += 1;
   }
-  await prisma.integrationSyncLog.create({ data: { integrationId: integration.id, status: "COMPLETED", recordsSynced, finishedAt: new Date(), metadata: { jobId, provider: providerKey } } });
+  await prisma.integrationSyncLog.create({ data: { integrationId: integration.id, status: "COMPLETED", recordsSynced, finishedAt: new Date(), metadata: { jobId, provider: provider.providerKey } } });
   await prisma.integration.update({ where: { id: integration.id }, data: { status: "CONNECTED", lastSyncedAt: new Date(), lastSyncFinished: new Date(), errorMessage: null } });
-  return { recordsSynced, provider: providerKey };
+  return { recordsSynced, provider: provider.providerKey };
 }

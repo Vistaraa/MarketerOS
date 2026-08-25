@@ -1,13 +1,11 @@
 
 import { Prisma, CampaignObjective, CampaignStatus, CampaignType, LeadSource, LeadStatus, Platform } from "@prisma/client";
-import { encryptSecret } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
 import type { Campaign, Integration, Insight, Lead, SocialPost } from "@/lib/types";
 
 const platformMap: Record<string, Platform> = {
   "Google Ads": Platform.GOOGLE_ADS,
   "Google Analytics": Platform.GOOGLE_ANALYTICS,
-  "Google Analytics 4": Platform.GOOGLE_ANALYTICS,
   "GA4": Platform.GOOGLE_ANALYTICS,
   "Google Search Console": Platform.GOOGLE_SEARCH_CONSOLE,
   "Search Console": Platform.GOOGLE_SEARCH_CONSOLE,
@@ -135,8 +133,8 @@ export async function createPersistedLead(input: { workspaceId: string; firstNam
   return prisma.lead.create({ data: { workspaceId: input.workspaceId, firstName: input.firstName, lastName: input.lastName, email: input.email, company: input.company, source: (input.source?.toUpperCase().replaceAll(" ", "_") as LeadSource) || LeadSource.MANUAL, status: LeadStatus.NEW } });
 }
 
-const integrationPlatform: Partial<Record<Platform, Integration["platform"]>> = { GOOGLE_ADS: "Google Ads", META_ADS: "Meta Ads", GOOGLE_ANALYTICS: "Google Analytics", GOOGLE_SEARCH_CONSOLE: "Google Search Console", GOOGLE_BUSINESS_PROFILE: "Google Business Profile", FIREBASE_ADMOB: "Firebase", INSTAGRAM: "Instagram", FACEBOOK: "Facebook", MESSENGER: "Messenger", WHATSAPP: "WhatsApp Business", LINKEDIN: "LinkedIn", TIKTOK: "TikTok", YOUTUBE: "YouTube", X: "X", SHOPIFY: "Shopify", OTHER: "WordPress" };
-const integrationColor: Record<string, string> = { "Google Ads": "#4285f4", "Meta Ads": "#1877f2", Instagram: "#e4405f", Facebook: "#1877f2", LinkedIn: "#0a66c2", TikTok: "#111827", YouTube: "#ff0000", "Google Analytics": "#f9ab00", Shopify: "#96bf48", Messenger: "#0084ff", "WhatsApp Business": "#25d366", "Google Search Console": "#4285f4", "Google Business Profile": "#4285f4", Firebase: "#ffca28" };
+const integrationPlatform: Partial<Record<Platform, Integration["platform"]>> = { GOOGLE_ADS: "Google Ads", META_ADS: "Meta Ads", GOOGLE_ANALYTICS: "Google Analytics", INSTAGRAM: "Instagram", FACEBOOK: "Facebook", LINKEDIN: "LinkedIn", TIKTOK: "TikTok", YOUTUBE: "YouTube", X: "X", SHOPIFY: "Shopify", OTHER: "WordPress" };
+const integrationColor: Record<string, string> = { "Google Ads": "#4285f4", "Meta Ads": "#1877f2", Instagram: "#e4405f", Facebook: "#1877f2", LinkedIn: "#0a66c2", TikTok: "#111827", YouTube: "#ff0000", "Google Analytics": "#f9ab00", Shopify: "#96bf48" };
 
 function integrationFromRow(row: { id: string; platform: Platform; accountName: string | null; accountId: string | null; status: string; lastSyncedAt: Date | null; providerKey: string | null; errorMessage: string | null }): Integration & { providerKey?: string; error?: string } {
   const providerLabels: Record<string, Integration["platform"]> = { google_ads: "Google Ads", google_analytics: "Google Analytics", google_search_console: "Google Search Console", google_firebase: "Firebase", google_admob: "AdMob", google_youtube: "YouTube", google_business_profile: "Google Business Profile", meta_ads: "Meta Ads", meta_facebook: "Facebook", meta_instagram: "Instagram", meta_messenger: "Messenger", meta_whatsapp: "WhatsApp Business" };
@@ -156,12 +154,8 @@ export async function connectPersistedIntegrationCredentials(input: {
   accountId: string;
   apiKey?: string;
   metadata?: Record<string, unknown>;
-  verifiedName?: string;
 }) {
   const platformEnum = platformMap[input.platform] || Platform.GOOGLE_ADS;
-  const encryptedApiKey = input.apiKey ? encryptSecret(input.apiKey) : null;
-  const displayName = input.verifiedName || input.accountName;
-
   const existing = await prisma.integration.findFirst({
     where: { workspaceId: input.workspaceId, platform: platformEnum }
   });
@@ -170,9 +164,9 @@ export async function connectPersistedIntegrationCredentials(input: {
     return prisma.integration.update({
       where: { id: existing.id },
       data: {
-        accountName: displayName,
+        accountName: input.accountName,
         accountId: input.accountId,
-        apiKey: encryptedApiKey,
+        apiKey: input.apiKey,
         status: "CONNECTED",
         errorMessage: null,
         lastSyncedAt: new Date(),
@@ -185,9 +179,9 @@ export async function connectPersistedIntegrationCredentials(input: {
     data: {
       workspaceId: input.workspaceId,
       platform: platformEnum,
-      accountName: displayName,
+      accountName: input.accountName,
       accountId: input.accountId,
-      apiKey: encryptedApiKey,
+      apiKey: input.apiKey,
       status: "CONNECTED",
       lastSyncedAt: new Date(),
       metadata: (input.metadata || {}) as never

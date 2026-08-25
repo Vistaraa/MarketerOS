@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { encryptSecret } from "@/lib/crypto";
 import { IntegrationStatus, Platform, Prisma } from "@prisma/client";
 import type { Integration, Platform as AppPlatform } from "@/lib/types";
 
@@ -143,7 +142,7 @@ export async function connectIntegrationCredentials(data: {
         status: IntegrationStatus.CONNECTED,
         accountName: data.accountName || existing.accountName,
         accountId: data.accountId || data.adAccountId || data.propertyId || existing.accountId,
-        apiKey: data.apiKey ? encryptSecret(data.apiKey) : existing.apiKey,
+        apiKey: data.apiKey || existing.apiKey,
         accessTokenEncrypted: data.apiSecret || existing.accessTokenEncrypted,
         metadata: ({ ...((existing.metadata as Record<string, unknown>) || {}), ...metadata } as Prisma.InputJsonValue),
         lastSyncedAt: new Date()
@@ -158,7 +157,7 @@ export async function connectIntegrationCredentials(data: {
       status: IntegrationStatus.CONNECTED,
       accountName: data.accountName || data.platform,
       accountId: data.accountId || data.adAccountId || data.propertyId,
-      apiKey: data.apiKey ? encryptSecret(data.apiKey) : null,
+      apiKey: data.apiKey,
       accessTokenEncrypted: data.apiSecret,
       metadata: (metadata as Prisma.InputJsonValue),
       lastSyncedAt: new Date()

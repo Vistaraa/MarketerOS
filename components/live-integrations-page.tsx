@@ -583,8 +583,7 @@ export function LiveIntegrationsPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error?.message || "Connection failed");
 
-      const verifiedName = json.data?.verifiedName;
-      setSuccessMsg(verifiedName ? `Connected as "${verifiedName}". Redirecting…` : `Successfully connected ${selectedPlatform.name}!`);
+      setSuccessMsg(`Successfully connected ${selectedPlatform.name}!`);
       setTimeout(() => {
         setConnectModalOpen(false);
         fetchIntegrations();
@@ -762,17 +761,6 @@ export function LiveIntegrationsPage() {
                     {isConnected ? (
                       <>
                         <button
-                          onClick={async () => {
-                            try {
-                              const res = await fetch(`/api/v1/integrations/${existing.id}/sync`, { method: "POST", headers: { "Content-Type": "application/json" } });
-                              if (res.ok) { setSuccessMsg("Sync queued — data will update shortly."); setTimeout(() => setSuccessMsg(null), 3000); }
-                            } catch {}
-                          }}
-                          className="rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                        >
-                          Sync Now
-                        </button>
-                        <button
                           onClick={() => openConnectModal(platform, existing)}
                           className="rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
                         >
@@ -825,9 +813,8 @@ export function LiveIntegrationsPage() {
 
             <form onSubmit={handleConnect} className="p-6 space-y-4 text-xs">
               {error && (
-                <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50/70 p-3 text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400">
-                  <Shield size={14} className="mt-0.5 shrink-0" />
-                  <div className="text-xs">{error}</div>
+                <div className="rounded-lg border border-rose-200 bg-rose-50/70 p-3 text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400">
+                  {error}
                 </div>
               )}
               {successMsg && (
@@ -913,7 +900,7 @@ export function LiveIntegrationsPage() {
                   disabled={busy}
                   className="btn-primary"
                 >
-                  {busy ? "Verifying credentials…" : "Save & Verify"}
+                  {busy ? "Authenticating…" : "Save & Verify"}
                 </button>
               </div>
             </form>

@@ -4,12 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { can, requireTenant } from "@/lib/auth-server";
 import { generateInsight, generateText } from "@/lib/ai";
 import { billingProvider } from "@/lib/billing";
+import { encryptSecret } from "@/lib/crypto";
 import { consumeOAuthState, createOAuthState } from "@/lib/oauth";
 import { getProvider, providerKeyForPlatform, providerConfiguration, type ProviderKey } from "@/lib/integrations/provider";
-import { validateCredentials } from "@/lib/integrations/validate";
 import { recordAudit } from "@/lib/audit";
 import { enqueueJob } from "@/lib/jobs";
-import { publishInstagramPost, getInstagramProfile, getInstagramRecentMedia, getInstagramInsights } from "@/lib/instagram/publisher";
 import { paged, parseListQuery } from "@/lib/api-contracts";
 import { buildPersistedOverview, parseOverviewQuery } from "@/lib/overview-service";
 import { archivePersistedCampaign, connectPersistedIntegrationCredentials, createPersistedCampaign, createPersistedLead, disconnectPersistedIntegration, getPersistedCampaign, getPersistedIntegration, getPersistedLead, listPersistedAutomations, listPersistedCampaigns, listPersistedClients, listPersistedContent, listPersistedInsights, listPersistedIntegrations, listPersistedLeads, listPersistedNotifications, listPersistedReports, listPersistedSocialPosts, listPersistedTeam, searchPersisted, updatePersistedCampaignStatus } from "@/lib/repositories";
@@ -115,10 +114,6 @@ export async function GET(request: Request, { params }: { params: { path: string
   if (path === "integrations") return ok({ items: await listPersistedIntegrations(auth.session.workspaceId), syncHistory: await prisma.integrationSyncLog.findMany({ where: { integration: { workspaceId: auth.session.workspaceId } }, orderBy: { startedAt: "desc" }, take: 50 }) });
   if (path.startsWith("integrations/")) { const found = await getPersistedIntegration(auth.session.workspaceId, path.split("/")[1]); return found ? ok(found) : error("Integration not found.", 404); }
   if (path === "social/posts") return ok({ items: await listPersistedSocialPosts(auth.session.workspaceId, query) });
-  if (path === "social/accounts") return ok({ items: await prisma.socialAccount.findMany({ where: { workspaceId: auth.session.workspaceId }, orderBy: { createdAt: "desc" } }) });
-  if (path.startsWith("social/accounts/") && path.endsWith("/profile")) { const accId = path.split("/")[2]; const account = await prisma.socialAccount.findFirst({ where: { id: accId, workspaceId: auth.session.workspaceId } }); if (!account?.accessTokenEncrypted || !account.accountId) return error("Account not connected or missing credentials.", 409); try { const { decryptSecret } = await import("@/lib/crypto"); const profile = await getInstagramProfile({ accessToken: decryptSecret(account.accessTokenEncrypted), igUserId: account.accountId }); return ok(profile); } catch (e) { return error(e instanceof Error ? e.message : "Failed to fetch profile.", 502); } }
-  if (path.startsWith("social/accounts/") && path.endsWith("/insights")) { const accId = path.split("/")[2]; const account = await prisma.socialAccount.findFirst({ where: { id: accId, workspaceId: auth.session.workspaceId } }); if (!account?.accessTokenEncrypted || !account.accountId) return error("Account not connected.", 409); try { const { decryptSecret } = await import("@/lib/crypto"); const since = url.searchParams.get("since") || undefined; const until = url.searchParams.get("until") || undefined; const insights = await getInstagramInsights({ accessToken: decryptSecret(account.accessTokenEncrypted), igUserId: account.accountId, since, until }); return ok(insights); } catch (e) { return error(e instanceof Error ? e.message : "Failed to fetch insights.", 502); } }
-  if (path.startsWith("social/accounts/") && path.endsWith("/media")) { const accId = path.split("/")[2]; const account = await prisma.socialAccount.findFirst({ where: { id: accId, workspaceId: auth.session.workspaceId } }); if (!account?.accessTokenEncrypted || !account.accountId) return error("Account not connected.", 409); try { const { decryptSecret } = await import("@/lib/crypto"); const media = await getInstagramRecentMedia({ accessToken: decryptSecret(account.accessTokenEncrypted), igUserId: account.accountId }); return ok(media); } catch (e) { return error(e instanceof Error ? e.message : "Failed to fetch media.", 502); } }
   if (path === "content") return ok({ items: await listPersistedContent(auth.session.workspaceId, query) });
   if (path === "ai/insights") return ok({ items: await listPersistedInsights(auth.session.workspaceId) });
   if (path === "notifications") {
@@ -206,40 +201,7 @@ export async function POST(request: Request, { params }: { params: { path: strin
     const auth = await context("client.edit"); if (auth.error) return auth.error; const parsed = clientInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid client."); const slug = `${parsed.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`; const created = await prisma.client.create({ data: { workspaceId: auth.session.workspaceId, name: parsed.data.name, slug, industry: parsed.data.industry, website: parsed.data.website || undefined } }); return ok(created, undefined, { status: 201 });
   }
   if (path === "social/posts") {
-    const auth = await context("social.edit"); if (auth.error) return auth.error; const parsed = socialPostInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid social post."); const account = await prisma.socialAccount.findFirst({ where: { id: parsed.data.socialAccountId, workspaceId: auth.session.workspaceId } }); if (!account) return error("Connect a social account before creating posts.", 409, "SOCIAL_ACCOUNT_REQUIRED");
-    const created = await prisma.socialPost.create({ data: { workspaceId: auth.session.workspaceId, socialAccountId: account.id, title: parsed.data.title, caption: parsed.data.caption, contentType: parsed.data.contentType as never, scheduledAt: parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : undefined, status: parsed.data.scheduledAt ? "SCHEDULED" : "DRAFT" } });
-    if (!parsed.data.scheduledAt && account.accessTokenEncrypted && account.platform === "INSTAGRAM" && account.accountId) {
-      try {
-        const { decryptSecret } = await import("@/lib/crypto");
-        const accessToken = decryptSecret(account.accessTokenEncrypted);
-        const imageUrl = body?.imageUrl || body?.mediaUrl || "";
-        if (imageUrl) {
-          const pubResult = await publishInstagramPost({ accessToken, igUserId: account.accountId, imageUrl, caption: parsed.data.caption || parsed.data.title || "" });
-          if (pubResult.success && pubResult.mediaId) {
-            await prisma.socialPost.update({ where: { id: created.id }, data: { status: "PUBLISHED", publishedAt: new Date(), externalId: pubResult.mediaId, platformData: { permalink: pubResult.permalink } as never } });
-            return ok({ ...created, status: "PUBLISHED", externalId: pubResult.mediaId }, undefined, { status: 201 });
-          }
-        }
-      } catch (pubErr) {
-        await prisma.socialPost.update({ where: { id: created.id }, data: { status: "FAILED", platformData: { error: pubErr instanceof Error ? pubErr.message : "Publish failed" } as never } });
-      }
-    }
-    return ok(created, undefined, { status: 201 });
-  }
-  if (path === "social/accounts") {
-    const auth = await context("social.edit"); if (auth.error) return auth.error;
-    const saInput = z.object({ platform: z.string().min(1), accountName: z.string().min(1), accountId: z.string().min(1), accessToken: z.string().min(1), username: z.string().optional(), profileUrl: z.string().url().optional().or(z.literal("")) });
-    const parsed = saInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid social account data.");
-    const { encryptSecret } = await import("@/lib/crypto");
-    const platformEnum = parsed.data.platform.toUpperCase().replace(/\s+/g, "_") as never;
-    const existing = await prisma.socialAccount.findFirst({ where: { workspaceId: auth.session.workspaceId, platform: platformEnum } });
-    let account;
-    if (existing) {
-      account = await prisma.socialAccount.update({ where: { id: existing.id }, data: { accountName: parsed.data.accountName, accountId: parsed.data.accountId, accessTokenEncrypted: encryptSecret(parsed.data.accessToken), username: parsed.data.username, profileUrl: parsed.data.profileUrl || null, status: "ACTIVE", lastSyncedAt: new Date() } });
-    } else {
-      account = await prisma.socialAccount.create({ data: { workspaceId: auth.session.workspaceId, platform: platformEnum, accountName: parsed.data.accountName, accountId: parsed.data.accountId, accessTokenEncrypted: encryptSecret(parsed.data.accessToken), username: parsed.data.username, profileUrl: parsed.data.profileUrl || null, status: "ACTIVE", lastSyncedAt: new Date() } });
-    }
-    return ok(account, undefined, { status: 201 });
+    const auth = await context("social.edit"); if (auth.error) return auth.error; const parsed = socialPostInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid social post."); const account = await prisma.socialAccount.findFirst({ where: { id: parsed.data.socialAccountId, workspaceId: auth.session.workspaceId } }); if (!account) return error("Connect a social account before creating posts.", 409, "SOCIAL_ACCOUNT_REQUIRED"); const created = await prisma.socialPost.create({ data: { workspaceId: auth.session.workspaceId, socialAccountId: account.id, title: parsed.data.title, caption: parsed.data.caption, contentType: parsed.data.contentType as never, scheduledAt: parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : undefined, status: parsed.data.scheduledAt ? "SCHEDULED" : "DRAFT" } }); return ok(created, undefined, { status: 201 });
   }
   if (path === "automation") {
     const auth = await context("automation.manage"); if (auth.error) return auth.error; const parsed = automationInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid automation."); const created = await prisma.automation.create({ data: { workspaceId: auth.session.workspaceId, name: parsed.data.name, trigger: parsed.data.trigger, action: parsed.data.action, campaignId: parsed.data.campaignId, triggerConfig: parsed.data.triggerConfig as never, actionConfig: parsed.data.actionConfig as never } }); return ok(created, undefined, { status: 201 });
@@ -249,29 +211,12 @@ export async function POST(request: Request, { params }: { params: { path: strin
     if (auth.error) return auth.error;
     const parsed = integrationCredentialInput.safeParse(body);
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid integration credentials.");
-    const validation = await validateCredentials(parsed.data.platform, {
-      accountId: parsed.data.accountId,
-      apiKey: parsed.data.apiKey,
-      metadata: parsed.data.metadata as Record<string, unknown> | undefined
-    });
-    if (!validation.valid) {
-      return error(validation.error || "Credential validation failed. Please verify your credentials.", 422, "VALIDATION_FAILED");
-    }
     const result = await connectPersistedIntegrationCredentials({
       workspaceId: auth.session.workspaceId,
-      ...parsed.data,
-      verifiedName: validation.verifiedName
+      ...parsed.data
     });
-    if (parsed.data.platform === "Instagram") {
-      try {
-        const existingSA = await prisma.socialAccount.findFirst({ where: { workspaceId: auth.session.workspaceId, platform: "INSTAGRAM" } });
-        const saData = { platform: "INSTAGRAM" as const, accountName: validation.verifiedName || parsed.data.accountName, accountId: parsed.data.accountId, accessTokenEncrypted: parsed.data.apiKey, username: validation.verifiedName, status: "ACTIVE" as const, lastSyncedAt: new Date() };
-        if (existingSA) await prisma.socialAccount.update({ where: { id: existingSA.id }, data: saData });
-        else await prisma.socialAccount.create({ data: { ...saData, workspaceId: auth.session.workspaceId } });
-      } catch { /* social account creation is best-effort */ }
-    }
     await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CONNECT", module: "integrations", entityType: "Integration", entityId: result.id, afterData: result });
-    return ok({ ...result, verifiedName: validation.verifiedName }, undefined, { status: 200 });
+    return ok(result, undefined, { status: 200 });
   }
   if (path === "integrations/disconnect") {
     const auth = await context("settings.manage");
@@ -366,7 +311,7 @@ export async function POST(request: Request, { params }: { params: { path: strin
     await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CREATE", module: "leads", entityType: "Lead", entityId: created.id, afterData: created });
     return ok(created, undefined, { status: 201 });
   }
-  if (path.startsWith("integrations/") && path.endsWith("/sync")) { const integrationId = path.split("/")[1]; const integration = await prisma.integration.findFirst({ where: { id: integrationId, workspaceId: auth.session.workspaceId } }); if (!integration) return error("Integration not found.", 404); if (!integration.accessTokenEncrypted && !integration.apiKey) return error("This integration is not connected. Please provide credentials before syncing.", 409, "INTEGRATION_NOT_CONNECTED"); const job = await enqueueJob("integration.sync", { workspaceId: auth.session.workspaceId, integrationId }); await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "SYNC_REQUESTED", module: "integrations", entityType: "Integration", entityId: integrationId }); return ok({ status: "queued", jobId: job.id, message: "Sync queued for background processing." }, undefined, { status: 202 }); }
+  if (path.startsWith("integrations/") && path.endsWith("/sync")) { const integrationId = path.split("/")[1]; const integration = await prisma.integration.findFirst({ where: { id: integrationId, workspaceId: auth.session.workspaceId } }); if (!integration) return error("Integration not found.", 404); if (!integration.accessTokenEncrypted) return error("This integration is not connected. Configure OAuth before syncing.", 409, "INTEGRATION_NOT_CONNECTED"); const job = await enqueueJob("integration.sync", { workspaceId: auth.session.workspaceId, integrationId }); await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "SYNC_REQUESTED", module: "integrations", entityType: "Integration", entityId: integrationId }); return ok({ status: "queued", jobId: job.id, message: "Sync queued for background processing." }, undefined, { status: 202 }); }
   if (path === "reports") { const parsed = reportInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid report."); const report = await prisma.report.create({ data: { workspaceId: auth.session.workspaceId, createdById: auth.session.userId, name: parsed.data.name, clientId: parsed.data.clientId, format: parsed.data.format as never, configuration: parsed.data.configuration as never, status: "GENERATING" } }); const job = await enqueueJob("report.generate", { workspaceId: auth.session.workspaceId, reportId: report.id, runAt: new Date().toISOString() }); return ok({ ...report, jobId: job.id }, undefined, { status: 202 }); }
   return error("Action not found.", 404);
 }
