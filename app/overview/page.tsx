@@ -2,9 +2,9 @@ import { OverviewPage } from "@/components/overview-page";
 
 export const metadata = {
   title: "Dashboard Overview | MarketerOS",
-  description: "Unified AI-powered marketing and ad management platform."
+  description: "Unified marketing and advertising overview."
 };
 
-export default function HomePage() {
+export default function OverviewRoute() {
   return <OverviewPage />;
 }

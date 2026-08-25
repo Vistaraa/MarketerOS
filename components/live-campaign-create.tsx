@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Check, ChevronRight, Layers, Lock, Plus, Rocket, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronRight, Layers, Lock, Plus, Rocket, ShieldCheck, Sparkles } from "lucide-react";
 import { AppShell, Card, PageHeading } from "@/components/marketeros-shell";
 import { PlatformIcon } from "@/components/marketeros-icons";
 import type { ApiResponse } from "@/lib/api-contracts";
 import type { Integration } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 export function LiveCampaignCreate() {
   const router = useRouter();
@@ -50,48 +51,32 @@ export function LiveCampaignCreate() {
                 return;
               }
             }
-            // By default select the first connected platform
             setSelectedPlatforms([connected[0].platform]);
           }
         }
       })
-      .catch(console.error)
+      .catch(() => setConnectedIntegrations([]))
       .finally(() => setLoading(false));
   }, [requestedPlatform]);
 
   const togglePlatform = (platformName: string) => {
     if (selectedPlatforms.includes(platformName)) {
-      if (selectedPlatforms.length > 1) {
-        setSelectedPlatforms(selectedPlatforms.filter((p) => p !== platformName));
-      }
+      if (selectedPlatforms.length === 1) return; // keep at least 1
+      setSelectedPlatforms(selectedPlatforms.filter((p) => p !== platformName));
     } else {
       setSelectedPlatforms([...selectedPlatforms, platformName]);
     }
   };
 
-  const selectAllPlatforms = () => {
-    if (selectedPlatforms.length === connectedIntegrations.length) {
-      setSelectedPlatforms([connectedIntegrations[0].platform]);
-    } else {
-      setSelectedPlatforms(connectedIntegrations.map((i) => i.platform));
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLaunch = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (selectedPlatforms.length === 0) {
-      setError("Please select at least one connected advertising platform.");
-      return;
-    }
-
     if (!name.trim()) {
       setError("Please enter a campaign name.");
       return;
     }
 
-    if (!dailyBudget || Number(dailyBudget) <= 0) {
-      setError("Please enter a valid daily budget.");
+    if (selectedPlatforms.length === 0) {
+      setError("Please select at least one connected advertising platform.");
       return;
     }
 
@@ -99,29 +84,38 @@ export function LiveCampaignCreate() {
     setError(null);
 
     try {
+      const budgetNum = Number(totalBudget) || Number(dailyBudget) * 30 || 3000;
+      const dailyBudgetNum = Number(dailyBudget) || budgetNum / 30;
+
       const res = await fetch("/api/v1/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          platforms: selectedPlatforms,
           platform: selectedPlatforms[0],
-          objective,
-          budget: Number(totalBudget) || (Number(dailyBudget) * 30),
-          dailyBudget: Number(dailyBudget),
-          targetRoas: targetRoas ? Number(targetRoas) : undefined,
-          biddingStrategy
+          platforms: selectedPlatforms,
+          objective: objective.toUpperCase().replace(/\s+/g, "_"),
+          budget: budgetNum,
+          dailyBudget: dailyBudgetNum,
+          targetRoas: Number(targetRoas) || 3.0,
+          biddingStrategy,
+          metadata: {
+            landingPage: landingPage.trim(),
+            headline: headline.trim(),
+            description: description.trim(),
+            cta,
+            targetCountry,
+            selectedPlatforms
+          }
         })
       });
 
       const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.error?.message || "Failed to create campaign");
-      }
+      if (!res.ok) throw new Error(json.error?.message || "Failed to launch campaign");
 
       router.push("/campaigns");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create campaign");
+      setError(err instanceof Error ? err.message : "Campaign creation failed");
     } finally {
       setBusy(false);
     }
@@ -129,349 +123,306 @@ export function LiveCampaignCreate() {
 
   return (
     <AppShell title="Create Campaign">
-      <div className="mb-4 flex items-center gap-2 text-xs text-[#728099]">
-        <button onClick={() => router.push("/campaigns")} className="hover:text-[#6940e8]">
-          Campaigns
-        </button>
-        <ChevronRight size={13} />
-        <span>Create New Campaign</span>
-      </div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-zinc-900 sm:text-2xl dark:text-zinc-100">
+              Create New Campaign
+            </h1>
+            <p className="mt-1 text-xs text-zinc-500 sm:text-sm dark:text-zinc-400">
+              Launch dynamic ads across Google Ads, Meta Ads, and connected channels.
+            </p>
+          </div>
 
-      <PageHeading
-        title="Create New Campaign"
-        description="Set up your campaign details and launch across one or more connected marketing channels."
-      />
-
-      {error && (
-        <div className="mb-6 rounded-xl border border-[#f2c4c8] bg-[#fff8f8] p-4 text-xs font-semibold text-[#b72e38]">
-          {error}
+          <button
+            onClick={() => router.push("/campaigns")}
+            className="btn-secondary"
+          >
+            <ArrowLeft size={13} /> Back to Campaigns
+          </button>
         </div>
-      )}
 
-      {/* No Connected Platforms State */}
-      {!loading && connectedIntegrations.length === 0 && (
-        <Card className="p-10 text-center">
-          <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[#fee2e2] text-[#ef4444]">
-            <Lock size={30} />
-          </span>
-          <h2 className="mt-5 text-base font-extrabold text-[#111a2e]">No Connected Platforms Found</h2>
-          <p className="mx-auto mt-2 max-w-md text-xs leading-5 text-[#63708a]">
-            You have not connected any marketing accounts yet. Please connect <strong>Google Ads, Meta Ads, or another platform</strong> in Integrations before creating a campaign.
-          </p>
-          <div className="mt-6 flex justify-center gap-3">
+        {error && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4 text-xs font-medium text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400">
+            {error}
+          </div>
+        )}
+
+        {/* If no platforms connected, show blocker */}
+        {!loading && connectedIntegrations.length === 0 ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-6 text-center text-xs dark:border-amber-900 dark:bg-amber-950/40">
+            <h3 className="text-sm font-bold text-amber-800 dark:text-amber-300">No Connected Platforms Found</h3>
+            <p className="mt-1 text-amber-700 dark:text-amber-400">
+              You must connect at least one verified advertising platform before launching campaigns.
+            </p>
             <button
               onClick={() => router.push("/integrations")}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#6940e8] px-5 text-xs font-bold text-white shadow hover:bg-[#5b34d6]"
+              className="btn-primary mt-4"
             >
-              Go to Integrations <ArrowRight size={14} />
+              Go to Integrations
             </button>
           </div>
-        </Card>
-      )}
+        ) : (
+          <form onSubmit={handleLaunch} className="grid gap-6 lg:grid-cols-3">
+            {/* Left 2 Cols: Form Sections */}
+            <div className="space-y-6 lg:col-span-2">
+              {/* 1. Target Platforms & Basic Info */}
+              <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60">
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">1. Destination Platforms & Objective</h3>
+                <p className="mt-0.5 text-xs text-zinc-400">Choose connected channels to publish this campaign.</p>
 
-      {/* Main Campaign Form */}
-      {(!loading && connectedIntegrations.length > 0) && (
-        <form onSubmit={handleSubmit} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="space-y-6">
-            {/* 1. Basic Details & Multi-Platform Selection */}
-            <Card className="p-6">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-sm font-extrabold text-[#111a2e]">1. Marketing Platforms & Strategy</h3>
-                  <p className="mt-1 text-xs text-[#718098]">Select one or multiple connected channels for omnichannel reach.</p>
-                </div>
+                {/* Platforms selection cards */}
+                <div className="mt-4">
+                  <div className="mb-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                    Select Target Channels ({selectedPlatforms.length} selected)
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {connectedIntegrations.map((item) => {
+                      const isSelected = selectedPlatforms.includes(item.platform);
 
-                {connectedIntegrations.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={selectAllPlatforms}
-                    className="text-xs font-bold text-[#6940e8] hover:underline"
-                  >
-                    {selectedPlatforms.length === connectedIntegrations.length ? "Deselect All" : "Select All Connected"}
-                  </button>
-                )}
-              </div>
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => togglePlatform(item.platform)}
+                          className={cn(
+                            "flex cursor-pointer items-center justify-between rounded-xl border p-3.5 transition-all",
+                            isSelected
+                              ? "border-zinc-900 bg-zinc-50 shadow-2xs dark:border-zinc-100 dark:bg-zinc-800/80"
+                              : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <PlatformIcon platform={item.platform} size={24} />
+                            <div>
+                              <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{item.platform}</div>
+                              <div className="font-mono text-[10px] text-zinc-400">{item.account || "Connected"}</div>
+                            </div>
+                          </div>
 
-              {/* Multi-Platform Select Cards */}
-              <div className="mt-4">
-                <span className="mb-2 block text-xs font-bold text-[#28354d]">
-                  Connected Platforms ({selectedPlatforms.length} selected) *
-                </span>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {connectedIntegrations.map((item) => {
-                    const isSelected = selectedPlatforms.includes(item.platform);
-
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => togglePlatform(item.platform)}
-                        className={`flex cursor-pointer items-center justify-between rounded-xl border p-3.5 transition-all ${
-                          isSelected
-                            ? "border-[#6940e8] bg-[#f8f6ff] shadow-sm ring-2 ring-[#6940e8]/20"
-                            : "border-[#dfe3ea] bg-white hover:border-[#b8a4f8] hover:bg-[#faf9ff]"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <PlatformIcon platform={item.platform} size={28} />
-                          <div>
-                            <div className="text-xs font-extrabold text-[#131d32]">{item.platform}</div>
-                            <div className="font-mono text-[10px] text-[#6940e8]">ID: {item.account || "Connected"}</div>
+                          <div
+                            className={cn(
+                              "grid h-5 w-5 place-items-center rounded-md border transition-colors",
+                              isSelected
+                                ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+                                : "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-800"
+                            )}
+                          >
+                            {isSelected && <Check size={12} strokeWidth={3} />}
                           </div>
                         </div>
-
-                        <div
-                          className={`grid h-5 w-5 place-items-center rounded-md border transition-colors ${
-                            isSelected
-                              ? "border-[#6940e8] bg-[#6940e8] text-white"
-                              : "border-[#ccd3e0] bg-white"
-                          }`}
-                        >
-                          {isSelected && <Check size={13} strokeWidth={3} />}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                <label className="sm:col-span-2">
-                  <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Campaign Name *</span>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Summer Sale 2024 - Omnichannel Growth"
-                    required
-                    className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 text-xs outline-none focus:border-[#6940e8]"
-                  />
-                </label>
-
-                <div className="sm:col-span-2">
-                  <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Campaign Objective *</span>
-                  <select
-                    value={objective}
-                    onChange={(e) => setObjective(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-[#dfe3eb] bg-white px-3 text-xs outline-none focus:border-[#6940e8]"
-                  >
-                    <option value="Sales">Sales (Conversions & Revenue)</option>
-                    <option value="Leads">Leads (Form Submissions)</option>
-                    <option value="Website Traffic">Website Traffic (High Intent Clicks)</option>
-                    <option value="Brand Awareness">Brand Awareness (Reach & Impressions)</option>
-                    <option value="App Promotion">App Promotion (Installs & Engagement)</option>
-                  </select>
-                </div>
-
-                <label className="sm:col-span-2">
-                  <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Destination Landing Page URL *</span>
-                  <input
-                    type="url"
-                    value={landingPage}
-                    onChange={(e) => setLandingPage(e.target.value)}
-                    placeholder="https://acmecorp.com/summer-deals"
-                    required
-                    className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 font-mono text-xs outline-none focus:border-[#6940e8]"
-                  />
-                </label>
-              </div>
-            </Card>
-
-            {/* 2. Budget & Smart Bidding */}
-            <Card className="p-6">
-              <h3 className="text-sm font-extrabold text-[#111a2e]">2. Budget & Bidding Strategy</h3>
-              <p className="mt-1 text-xs text-[#718098]">Control your daily spend cap and performance targets.</p>
-
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                <label>
-                  <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Daily Budget ($ / day) *</span>
-                  <input
-                    type="number"
-                    min="1"
-                    value={dailyBudget}
-                    onChange={(e) => {
-                      setDailyBudget(e.target.value);
-                      setTotalBudget(String(Number(e.target.value) * 30));
-                    }}
-                    placeholder="100"
-                    required
-                    className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 font-mono text-xs outline-none focus:border-[#6940e8]"
-                  />
-                </label>
-
-                <label>
-                  <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Estimated Total Budget ($ / month)</span>
-                  <input
-                    type="number"
-                    value={totalBudget}
-                    onChange={(e) => setTotalBudget(e.target.value)}
-                    placeholder="3000"
-                    className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 font-mono text-xs outline-none focus:border-[#6940e8]"
-                  />
-                </label>
-
-                <div>
-                  <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Bidding Strategy</span>
-                  <select
-                    value={biddingStrategy}
-                    onChange={(e) => setBiddingStrategy(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-[#dfe3eb] bg-white px-3 text-xs outline-none focus:border-[#6940e8]"
-                  >
-                    <option>Maximize Conversions</option>
-                    <option>Target ROAS (Smart Bidding)</option>
-                    <option>Target CPA (Cost Cap)</option>
-                    <option>Maximize Clicks</option>
-                  </select>
-                </div>
-
-                <label>
-                  <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Target ROAS Goal (x)</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={targetRoas}
-                    onChange={(e) => setTargetRoas(e.target.value)}
-                    placeholder="3.5"
-                    className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 font-mono text-xs outline-none focus:border-[#6940e8]"
-                  />
-                </label>
-              </div>
-            </Card>
-
-            {/* 3. Ad Creative & Targeting */}
-            <Card className="p-6">
-              <h3 className="text-sm font-extrabold text-[#111a2e]">3. Ad Creative & Target Region</h3>
-              <p className="mt-1 text-xs text-[#718098]">Add your primary headline, ad copy, and button action.</p>
-
-              <div className="mt-5 space-y-4 text-xs">
-                <label className="block">
-                  <span className="mb-1.5 block font-bold text-[#28354d]">Main Headline</span>
-                  <input
-                    type="text"
-                    value={headline}
-                    onChange={(e) => setHeadline(e.target.value)}
-                    placeholder="e.g. Save 40% on Premium Products Today"
-                    className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 outline-none focus:border-[#6940e8]"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-1.5 block font-bold text-[#28354d]">Primary Ad Description</span>
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Describe your promotion, key features, and discount details..."
-                    rows={3}
-                    className="w-full rounded-lg border border-[#dfe3eb] p-3 outline-none focus:border-[#6940e8]"
-                  />
-                </label>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <label>
-                    <span className="mb-1.5 block font-bold text-[#28354d]">Call to Action</span>
-                    <select
-                      value={cta}
-                      onChange={(e) => setCta(e.target.value)}
-                      className="h-10 w-full rounded-lg border border-[#dfe3eb] bg-white px-3 outline-none focus:border-[#6940e8]"
-                    >
-                      <option>Shop Now</option>
-                      <option>Sign Up</option>
-                      <option>Learn More</option>
-                      <option>Get Quote</option>
-                      <option>Contact Us</option>
-                    </select>
-                  </label>
-
-                  <label>
-                    <span className="mb-1.5 block font-bold text-[#28354d]">Target Country / Region</span>
-                    <input
-                      type="text"
-                      value={targetCountry}
-                      onChange={(e) => setTargetCountry(e.target.value)}
-                      placeholder="India, United States"
-                      className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 outline-none focus:border-[#6940e8]"
-                    />
-                  </label>
-                </div>
-              </div>
-            </Card>
-
-            {/* Launch Actions */}
-            <div className="flex items-center justify-between border-t border-[#edf0f4] pt-5">
-              <button
-                type="button"
-                onClick={() => router.push("/campaigns")}
-                className="h-10 rounded-lg border border-[#dfe3eb] px-5 text-xs font-bold text-[#55637a] hover:bg-[#f5f7fa]"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="submit"
-                disabled={busy}
-                className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#6940e8] px-7 text-xs font-bold text-white shadow-md hover:bg-[#5a32d6] disabled:opacity-60"
-              >
-                <Rocket size={15} /> {busy ? "Launching Campaign…" : `Launch Campaign on ${selectedPlatforms.length} Channel${selectedPlatforms.length > 1 ? "s" : ""}`}
-              </button>
-            </div>
-          </div>
-
-          {/* Right Sidebar: Real-Time Campaign Summary */}
-          <div className="space-y-4">
-            <Card className="p-5">
-              <div className="flex items-center justify-between border-b border-[#edf0f4] pb-3">
-                <h4 className="text-xs font-extrabold text-[#111a2e]">Campaign Summary</h4>
-                <span className="rounded-md bg-[#e5f8ee] px-2 py-0.5 text-[10px] font-bold text-[#159a65]">
-                  Live Preview
-                </span>
-              </div>
-
-              <div className="mt-4 space-y-3 text-xs">
-                <div>
-                  <span className="text-[11px] text-[#7d899e]">Target Channels ({selectedPlatforms.length}):</span>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {selectedPlatforms.map((plat) => (
-                      <span key={plat} className="inline-flex items-center gap-1 rounded-md bg-[#f0eaff] px-2 py-1 text-[11px] font-bold text-[#6940e8]">
-                        <PlatformIcon platform={plat} size={14} />
-                        {plat}
-                      </span>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-[#7d899e]">Campaign:</span>
-                  <strong className="max-w-[140px] truncate">{name || "Untitled"}</strong>
-                </div>
+                <div className="mt-5 grid gap-4 sm:grid-cols-2 text-xs">
+                  <div className="sm:col-span-2">
+                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Campaign Name *</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. Summer Sale 2024 - Omnichannel Growth"
+                      required
+                      className="input-clean mt-1"
+                    />
+                  </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-[#7d899e]">Objective:</span>
-                  <strong>{objective}</strong>
-                </div>
+                  <div className="sm:col-span-2">
+                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Campaign Objective *</label>
+                    <select
+                      value={objective}
+                      onChange={(e) => setObjective(e.target.value)}
+                      className="input-clean mt-1"
+                    >
+                      <option value="Sales">Sales (Conversions & Revenue)</option>
+                      <option value="Leads">Leads (Form Submissions)</option>
+                      <option value="Website Traffic">Website Traffic (High Intent Clicks)</option>
+                      <option value="Brand Awareness">Brand Awareness (Reach & Impressions)</option>
+                      <option value="App Promotion">App Promotion (Installs & Engagement)</option>
+                    </select>
+                  </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-[#7d899e]">Daily Spend:</span>
-                  <strong className="text-[#111a2e]">${dailyBudget || "0"} / day</strong>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-[#7d899e]">Monthly Budget:</span>
-                  <strong>${totalBudget || "0"}</strong>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-[#7d899e]">Bidding:</span>
-                  <strong>{biddingStrategy} ({targetRoas}x)</strong>
+                  <div className="sm:col-span-2">
+                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Destination Landing Page URL *</label>
+                    <input
+                      type="url"
+                      value={landingPage}
+                      onChange={(e) => setLandingPage(e.target.value)}
+                      placeholder="https://example.com/summer-deals"
+                      required
+                      className="input-clean mt-1 font-mono"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-5 rounded-xl border border-[#c8ecd9] bg-[#effbf5] p-3 text-[11px] font-semibold text-[#148b5a]">
-                <ShieldCheck size={15} className="mr-1.5 inline text-[#159a65]" />
-                Valid credentials verified for all selected channels.
+              {/* 2. Budget & Smart Bidding */}
+              <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 text-xs">
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">2. Budget & Bidding Strategy</h3>
+                <p className="mt-0.5 text-zinc-400">Control your daily spend cap and performance targets.</p>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Daily Budget ($ / day) *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={dailyBudget}
+                      onChange={(e) => {
+                        setDailyBudget(e.target.value);
+                        setTotalBudget(String(Number(e.target.value) * 30));
+                      }}
+                      placeholder="100"
+                      required
+                      className="input-clean mt-1 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Estimated Total Budget ($ / mo)</label>
+                    <input
+                      type="number"
+                      value={totalBudget}
+                      onChange={(e) => setTotalBudget(e.target.value)}
+                      placeholder="3000"
+                      className="input-clean mt-1 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Bidding Strategy</label>
+                    <select
+                      value={biddingStrategy}
+                      onChange={(e) => setBiddingStrategy(e.target.value)}
+                      className="input-clean mt-1"
+                    >
+                      <option>Maximize Conversions</option>
+                      <option>Target ROAS (Smart Bidding)</option>
+                      <option>Target CPA (Cost Cap)</option>
+                      <option>Maximize Clicks</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Target ROAS Goal (x)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={targetRoas}
+                      onChange={(e) => setTargetRoas(e.target.value)}
+                      placeholder="3.5"
+                      className="input-clean mt-1 font-mono"
+                    />
+                  </div>
+                </div>
               </div>
-            </Card>
-          </div>
-        </form>
-      )}
+
+              {/* 3. Ad Creative & Targeting */}
+              <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 text-xs">
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">3. Ad Creative & Target Region</h3>
+                <p className="mt-0.5 text-zinc-400">Primary headline, ad copy, and button action.</p>
+
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Main Headline</label>
+                    <input
+                      type="text"
+                      value={headline}
+                      onChange={(e) => setHeadline(e.target.value)}
+                      placeholder="e.g. Elevate Your Marketing with AI Automation"
+                      className="input-clean mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Ad Copy / Body Text</label>
+                    <textarea
+                      rows={3}
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Describe your offer, features, and key value proposition."
+                      className="input-clean mt-1 resize-none"
+                    />
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block font-medium text-zinc-700 dark:text-zinc-300">Call to Action (CTA)</label>
+                      <select
+                        value={cta}
+                        onChange={(e) => setCta(e.target.value)}
+                        className="input-clean mt-1"
+                      >
+                        <option>Shop Now</option>
+                        <option>Sign Up</option>
+                        <option>Learn More</option>
+                        <option>Get Quote</option>
+                        <option>Contact Us</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-medium text-zinc-700 dark:text-zinc-300">Target Region</label>
+                      <select
+                        value={targetCountry}
+                        onChange={(e) => setTargetCountry(e.target.value)}
+                        className="input-clean mt-1"
+                      >
+                        <option>India</option>
+                        <option>United States</option>
+                        <option>United Kingdom</option>
+                        <option>Global / Worldwide</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Col: Summary & Launch CTA */}
+            <div className="space-y-5 text-xs">
+              <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 space-y-4">
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Launch Summary</h3>
+
+                <div className="space-y-2 divide-y divide-zinc-100 dark:divide-zinc-800 text-zinc-600 dark:text-zinc-400">
+                  <div className="flex justify-between pt-2">
+                    <span>Name:</span>
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">{name || "Untitled"}</span>
+                  </div>
+                  <div className="flex justify-between pt-2">
+                    <span>Channels:</span>
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">{selectedPlatforms.length} platforms</span>
+                  </div>
+                  <div className="flex justify-between pt-2">
+                    <span>Objective:</span>
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">{objective}</span>
+                  </div>
+                  <div className="flex justify-between pt-2">
+                    <span>Daily Budget:</span>
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">${dailyBudget}/day</span>
+                  </div>
+                  <div className="flex justify-between pt-2">
+                    <span>Target ROAS:</span>
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">{targetRoas}x</span>
+                  </div>
+                </div>
+
+                <div className="pt-3">
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="btn-primary w-full py-2.5"
+                  >
+                    <Rocket size={14} />
+                    <span>{busy ? "Launching…" : "Launch Campaign"}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </form>
+        )}
+      </div>
     </AppShell>
   );
 }

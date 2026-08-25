@@ -55,7 +55,7 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
         throw new Error(payload.error?.message || "Unable to complete this request.");
       }
 
-      const target = returnTo || payload.data?.next || (signup ? "/onboarding/brand" : "/overview");
+      const target = returnTo || payload.data?.next || "/";
       router.push(target);
       router.refresh();
     } catch (cause) {
@@ -66,158 +66,153 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#faf9ff]">
-      {/* Brand Sidebar */}
-      <div className="hidden w-[42%] overflow-hidden bg-gradient-to-br from-[#07152f] via-[#111a43] to-[#321a73] p-10 lg:flex lg:flex-col lg:justify-between">
+    <div className="flex min-h-screen bg-[#fafafa] dark:bg-zinc-950">
+      {/* Brand Sidebar (Midday Dark/Zinc Style) */}
+      <div className="hidden w-[40%] overflow-hidden bg-zinc-950 p-10 lg:flex lg:flex-col lg:justify-between text-zinc-100 border-r border-zinc-800">
         <div>
-          <div className="text-xl font-extrabold tracking-tight text-white">
-            Marketer<span className="text-[#9677ff]">OS</span>
+          <div className="flex items-center gap-2">
+            <div className="grid h-7 w-7 place-items-center rounded-lg bg-white font-black text-xs text-zinc-950">
+              M
+            </div>
+            <span className="text-sm font-bold tracking-tight text-white">MarketerOS</span>
           </div>
-          <div className="mt-20 max-w-[480px]">
-            <h2 className="text-[38px] font-extrabold leading-[1.12] tracking-[-.05em] text-white">
-              The all-in-one platform<br />
-              to <span className="text-[#9677ff]">grow your brand</span>
+
+          <div className="mt-24 max-w-sm">
+            <h2 className="text-2xl font-bold leading-snug tracking-tight text-white">
+              The operating system for modern marketing teams.
             </h2>
-            <p className="mt-4 text-sm leading-6 text-[#c0c7d7]">
-              Connect your marketing channels, analyze performance, get AI-powered insights, and scale your growth with full workspace isolation.
+            <p className="mt-3 text-xs leading-5 text-zinc-400">
+              Connect advertising channels, track cross-platform ROI, and launch high-converting multi-channel campaigns.
             </p>
-            <div className="mt-8 space-y-4">
+
+            <div className="mt-8 space-y-3">
               {[
-                "Unified Multi-Channel Analytics",
-                "Automated Reporting & AI Insights",
-                "Live Platform Integrations",
-                "Audience & Lead Management",
+                "Unified Google & Meta Analytics",
+                "Real-Time Multi-Channel Campaign Launcher",
+                "Direct API Sync & Lead Attribution",
+                "Automated Performance Reporting"
               ].map((item) => (
-                <div className="flex items-center gap-3.5" key={item}>
-                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-white/10 text-[#9677ff]">
-                    <Sparkles size={16} />
-                  </span>
-                  <div className="text-xs font-bold text-white">{item}</div>
+                <div className="flex items-center gap-2.5" key={item}>
+                  <Check size={13} className="text-zinc-300" />
+                  <span className="text-xs font-medium text-zinc-300">{item}</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-white/10 bg-white/[.05] p-4 text-xs text-[#a5b2cc]">
-          🔒 Secure session tokens stored at rest with encrypted provider keys.
+
+        <div className="text-[11px] text-zinc-500 font-mono">
+          Encrypted token vault · Workspace isolation
         </div>
       </div>
 
       {/* Main Form Area */}
-      <div className="flex flex-1 flex-col p-5 sm:p-10">
-        <div className="flex items-center justify-between text-xs text-[#65728a]">
-          <div className="text-xs font-semibold text-[#65728a] lg:hidden">
-            Marketer<span className="text-[#6940e8] font-bold">OS</span>
-          </div>
-          <div className="ml-auto">
-            {signup ? "Already have an account?" : "Don't have an account?"}
-            <button
-              onClick={() => router.push(signup ? `/auth/login${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}` : `/auth/signup${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`)}
-              className="ml-1 font-bold text-[#5e3cdb] hover:underline"
-            >
-              {signup ? "Sign in" : "Create one"}
-            </button>
-          </div>
-        </div>
-
-        <div className="mx-auto mt-6 w-full max-w-[560px] rounded-2xl border border-[#e7e9f0] bg-white p-6 shadow-[0_12px_35px_rgba(22,31,54,.06)] sm:mt-12 sm:p-9">
-          <h1 className="text-[26px] font-extrabold tracking-[-.05em] text-[#111a2e]">{title}</h1>
-          <p className="mt-1.5 text-xs text-[#6d7890]">
-            {signup
-              ? "Start your workspace. Fill in your details below to get started."
-              : "Enter your credentials to access your marketing workspace."}
-          </p>
-
-          {returnTo && (
-            <div className="mt-4 rounded-lg border border-[#e3dcfc] bg-[#f8f5ff] p-3 text-xs text-[#5e3cdb]">
-              Please sign in to continue to <strong>{returnTo}</strong>.
-            </div>
-          )}
-
-          <form onSubmit={submit} className="mt-6 space-y-4">
-            {signup && (
-              <div>
-                <label className="mb-1.5 block text-xs font-bold text-[#28354d]">Full Name *</label>
-                <input
-                  required
-                  value={fullName}
-                  onChange={(event) => setFullName(event.target.value)}
-                  placeholder="e.g. Rohan Mehta"
-                  className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 text-xs text-[#28354d] outline-none placeholder:text-[#a0a9b8] focus:border-[#9d8af5] focus:ring-4 focus:ring-[#f0edff]"
-                />
+      <div className="flex flex-1 flex-col justify-center p-6 sm:p-12">
+        <div className="mx-auto w-full max-w-md">
+          <div className="flex items-center justify-between text-xs text-zinc-500 mb-8">
+            <div className="flex items-center gap-2 lg:hidden">
+              <div className="grid h-6 w-6 place-items-center rounded-md bg-zinc-900 font-bold text-white text-[10px] dark:bg-zinc-100 dark:text-zinc-900">
+                M
               </div>
-            )}
-
-            <div>
-              <label className="mb-1.5 block text-xs font-bold text-[#28354d]">Email Address *</label>
-              <input
-                required
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@company.com"
-                className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 text-xs text-[#28354d] outline-none placeholder:text-[#a0a9b8] focus:border-[#9d8af5] focus:ring-4 focus:ring-[#f0edff]"
-              />
+              <span className="font-bold text-zinc-900 dark:text-zinc-100">MarketerOS</span>
             </div>
 
-            {(signup || mode === "login" || mode === "reset-password") && (
-              <div>
-                <label className="mb-1.5 block text-xs font-bold text-[#28354d]">Password *</label>
-                <input
-                  required
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="••••••••"
-                  className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 text-xs text-[#28354d] outline-none placeholder:text-[#a0a9b8] focus:border-[#9d8af5] focus:ring-4 focus:ring-[#f0edff]"
-                />
-              </div>
-            )}
+            <div className="ml-auto">
+              {signup ? "Already have an account?" : "Don't have an account?"}
+              <button
+                onClick={() =>
+                  router.push(
+                    signup
+                      ? `/auth/login${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`
+                      : `/auth/signup${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`
+                  )
+                }
+                className="ml-1 font-semibold text-zinc-900 underline dark:text-zinc-100"
+              >
+                {signup ? "Sign in" : "Sign up"}
+              </button>
+            </div>
+          </div>
 
-            {signup && (
-              <div>
-                <label className="mb-1.5 block text-xs font-bold text-[#28354d]">Workspace / Company Name *</label>
-                <input
-                  required
-                  value={workspaceName}
-                  onChange={(event) => setWorkspaceName(event.target.value)}
-                  placeholder="e.g. Acme Corp"
-                  className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 text-xs text-[#28354d] outline-none placeholder:text-[#a0a9b8] focus:border-[#9d8af5] focus:ring-4 focus:ring-[#f0edff]"
-                />
-              </div>
-            )}
+          <div className="rounded-xl border border-zinc-200/90 bg-white p-7 shadow-2xs dark:border-zinc-800 dark:bg-zinc-900">
+            <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{title}</h1>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              {signup
+                ? "Start your workspace. Enter your credentials below."
+                : "Enter your credentials to access your workspace."}
+            </p>
 
             {error && (
-              <div className="rounded-lg border border-[#f2c4c8] bg-[#fff8f8] p-3 text-xs text-[#b72e38]">
+              <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50/70 p-3 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400">
                 {error}
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={busy}
-              className={cn(
-                "mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#6937e7] to-[#7445ed] text-xs font-bold text-white shadow-[0_5px_13px_rgba(105,55,231,.2)] transition hover:brightness-105 focus:outline-none focus:ring-4 focus:ring-[#e8e2ff]",
-                busy && "opacity-60 cursor-not-allowed"
+            <form onSubmit={submit} className="mt-6 space-y-4 text-xs">
+              {signup && (
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300">Full Name</label>
+                  <input
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="e.g. Heet Patel"
+                    className="input-clean mt-1"
+                  />
+                </div>
               )}
-            >
-              {busy
-                ? "Signing in…"
-                : signup
-                ? "Create Workspace Account"
-                : mode === "verify-email"
-                ? "Resend Email"
-                : "Sign In to Workspace"}
-              <ArrowRight size={14} />
-            </button>
-          </form>
 
-          <div className="mt-5 flex items-center justify-center gap-2 text-[11px] text-[#718098]">
-            <ShieldCheck size={15} /> Your credentials and session tokens are encrypted and secured.
+              {signup && (
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300">Workspace / Agency Name</label>
+                  <input
+                    value={workspaceName}
+                    onChange={(e) => setWorkspaceName(e.target.value)}
+                    placeholder="e.g. Growth Marketing Labs"
+                    className="input-clean mt-1"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300">Work Email</label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@company.com"
+                  className="input-clean mt-1 font-mono"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="font-medium text-zinc-700 dark:text-zinc-300">Password</label>
+                </div>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="input-clean mt-1 font-mono"
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="btn-primary w-full py-2.5"
+                >
+                  {busy ? "Signing in…" : signup ? "Create Account" : "Sign In"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </div>
     </div>
   );
 }
-

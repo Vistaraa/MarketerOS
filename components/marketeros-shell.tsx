@@ -1,41 +1,206 @@
 "use client";
 
-import { Bell, CalendarDays, ChevronDown, ChevronLeft, CircleHelp, FileBarChart, Globe2, LayoutDashboard, LogOut, Menu, MoreHorizontal, Network, PenLine, Search, Settings2, Sparkles, Target, User as UserIcon, Users, X } from "lucide-react";
+import {
+  ArrowRight,
+  Bell,
+  Calendar,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  CircleHelp,
+  Command,
+  FileBarChart,
+  Globe2,
+  HelpCircle,
+  Keyboard,
+  Layers,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Moon,
+  MoreHorizontal,
+  Network,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PenLine,
+  Plus,
+  Rocket,
+  Search,
+  Settings2,
+  Shield,
+  Sparkles,
+  Sun,
+  Target,
+  User as UserIcon,
+  Users,
+  X,
+  Zap
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { ProductLogo } from "@/components/marketeros-icons";
 
-const navItems = [
-  ["Overview", "/overview", LayoutDashboard],
-  ["Dashboard", "/dashboard", LayoutDashboard],
-  ["Campaigns", "/campaigns", Target],
-  ["Analytics", "/analytics", FileBarChart],
-  ["AI Insights", "/ai-insights", Sparkles],
-  ["Reports", "/reports", FileBarChart],
-  ["Integrations", "/integrations", Network],
-  ["Content Studio", "/content-studio", PenLine],
-  ["Social Media", "/social-media", Globe2],
-  ["Ad Manager", "/ad-manager", Target],
-  ["Leads", "/leads", Users]
+// Navigation Groups
+const mainNavItems = [
+  { label: "Overview", href: "/", icon: LayoutDashboard },
+  { label: "Campaigns", href: "/campaigns", icon: Target },
+  { label: "Integrations", href: "/integrations", icon: Network },
+  { label: "Leads", href: "/leads", icon: Users, badge: "New" },
+  { label: "Analytics", href: "/analytics", icon: FileBarChart },
+  { label: "Reports", href: "/reports", icon: FileBarChart }
 ] as const;
-const manageItems = [["Clients", "/clients", Users], ["Team", "/team", Users], ["Billing", "/billing", FileBarChart], ["Settings", "/settings", Settings2]] as const;
 
-function activeFor(pathname: string, href: string) {
-  if (href === "/overview" || href === "/dashboard") return pathname === href || (pathname === "/" && href === "/overview");
+const workspaceNavItems = [
+  { label: "Content Studio", href: "/content-studio", icon: PenLine },
+  { label: "Automation", href: "/automation", icon: Zap },
+  { label: "Clients", href: "/clients", icon: Users },
+  { label: "Team", href: "/team", icon: Shield }
+] as const;
+
+const systemNavItems = [
+  { label: "Settings", href: "/settings", icon: Settings2 },
+  { label: "Billing", href: "/billing", icon: FileBarChart }
+] as const;
+
+function isRouteActive(pathname: string, href: string) {
+  if (href === "/") return pathname === "/" || pathname === "/overview" || pathname === "/dashboard";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+/* =========================================================================
+   COMMAND PALETTE (Cmd+K / Ctrl+K)
+   ========================================================================= */
+export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+
+  const allItems = useMemo(
+    () => [
+      { category: "Navigation", label: "Dashboard / Overview", href: "/", icon: LayoutDashboard },
+      { category: "Navigation", label: "Campaigns Management", href: "/campaigns", icon: Target },
+      { category: "Navigation", label: "Create New Campaign", href: "/campaigns/create", icon: Plus },
+      { category: "Navigation", label: "Platform Integrations", href: "/integrations", icon: Network },
+      { category: "Navigation", label: "Leads Pipeline", href: "/leads", icon: Users },
+      { category: "Navigation", label: "Analytics Overview", href: "/analytics", icon: FileBarChart },
+      { category: "Navigation", label: "Marketing Reports", href: "/reports", icon: FileBarChart },
+      { category: "Navigation", label: "Workspace Settings", href: "/settings", icon: Settings2 },
+      { category: "Navigation", label: "Billing & Plans", href: "/billing", icon: FileBarChart },
+      { category: "Actions", label: "Launch Multi-Channel Campaign", href: "/campaigns/create", icon: Rocket },
+      { category: "Actions", label: "Connect Ad Accounts", href: "/integrations", icon: Network }
+    ],
+    []
+  );
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return allItems;
+    return allItems.filter(
+      (item) =>
+        item.label.toLowerCase().includes(query.toLowerCase()) ||
+        item.category.toLowerCase().includes(query.toLowerCase())
+    );
+  }, [allItems, query]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        onClose();
+      }
+      if (e.key === "Escape" && open) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-20 backdrop-blur-xs sm:p-6 sm:pt-28">
+      <div
+        className="w-full max-w-xl overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl transition-all dark:border-zinc-800 dark:bg-zinc-900"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Search Input */}
+        <div className="flex items-center border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
+          <Search size={16} className="text-zinc-400" />
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Type a command or search pages…"
+            className="ml-3 flex-1 text-xs font-medium text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100"
+          />
+          <kbd className="hidden rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-mono text-zinc-500 sm:inline-block dark:border-zinc-700 dark:bg-zinc-800">
+            ESC
+          </kbd>
+        </div>
+
+        {/* Results List */}
+        <div className="max-h-80 overflow-y-auto p-2 text-xs">
+          {filtered.length === 0 ? (
+            <div className="p-8 text-center text-zinc-400">No matching commands or pages found.</div>
+          ) : (
+            <div className="space-y-0.5">
+              {filtered.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={`${item.category}-${item.href}-${item.label}`}
+                    onClick={() => {
+                      router.push(item.href);
+                      onClose();
+                    }}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="grid h-6 w-6 place-items-center rounded bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                        <Icon size={14} />
+                      </div>
+                      <span className="font-medium text-xs">{item.label}</span>
+                    </div>
+                    <span className="text-[10px] text-zinc-400">{item.category}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="fixed inset-0 -z-10" onClick={onClose} />
+    </div>
+  );
+}
+
+/* =========================================================================
+   MODERN COLLAPSIBLE SIDEBAR (Midday Style)
+   ========================================================================= */
+export function ModernSidebar({
+  collapsed,
+  onToggleCollapse,
+  mobileOpen,
+  onMobileClose,
+  onOpenCommand
+}: {
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
+  onOpenCommand: () => void;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const [session, setSession] = useState<{ user?: { name?: string; email?: string; role?: string } } | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/session")
-      .then((response) => response.json())
-      .then((payload: { data?: { user?: { name?: string; email?: string; role?: string } } }) => setSession(payload.data || null))
+      .then((res) => res.json())
+      .then((payload: { data?: { user?: { name?: string; email?: string; role?: string } } }) =>
+        setSession(payload.data || null)
+      )
       .catch(() => setSession(null));
   }, []);
 
@@ -48,380 +213,467 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
     }
   };
 
-  const links = (items: readonly (readonly [string, string, LucideIcon])[]) => items.map(([label, href, Icon]) => (
-    <button
-      key={href}
-      onClick={() => { router.push(href); onClose(); }}
-      className={cn(
-        "group flex w-full items-center gap-3 rounded-[9px] px-3 py-2.5 text-left text-[13px] font-semibold transition",
-        activeFor(pathname, href)
-          ? "bg-gradient-to-r from-[#7543ed] to-[#5b39dc] text-white shadow-[0_8px_20px_rgba(92,57,220,.25)]"
-          : "text-[#c0c8d9] hover:bg-white/[.08] hover:text-white"
-      )}
-    >
-      <Icon size={17} className={cn(activeFor(pathname, href) ? "text-white" : "text-[#b7c1d5]")} />
-      <span>{label}</span>
-      {label === "Leads" && <span className="ml-auto rounded-full bg-[#6950e9] px-1.5 py-0.5 text-[9px] font-bold text-white">New</span>}
-    </button>
-  ));
+  const renderNavSection = (items: readonly { label: string; href: string; icon: LucideIcon; badge?: string }[]) => (
+    <div className="space-y-0.5">
+      {items.map(({ label, href, icon: Icon, badge }) => {
+        const active = isRouteActive(pathname, href);
+        return (
+          <button
+            key={href}
+            onClick={() => {
+              router.push(href);
+              onMobileClose();
+            }}
+            title={collapsed ? label : undefined}
+            className={cn(
+              "group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs transition-all",
+              active
+                ? "bg-zinc-100 font-semibold text-zinc-900 dark:bg-zinc-800/80 dark:text-zinc-100"
+                : "font-medium text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
+            )}
+          >
+            <Icon
+              size={16}
+              className={cn("shrink-0 transition-colors", active ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300")}
+            />
+            {!collapsed && (
+              <>
+                <span className="truncate">{label}</span>
+                {badge && (
+                  <span className="ml-auto rounded bg-zinc-200/80 px-1 py-0.2 text-[9px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                    {badge}
+                  </span>
+                )}
+              </>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
 
-  const initials = (session?.user?.name || "U")
+  const initials = (session?.user?.name || "HM")
     .split(" ")
-    .map((part) => part[0])
+    .map((p) => p[0])
     .join("")
     .slice(0, 2);
 
   return (
     <>
-      <aside className={cn("fixed inset-y-0 left-0 z-40 flex w-[212px] flex-col bg-[#08152e] px-4 py-5 transition-transform lg:static lg:translate-x-0", open ? "translate-x-0" : "-translate-x-full")}>
-        <div className="flex items-center justify-between px-1">
-          <ProductLogo />
-          <button aria-label="Close navigation" onClick={onClose} className="rounded-lg p-1 text-[#9ca8bd] hover:bg-white/10 lg:hidden">
-            <X size={18} />
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 flex h-screen shrink-0 flex-col border-r border-zinc-200/80 bg-white p-3 text-zinc-900 transition-all duration-300 ease-in-out dark:border-zinc-800 dark:bg-zinc-950 lg:sticky lg:top-0 lg:translate-x-0",
+          collapsed ? "w-[64px]" : "w-[220px]",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {/* Workspace Switcher Header */}
+        <div className="flex items-center justify-between px-1 py-1">
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-zinc-900 font-bold text-white text-xs dark:bg-zinc-100 dark:text-zinc-900">
+              M
+            </div>
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-bold text-zinc-900 dark:text-zinc-100">MarketerOS</div>
+                <div className="flex items-center gap-1 text-[10px] text-zinc-400">
+                  <span className="font-mono">PRO</span>
+                  <span>·</span>
+                  <span className="truncate">Workspace</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={onMobileClose}
+            className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 lg:hidden dark:hover:bg-zinc-800"
+          >
+            <X size={16} />
           </button>
         </div>
-        <div className="mt-7 flex-1 overflow-y-auto pr-0.5 [scrollbar-width:none]">
-          <nav className="space-y-1">{links(navItems)}</nav>
-          <div className="my-5 border-t border-white/10" />
-          <nav className="space-y-1">{links(manageItems)}</nav>
-        </div>
-        <div className="mt-4 rounded-xl border border-white/10 bg-[#102143] p-3 text-center">
-          <div className="text-[12px] font-semibold text-white">Subscription</div>
-          <button onClick={() => router.push("/billing")} className="mt-3 w-full rounded-lg bg-gradient-to-r from-[#6b35ee] to-[#7b44f3] py-2 text-[11px] font-bold text-white hover:brightness-105">
-            Manage Billing
+
+        {/* Command Search Trigger Button */}
+        <div className="mt-3">
+          <button
+            onClick={onOpenCommand}
+            className={cn(
+              "flex w-full items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50/70 p-1.5 text-xs text-zinc-500 transition hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/60 dark:hover:border-zinc-700",
+              collapsed ? "justify-center" : "justify-between px-2.5"
+            )}
+            title="Quick Search (⌘K)"
+          >
+            <div className="flex items-center gap-2">
+              <Search size={13} className="shrink-0 text-zinc-400" />
+              {!collapsed && <span className="text-[11px]">Search…</span>}
+            </div>
+            {!collapsed && (
+              <kbd className="rounded border border-zinc-200 bg-white px-1 py-0.2 text-[9px] font-mono text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800">⌘K</kbd>
+            )}
           </button>
         </div>
-        <div className="mt-3 rounded-xl border border-white/10 bg-white/[.04] p-2.5">
-          <div className="flex items-center gap-2.5">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#d9e4f8] text-[10px] font-extrabold text-[#344c75]">
+
+        {/* Navigation Sections */}
+        <div className="mt-4 flex-1 space-y-4 overflow-y-auto [scrollbar-width:none]">
+          <div>
+            {!collapsed && (
+              <div className="mb-1.5 px-2 text-[10px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                Main
+              </div>
+            )}
+            {renderNavSection(mainNavItems)}
+          </div>
+
+          <div>
+            {!collapsed && (
+              <div className="mb-1.5 px-2 text-[10px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                Workspace
+              </div>
+            )}
+            {renderNavSection(workspaceNavItems)}
+          </div>
+
+          <div>
+            {!collapsed && (
+              <div className="mb-1.5 px-2 text-[10px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                Settings
+              </div>
+            )}
+            {renderNavSection(systemNavItems)}
+          </div>
+        </div>
+
+        {/* Footer: User Profile & Collapse Button */}
+        <div className="mt-auto space-y-1.5 border-t border-zinc-200/80 pt-3 dark:border-zinc-800">
+          {/* User profile card */}
+          <div
+            className={cn(
+              "flex items-center rounded-lg p-1.5 text-xs transition hover:bg-zinc-50 dark:hover:bg-zinc-900",
+              collapsed ? "justify-center" : "gap-2"
+            )}
+          >
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-zinc-200 font-bold text-zinc-800 text-[10px] dark:bg-zinc-800 dark:text-zinc-200">
               {initials}
             </span>
-            <div className="min-w-0 flex-1">
-              <span className="block truncate text-xs font-bold text-white">
-                {session?.user?.name || "Rohan Mehta"}
-              </span>
-              <span className="block truncate text-[10px] text-[#aab6cb]">
-                {session?.user?.role || session?.user?.email || "Agency Admin"}
-              </span>
-            </div>
-            <button
-              onClick={handleLogout}
-              title="Log out"
-              className="rounded-md p-1.5 text-[#aab6cb] hover:bg-white/10 hover:text-[#ff7882]"
-            >
-              <LogOut size={14} />
-            </button>
-          </div>
-        </div>
-      </aside>
-      {open && <button aria-label="Close navigation overlay" onClick={onClose} className="fixed inset-0 z-30 bg-[#09152d]/55 lg:hidden" />}
-    </>
-  );
-}
-
-export function Topbar({ title, action, breadcrumb = true }: { title: string; action?: React.ReactNode; breadcrumb?: boolean }) {
-  const router = useRouter();
-  const [search, setSearch] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [navOpen, setNavOpen] = useState(false);
-  return (
-    <>
-      <header className="sticky top-0 z-20 flex min-h-[70px] items-center justify-between border-b border-[#e8eaf0] bg-white/95 px-4 backdrop-blur md:px-7">
-        <div className="flex min-w-0 items-center gap-3">
-          <button aria-label="Open navigation" onClick={() => setNavOpen(true)} className="rounded-lg p-2 text-[#4e5b73] hover:bg-[#f4f5f9] lg:hidden">
-            <Menu size={19} />
-          </button>
-          {breadcrumb ? (
-            <div className="hidden items-center gap-2 text-sm md:flex">
-              <span className="text-[#7e8a9f]">Home</span>
-              <ChevronLeft size={14} className="rotate-180 text-[#b0b8c6]" />
-              <span className="font-bold text-[#111a2e]">{title}</span>
-            </div>
-          ) : (
-            <div className="text-xl font-extrabold tracking-[-.05em] text-[#10192d] md:text-[22px]">{title}</div>
-          )}
-          <div className="truncate text-sm font-bold text-[#10192d] md:hidden">{title}</div>
-        </div>
-        <div className="flex items-center gap-2 md:gap-3">
-          <div className="relative hidden w-[245px] xl:block">
-            <Search size={15} className="absolute left-3 top-2.5 text-[#8591a6]" />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search anything..."
-              className="h-9 w-full rounded-lg border border-[#e3e6ed] bg-white pl-9 pr-8 text-xs outline-none focus:border-[#a594f6] focus:ring-4 focus:ring-[#f0edff]"
-            />
-            {search && (
-              <button aria-label="Clear search" onClick={() => setSearch("")} className="absolute right-2 top-2 text-[#8791a4]">
-                <X size={14} />
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <span className="block truncate font-semibold text-zinc-900 text-xs dark:text-zinc-100">
+                  {session?.user?.name || "Heet Patel"}
+                </span>
+                <span className="block truncate text-[10px] text-zinc-400">
+                  {session?.user?.email || "Owner"}
+                </span>
+              </div>
+            )}
+            {!collapsed && (
+              <button
+                onClick={handleLogout}
+                title="Log out"
+                className="rounded p-1 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+              >
+                <LogOut size={13} />
               </button>
             )}
           </div>
-          <button className="hidden h-9 items-center gap-2 rounded-lg border border-[#e0e4eb] bg-white px-3 text-xs font-bold text-[#34415b] sm:flex">
-            <CalendarDays size={14} />May 1 – May 31, 2024<ChevronDown size={13} />
-          </button>
-          <button aria-label="Help" className="hidden rounded-lg border border-[#e0e4eb] p-2 text-[#526079] sm:block">
-            <CircleHelp size={17} />
-          </button>
-          <div className="relative">
-            <button aria-label="Notifications" onClick={() => setMenuOpen((value) => !value)} className="relative rounded-lg border border-[#e0e4eb] p-2 text-[#526079]">
-              <Bell size={17} />
-              <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-[#ef4b57] text-[9px] font-bold text-white">3</span>
-            </button>
-            {menuOpen && (
-              <div className="absolute right-0 top-11 z-30 w-72 rounded-xl border border-[#e3e6ed] bg-white p-3 shadow-[0_12px_35px_rgba(16,25,45,.14)]">
-                <div className="flex items-center justify-between px-2">
-                  <span className="text-sm font-bold text-[#111a2e]">Notifications</span>
-                  <span className="text-[10px] text-[#6940e8]">Mark all read</span>
-                </div>
-                <div className="mt-2 space-y-1">
-                  <div className="rounded-lg bg-[#f5f1ff] p-3 text-xs font-semibold">Google Ads ROAS improved by 16.7%</div>
-                  <div className="rounded-lg p-3 text-xs font-semibold hover:bg-[#f7f8fb]">TikTok integration is ready to connect</div>
-                </div>
-              </div>
+
+          {/* Desktop Collapse Toggle */}
+          <button
+            onClick={onToggleCollapse}
+            className={cn(
+              "hidden w-full items-center gap-2 rounded-lg border border-zinc-200/80 p-1.5 text-xs text-zinc-500 transition hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-800 dark:hover:bg-zinc-900 lg:flex",
+              collapsed ? "justify-center" : "justify-between px-2.5"
             )}
-          </div>
-          {action}
+            title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {!collapsed && <span className="text-[11px] font-medium">Collapse</span>}
+            {collapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+          </button>
         </div>
-      </header>
-      {navOpen && <div className="lg:hidden"><Sidebar open={navOpen} onClose={() => setNavOpen(false)} /></div>}
+      </aside>
+
+      {mobileOpen && (
+        <div
+          onClick={onMobileClose}
+          className="fixed inset-0 z-30 bg-black/30 backdrop-blur-2xs lg:hidden"
+        />
+      )}
     </>
   );
 }
 
-function OverviewAwareTopbar({ title, action, breadcrumb = true }: { title: string; action?: React.ReactNode; breadcrumb?: boolean }) {
+/* =========================================================================
+   MODERN TOPBAR & COMMAND BAR
+   ========================================================================= */
+export function ModernTopbar({
+  title,
+  action,
+  onOpenCommand,
+  onMobileMenuOpen
+}: {
+  title: string;
+  action?: React.ReactNode;
+  onOpenCommand: () => void;
+  onMobileMenuOpen: () => void;
+}) {
   const router = useRouter();
-  const pathname = usePathname();
-  const [search, setSearch] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [results, setResults] = useState<{ type: string; name: string; href: string }[]>([]);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-  const [navOpen, setNavOpen] = useState(false);
-  const [notifications, setNotifications] = useState<{ id: string; title: string; message: string; link?: string; read?: boolean }[]>([]);
-  const [session, setSession] = useState<{ user?: { name?: string; email?: string; role?: string } } | null>(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    if (!search.trim()) { setResults([]); return; }
-    const timer = window.setTimeout(() => {
-      fetch(`/api/v1/search?search=${encodeURIComponent(search.trim())}`)
-        .then((response) => response.json())
-        .then((payload: { data?: { items?: { type: string; name: string; href: string }[] } }) => setResults(payload.data?.items || []))
-        .catch(() => setResults([]));
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [search]);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    fetch("/api/v1/notifications")
-      .then((response) => response.json())
-      .then((payload: { data?: { items?: { id: string; title: string; message: string; link?: string; read?: boolean }[] } }) => setNotifications(payload.data?.items || []))
-      .catch(() => setNotifications([]));
-  }, [menuOpen]);
-
-  useEffect(() => {
-    fetch("/api/auth/session")
-      .then((response) => response.json())
-      .then((payload: { data?: { user?: { name?: string; email?: string; role?: string } } }) => setSession(payload.data || null))
-      .catch(() => setSession(null));
+    const isDarkMode =
+      localStorage.theme === "dark" ||
+      (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    setIsDark(isDarkMode);
+    if (isDarkMode) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-    } finally {
-      router.push("/auth/login");
-      router.refresh();
+  const toggleTheme = () => {
+    if (isDark) {
+      document.documentElement.classList.remove("dark");
+      localStorage.theme = "light";
+      setIsDark(false);
+    } else {
+      document.documentElement.classList.add("dark");
+      localStorage.theme = "dark";
+      setIsDark(true);
     }
   };
 
-  const submitSearch = () => {
-    if (results[0]) router.push(results[0].href);
-    else if (search.trim()) router.push(`/search?q=${encodeURIComponent(search.trim())}`);
-    setSearchOpen(false);
-  };
-
-  const initials = (session?.user?.name || "U")
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2);
-
   return (
-    <>
-      <header className="sticky top-0 z-20 flex min-h-[70px] items-center justify-between border-b border-[#e8eaf0] bg-white/95 px-4 backdrop-blur md:px-7">
-        <div className="flex min-w-0 items-center gap-3">
-          <button aria-label="Open navigation" onClick={() => setNavOpen(true)} className="rounded-lg p-2 text-[#4e5b73] hover:bg-[#f4f5f9] lg:hidden">
-            <Menu size={19} />
+    <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-zinc-200/80 bg-white/95 px-4 backdrop-blur-sm sm:px-6 dark:border-zinc-800 dark:bg-zinc-950/95">
+      {/* Left: Mobile menu & Breadcrumbs */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onMobileMenuOpen}
+          className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 lg:hidden dark:hover:bg-zinc-800"
+        >
+          <Menu size={16} />
+        </button>
+
+        <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+          <span className="hover:text-zinc-900 cursor-pointer transition dark:hover:text-zinc-100" onClick={() => router.push("/")}>
+            Dashboard
+          </span>
+          <ChevronRight size={12} className="text-zinc-300 dark:text-zinc-600" />
+          <span className="font-semibold text-zinc-900 dark:text-zinc-100">{title}</span>
+        </div>
+      </div>
+
+      {/* Right: Quick actions, Date selector, Theme Switcher, Notifications */}
+      <div className="flex items-center gap-2">
+        {/* Date Selector Pill */}
+        <button className="hidden h-7 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-600 shadow-sm hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 md:flex">
+          <Calendar size={12} className="text-zinc-400" />
+          <span>Last 30 Days</span>
+        </button>
+
+        {/* Dark / Light Mode Toggle Button */}
+        <button
+          onClick={toggleTheme}
+          title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          className="relative grid h-7 w-7 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-600 shadow-sm hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        >
+          {isDark ? <Sun size={13} /> : <Moon size={13} />}
+        </button>
+
+        {/* Notification Bell */}
+        <div className="relative">
+          <button
+            onClick={() => setNotificationsOpen((prev) => !prev)}
+            className="relative grid h-7 w-7 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-600 shadow-sm hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+          >
+            <Bell size={13} />
+            <span className="absolute -right-0.5 -top-0.5 grid h-3 w-3 place-items-center rounded-full bg-zinc-900 text-[7px] font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
+              2
+            </span>
           </button>
-          {breadcrumb ? (
-            <div className="hidden items-center gap-2 text-sm md:flex">
-              <span className="text-[#7e8a9f]">Home</span>
-              <ChevronLeft size={14} className="rotate-180 text-[#b0b8c6]" />
-              <span className="font-bold text-[#111a2e]">{title}</span>
+
+          {notificationsOpen && (
+            <div className="absolute right-0 top-9 z-30 w-72 rounded-xl border border-zinc-200 bg-white p-3 shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
+              <div className="flex items-center justify-between border-b border-zinc-100 pb-2 dark:border-zinc-800">
+                <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Notifications</span>
+                <span className="text-[10px] font-medium text-zinc-500 cursor-pointer hover:underline">Mark all read</span>
+              </div>
+              <div className="mt-2 space-y-1 text-xs">
+                <div className="rounded-lg bg-zinc-50 p-2 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                  Google Ads campaign synced successfully.
+                </div>
+                <div className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800">
+                  Instagram API token refreshed.
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="text-xl font-extrabold tracking-[-.05em] text-[#10192d] md:text-[22px]">{title}</div>
           )}
-          <div className="truncate text-sm font-bold text-[#10192d] md:hidden">{title}</div>
         </div>
-        <div className="flex items-center gap-2 md:gap-3">
-          <div className="relative hidden w-[245px] xl:block">
-            <Search size={15} className="absolute left-3 top-2.5 text-[#8591a6]" />
-            <input
-              value={search}
-              onFocus={() => setSearchOpen(true)}
-              onChange={(event) => { setSearch(event.target.value); setSearchOpen(true); }}
-              onKeyDown={(event) => { if (event.key === "Enter") submitSearch(); }}
-              placeholder="Search anything..."
-              className="h-9 w-full rounded-lg border border-[#e3e6ed] bg-white pl-9 pr-8 text-xs outline-none focus:border-[#a594f6] focus:ring-4 focus:ring-[#f0edff]"
-            />
-            {search && (
-              <button aria-label="Clear search" onClick={() => setSearch("")} className="absolute right-2 top-2 text-[#8791a4]">
-                <X size={14} />
-              </button>
-            )}
-            {searchOpen && search.trim() && (
-              <div className="absolute left-0 right-0 top-11 z-30 rounded-xl border border-[#e3e6ed] bg-white p-2 shadow-[0_12px_35px_rgba(16,25,45,.14)]">
-                {results.length ? (
-                  results.slice(0, 5).map((result) => (
-                    <button key={`${result.type}-${result.href}`} onClick={() => { router.push(result.href); setSearchOpen(false); }} className="flex w-full items-center gap-2 rounded-lg p-2 text-left hover:bg-[#f7f8fb]">
-                      <span className="rounded bg-[#f0eaff] px-1.5 py-1 text-[9px] font-bold text-[#6940e8]">{result.type}</span>
-                      <span className="truncate text-xs font-semibold text-[#24324b]">{result.name}</span>
-                    </button>
-                  ))
-                ) : (
-                  <div className="p-2 text-xs text-[#8490a4]">No results yet. Press Enter to view search.</div>
-                )}
-              </div>
-            )}
-          </div>
-          <button onClick={() => router.push(pathname.startsWith("/overview") ? "/overview#overview-filters" : "/overview")} className="hidden h-9 items-center gap-2 rounded-lg border border-[#e0e4eb] bg-white px-3 text-xs font-bold text-[#34415b] sm:flex">
-            <CalendarDays size={14} />Date range<ChevronDown size={13} />
-          </button>
-          <button aria-label="Help" onClick={() => router.push("/settings")} className="hidden rounded-lg border border-[#e0e4eb] p-2 text-[#526079] sm:block">
-            <CircleHelp size={17} />
-          </button>
-          <div className="relative">
-            <button aria-label="Notifications" onClick={() => setMenuOpen((value) => !value)} className="relative rounded-lg border border-[#e0e4eb] p-2 text-[#526079]">
-              <Bell size={17} />
-              <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-[#ef4b57] text-[9px] font-bold text-white">
-                {notifications.filter((item) => !item.read).length}
-              </span>
-            </button>
-            {menuOpen && (
-              <div className="absolute right-0 top-11 z-30 w-72 rounded-xl border border-[#e3e6ed] bg-white p-3 shadow-[0_12px_35px_rgba(16,25,45,.14)]">
-                <div className="flex items-center justify-between px-2">
-                  <span className="text-sm font-bold text-[#111a2e]">Notifications</span>
-                  <button onClick={() => router.push("/notifications")} className="text-[10px] font-bold text-[#6940e8]">View all</button>
-                </div>
-                <div className="mt-2 space-y-1">
-                  {notifications.length ? (
-                    notifications.map((notification) => (
-                      <button key={notification.id} onClick={() => notification.link && router.push(notification.link)} className="w-full rounded-lg p-3 text-left text-xs font-semibold hover:bg-[#f7f8fb]">
-                        {notification.title}
-                        <span className="mt-1 block text-[10px] font-normal text-[#8490a4]">{notification.message}</span>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="p-3 text-xs text-[#8490a4]">No notifications yet.</div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-          {action}
 
-          {/* User Profile Menu */}
-          <div className="relative hidden md:block">
-            <button
-              onClick={() => setUserDropdownOpen((val) => !val)}
-              className="flex items-center gap-2 border-l border-[#e5e8ef] pl-3 text-left hover:opacity-80"
-            >
-              <span className="grid h-8 w-8 place-items-center rounded-full bg-[#d9e4f8] text-[10px] font-extrabold text-[#344c75]">
-                {initials}
-              </span>
-              <span>
-                <span className="block text-xs font-bold text-[#111a2e]">
-                  {session?.user?.name || "Rohan Mehta"}
-                </span>
-                <span className="block text-[10px] text-[#7f8ba0]">
-                  {session?.user?.role || session?.user?.email || "Agency Admin"}
-                </span>
-              </span>
-              <ChevronDown size={14} className="text-[#748198]" />
-            </button>
-
-            {userDropdownOpen && (
-              <div className="absolute right-0 top-11 z-30 w-56 rounded-xl border border-[#e3e6ed] bg-white p-2 shadow-[0_12px_35px_rgba(16,25,45,.14)]">
-                <div className="border-b border-[#edf0f4] px-3 py-2">
-                  <p className="text-xs font-bold text-[#111a2e]">{session?.user?.name || "Rohan Mehta"}</p>
-                  <p className="text-[10px] text-[#7f8ba0]">{session?.user?.email || "rohan@acme.com"}</p>
-                  <span className="mt-1 inline-block rounded bg-[#f0eaff] px-1.5 py-0.5 text-[9px] font-bold text-[#6940e8]">
-                    {session?.user?.role || "OWNER"}
-                  </span>
-                </div>
-                <div className="mt-1 space-y-0.5">
-                  <button
-                    onClick={() => { router.push("/settings"); setUserDropdownOpen(false); }}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-[#404e68] hover:bg-[#f7f8fb]"
-                  >
-                    <Settings2 size={14} /> Workspace Settings
-                  </button>
-                  <button
-                    onClick={() => { router.push("/team"); setUserDropdownOpen(false); }}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-[#404e68] hover:bg-[#f7f8fb]"
-                  >
-                    <Users size={14} /> Team & Roles
-                  </button>
-                  <button
-                    onClick={() => { router.push("/billing"); setUserDropdownOpen(false); }}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-[#404e68] hover:bg-[#f7f8fb]"
-                  >
-                    <FileBarChart size={14} /> Billing & Plans
-                  </button>
-                </div>
-                <div className="mt-1 border-t border-[#edf0f4] pt-1">
-                  <button
-                    onClick={handleLogout}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-[#eb505c] hover:bg-[#fff5f5]"
-                  >
-                    <LogOut size={14} /> Sign Out
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-      {navOpen && <div className="lg:hidden"><Sidebar open={navOpen} onClose={() => setNavOpen(false)} /></div>}
-    </>
+        {/* Page Primary Action Button */}
+        {action}
+      </div>
+    </header>
   );
 }
 
-export function AppShell({ children, title, action, breadcrumb = true }: { children: React.ReactNode; title: string; action?: React.ReactNode; breadcrumb?: boolean }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  return <div className="flex min-h-screen bg-[#fafbfe]"><Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} /><div className="min-w-0 flex-1"><OverviewAwareTopbar title={title} action={action} breadcrumb={breadcrumb} /><main className="mx-auto max-w-[1536px] px-4 py-5 sm:px-6 lg:px-7 xl:px-5">{children}</main></div></div>;
+/* =========================================================================
+   UNIFIED APP SHELL
+   ========================================================================= */
+export function AppShell({
+  children,
+  title = "Overview",
+  action
+}: {
+  children: React.ReactNode;
+  title?: string;
+  action?: React.ReactNode;
+  breadcrumb?: boolean;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
+
+  // Global Keyboard shortcut (Cmd+K / Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setCommandOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  return (
+    <div className="flex h-screen w-full overflow-hidden bg-[#fafafa] text-zinc-900 antialiased font-sans dark:bg-zinc-950 dark:text-zinc-100">
+      <ModernSidebar
+        collapsed={collapsed}
+        onToggleCollapse={() => setCollapsed((prev) => !prev)}
+        mobileOpen={mobileOpen}
+        onMobileClose={() => setMobileOpen(false)}
+        onOpenCommand={() => setCommandOpen(true)}
+      />
+
+      <div className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
+        <ModernTopbar
+          title={title}
+          action={action}
+          onOpenCommand={() => setCommandOpen(true)}
+          onMobileMenuOpen={() => setMobileOpen(true)}
+        />
+
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          <div className="mx-auto max-w-7xl pb-16">{children}</div>
+        </main>
+      </div>
+
+      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
+    </div>
+  );
 }
 
-export function PageHeading({ title, description, action }: { title: string; description?: string; action?: React.ReactNode }) {
-  return <div className="mb-5 flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-[26px] font-extrabold tracking-[-.055em] text-[#10192d] sm:text-[28px]">{title}</h1>{description && <p className="mt-1 text-[13px] text-[#69758c]">{description}</p>}</div>{action}</div>;
+/* =========================================================================
+   REUSABLE UI PRIMITIVES & COMPONENTS
+   ========================================================================= */
+export function Card({
+  children,
+  className,
+  flush = false
+}: {
+  children: React.ReactNode;
+  className?: string;
+  flush?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-zinc-200/90 bg-white shadow-2xs transition-all hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950/60 dark:hover:border-zinc-700",
+        flush ? "" : "p-5",
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
-export function Card({ children, className = "", flush = false }: { children: React.ReactNode; className?: string; flush?: boolean }) {
-  return <section className={cn("rounded-xl border border-[#e7eaf0] bg-white shadow-[0_2px_8px_rgba(18,29,54,.025)]", flush ? "overflow-hidden" : "p-4 sm:p-5", className)}>{children}</section>;
+export function PageHeading({
+  title,
+  description,
+  action
+}: {
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h1 className="text-xl font-bold tracking-tight text-zinc-900 sm:text-2xl dark:text-zinc-100">{title}</h1>
+        {description && <p className="mt-1 text-xs text-zinc-500 sm:text-sm dark:text-zinc-400">{description}</p>}
+      </div>
+      {action && <div>{action}</div>}
+    </div>
+  );
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  const success = ["Active", "Connected", "Published", "Converted", "Qualified", "Paid", "Ready"].includes(status);
-  const warning = ["Paused", "Scheduled", "Proposal sent", "Pending", "In review"].includes(status);
-  const info = ["Contacted", "Draft"].includes(status);
-  return <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold", success ? "bg-[#e6f8ee] text-[#14975f]" : warning ? "bg-[#fff3df] text-[#c87913]" : info ? "bg-[#e8f2ff] text-[#247dd0]" : "bg-[#f0f2f6] text-[#718097]")}><span className={cn("h-1.5 w-1.5 rounded-full", success ? "bg-[#21b26f]" : warning ? "bg-[#eea22a]" : info ? "bg-[#3e8de7]" : "bg-[#aab3c1]")} />{status}</span>;
+  const isOk = status === "Active" || status === "Connected" || status === "Ready";
+  const isPaused = status === "Paused" || status === "Needs attention" || status === "Draft";
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium tracking-tight",
+        isOk && "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400",
+        isPaused && "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
+        !isOk && !isPaused && "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+      )}
+    >
+      <span
+        className={cn(
+          "h-1.5 w-1.5 rounded-full",
+          isOk && "bg-emerald-500",
+          isPaused && "bg-amber-500",
+          !isOk && !isPaused && "bg-zinc-400"
+        )}
+      />
+      {status}
+    </span>
+  );
 }
 
-export function Tabs({ items, active, onChange }: { items: string[]; active: string; onChange?: (value: string) => void }) {
-  return <div className="flex gap-5 overflow-x-auto border-b border-[#e8ebf0] [scrollbar-width:none]">{items.map((item) => <button key={item} onClick={() => onChange?.(item)} className={cn("relative whitespace-nowrap pb-3 text-xs font-semibold", active === item ? "text-[#5f3bdb]" : "text-[#6d7890] hover:text-[#111a2e]")}>{item}{active === item && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-[#693fe5]" />}</button>)}</div>;
+export function Tabs({
+  items,
+  active,
+  onChange
+}: {
+  items: readonly string[];
+  active: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex gap-1 overflow-x-auto border-b border-zinc-200 dark:border-zinc-800">
+      {items.map((tab) => (
+        <button
+          key={tab}
+          onClick={() => onChange(tab)}
+          className={cn(
+            "border-b-2 px-3 pb-2.5 text-xs font-semibold transition-colors whitespace-nowrap",
+            active === tab
+              ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100"
+              : "border-transparent text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300"
+          )}
+        >
+          {tab}
+        </button>
+      ))}
+    </div>
+  );
 }
 
-export function Skeleton({ className = "" }: { className?: string }) { return <div className={cn("animate-pulse rounded-lg bg-[#eef0f5]", className)} />; }
+export function Skeleton({ className }: { className?: string }) {
+  return <div className={cn("animate-pulse rounded-md bg-zinc-100 dark:bg-zinc-800", className)} />;
+}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, Save } from "lucide-react";
 import { AppShell, Card, PageHeading } from "@/components/marketeros-shell";
 import type { ApiResponse } from "@/lib/api-contracts";
+import { cn } from "@/lib/utils";
 
 type Settings = {
   id: string;
@@ -72,165 +73,108 @@ export function LiveSettingsPage() {
     }
   }
 
-  if (!settings) {
-    return (
-      <AppShell title="Settings">
-        <Card>
-          <PageHeading title="Settings" description={error || "Loading workspace settings…"} />
-        </Card>
-      </AppShell>
-    );
-  }
-
   return (
     <AppShell title="Settings">
-      <PageHeading
-        title="Workspace & Brand Settings"
-        description="Manage your persisted brand profile, audience targets, and regional preferences."
-        action={
-          <button
-            onClick={save}
-            disabled={busy}
-            className="inline-flex h-9 items-center gap-2 rounded-lg bg-gradient-to-r from-[#6937e7] to-[#7445ed] px-4 text-xs font-bold text-white shadow hover:brightness-105"
-          >
-            <Save size={14} />
-            {busy ? "Saving…" : "Save changes"}
-          </button>
-        }
-      />
-
-      {error && <div className="mb-4 rounded-xl border border-[#f2c4c8] bg-[#fff8f8] p-3 text-xs text-[#b72e38]">{error}</div>}
-      {saved && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl border border-[#c8ecd9] bg-[#effbf5] p-3 text-xs font-bold text-[#148b5a]">
-          <Check size={16} /> Changes successfully saved to PostgreSQL database.
-        </div>
-      )}
-
       <div className="space-y-6">
-        {/* Brand Information */}
-        <Card>
-          <h3 className="mb-4 text-sm font-extrabold text-[#111a2e]">Brand & Company Profile</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label>
-              <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Brand / Workspace Name</span>
-              <input
-                value={settings.name || ""}
-                onChange={(e) => setSettings({ ...settings, name: e.target.value })}
-                className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 text-xs outline-none focus:border-[#7445ed]"
-              />
-            </label>
-            <label>
-              <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Website</span>
-              <input
-                value={settings.website || ""}
-                onChange={(e) => setSettings({ ...settings, website: e.target.value })}
-                placeholder="https://acmecorp.com"
-                className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 text-xs outline-none focus:border-[#7445ed]"
-              />
-            </label>
-            <label>
-              <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Industry</span>
-              <input
-                value={settings.industry || ""}
-                onChange={(e) => setSettings({ ...settings, industry: e.target.value })}
-                className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 text-xs outline-none focus:border-[#7445ed]"
-              />
-            </label>
-            <label>
-              <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Business Type</span>
-              <input
-                value={settings.businessType || ""}
-                onChange={(e) => setSettings({ ...settings, businessType: e.target.value })}
-                placeholder="B2B, B2C, D2C"
-                className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 text-xs outline-none focus:border-[#7445ed]"
-              />
-            </label>
-            <label className="sm:col-span-2">
-              <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Brand Description</span>
-              <textarea
-                value={settings.description || ""}
-                onChange={(e) => setSettings({ ...settings, description: e.target.value })}
-                className="h-20 w-full rounded-lg border border-[#dfe3eb] p-3 text-xs outline-none focus:border-[#7445ed]"
-              />
-            </label>
-          </div>
-        </Card>
+        <PageHeading
+          title="Workspace Settings"
+          description="Configure your business profile, default currency, and operational timezone."
+          action={
+            <button
+              onClick={save}
+              disabled={busy}
+              className="btn-primary"
+            >
+              {saved ? <Check size={14} /> : <Save size={14} />}
+              {saved ? "Saved" : busy ? "Saving…" : "Save Changes"}
+            </button>
+          }
+        />
 
-        {/* Regional & Financial Preferences */}
-        <Card>
-          <h3 className="mb-4 text-sm font-extrabold text-[#111a2e]">Regional & Budget Preferences</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label>
-              <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Country</span>
-              <input
-                value={settings.country || ""}
-                onChange={(e) => setSettings({ ...settings, country: e.target.value })}
-                className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 text-xs outline-none focus:border-[#7445ed]"
-              />
-            </label>
-            <label>
-              <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Currency Code</span>
-              <input
-                value={settings.currency || ""}
-                onChange={(e) => setSettings({ ...settings, currency: e.target.value })}
-                className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 text-xs outline-none focus:border-[#7445ed]"
-              />
-            </label>
-            <label>
-              <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Time Zone</span>
-              <input
-                value={settings.timezone || ""}
-                onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
-                className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 text-xs outline-none focus:border-[#7445ed]"
-              />
-            </label>
-            <label>
-              <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Monthly Marketing Budget ($)</span>
-              <input
-                value={String(settings.monthlyBudget || "")}
-                onChange={(e) => setSettings({ ...settings, monthlyBudget: e.target.value })}
-                placeholder="10000"
-                className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 text-xs outline-none focus:border-[#7445ed]"
-              />
-            </label>
+        {error && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400">
+            {error}
           </div>
-        </Card>
+        )}
 
-        {/* Target Audience Profile */}
-        <Card>
-          <h3 className="mb-4 text-sm font-extrabold text-[#111a2e]">Target Audience & Goals</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="sm:col-span-2">
-              <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Target Audience Persona</span>
-              <input
-                value={settings.targetAudience || ""}
-                onChange={(e) => setSettings({ ...settings, targetAudience: e.target.value })}
-                placeholder="e.g. Marketing leaders & digital consumers"
-                className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 text-xs outline-none focus:border-[#7445ed]"
-              />
-            </label>
-            <label>
-              <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Age Range</span>
-              <input
-                value={settings.targetAgeRange || ""}
-                onChange={(e) => setSettings({ ...settings, targetAgeRange: e.target.value })}
-                placeholder="25–44"
-                className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 text-xs outline-none focus:border-[#7445ed]"
-              />
-            </label>
-            <label>
-              <span className="mb-1.5 block text-xs font-bold text-[#28354d]">Geographies</span>
-              <input
-                value={settings.targetGeo || ""}
-                onChange={(e) => setSettings({ ...settings, targetGeo: e.target.value })}
-                placeholder="India, United States, UK"
-                className="h-10 w-full rounded-lg border border-[#dfe3eb] px-3 text-xs outline-none focus:border-[#7445ed]"
-              />
-            </label>
+        {saved && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-xs text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400">
+            Settings updated successfully.
           </div>
-        </Card>
+        )}
+
+        {settings && (
+          <div className="space-y-6 text-xs max-w-3xl">
+            {/* General Workspace Info */}
+            <div className="rounded-xl border border-zinc-200/90 bg-white p-6 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 space-y-4">
+              <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">General Information</h2>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300">Workspace Name</label>
+                  <input
+                    value={settings.name || ""}
+                    onChange={(e) => setSettings({ ...settings, name: e.target.value })}
+                    className="input-clean mt-1"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300">Company Website</label>
+                  <input
+                    value={settings.website || ""}
+                    onChange={(e) => setSettings({ ...settings, website: e.target.value })}
+                    placeholder="https://example.com"
+                    className="input-clean mt-1 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300">Industry</label>
+                  <input
+                    value={settings.industry || ""}
+                    onChange={(e) => setSettings({ ...settings, industry: e.target.value })}
+                    className="input-clean mt-1"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300">Default Currency</label>
+                  <select
+                    value={settings.currency}
+                    onChange={(e) => setSettings({ ...settings, currency: e.target.value })}
+                    className="input-clean mt-1"
+                  >
+                    <option value="USD">USD ($)</option>
+                    <option value="INR">INR (₹)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300">Timezone</label>
+                  <input
+                    value={settings.timezone}
+                    onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
+                    className="input-clean mt-1 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300">Monthly Ad Budget Cap ($)</label>
+                  <input
+                    type="number"
+                    value={settings.monthlyBudget || ""}
+                    onChange={(e) => setSettings({ ...settings, monthlyBudget: e.target.value })}
+                    className="input-clean mt-1 font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AppShell>
   );
 }
-
