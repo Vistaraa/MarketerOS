@@ -761,6 +761,20 @@ export function LiveIntegrationsPage() {
                     {isConnected ? (
                       <>
                         <button
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`/api/v1/integrations/${existing.id}/sync`, { method: "POST" });
+                              const json = await res.json();
+                              if (res.ok) alert("Sync queued! Background processing started.");
+                              else alert(json.error?.message || "Sync failed");
+                            } catch { alert("Sync failed"); }
+                          }}
+                          className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                        >
+                          <RefreshCw size={12} />
+                          Sync Now
+                        </button>
+                        <button
                           onClick={() => openConnectModal(platform, existing)}
                           className="rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
                         >
@@ -813,13 +827,15 @@ export function LiveIntegrationsPage() {
 
             <form onSubmit={handleConnect} className="p-6 space-y-4 text-xs">
               {error && (
-                <div className="rounded-lg border border-rose-200 bg-rose-50/70 p-3 text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400">
-                  {error}
+                <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50/70 p-3 text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400">
+                  <Shield size={14} className="mt-0.5 shrink-0" />
+                  <span className="text-xs">{error}</span>
                 </div>
               )}
               {successMsg && (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400">
-                  {successMsg}
+                <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400">
+                  <ShieldCheck size={14} className="mt-0.5 shrink-0" />
+                  <span className="text-xs">{successMsg}</span>
                 </div>
               )}
 

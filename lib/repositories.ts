@@ -1,6 +1,7 @@
 
 import { Prisma, CampaignObjective, CampaignStatus, CampaignType, LeadSource, LeadStatus, Platform } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { encryptSecret } from "@/lib/crypto";
 import type { Campaign, Integration, Insight, Lead, SocialPost } from "@/lib/types";
 
 const platformMap: Record<string, Platform> = {
@@ -154,34 +155,35 @@ export async function connectPersistedIntegrationCredentials(input: {
   accountId: string;
   apiKey?: string;
   metadata?: Record<string, unknown>;
+  verifiedName?: string;
 }) {
   const platformEnum = platformMap[input.platform] || Platform.GOOGLE_ADS;
   const existing = await prisma.integration.findFirst({
     where: { workspaceId: input.workspaceId, platform: platformEnum }
   });
 
+  const encryptedApiKey = input.apiKey ? encryptSecret(input.apiKey) : undefined;
+  const data: Record<string, unknown> = {
+    accountName: input.verifiedName || input.accountName,
+    accountId: input.accountId,
+    status: "CONNECTED",
+    errorMessage: null,
+    lastSyncedAt: new Date(),
+    metadata: (input.metadata || {}) as never
+  };
+  if (encryptedApiKey) data.apiKeyEncrypted = encryptedApiKey;
+
   if (existing) {
-    return prisma.integration.update({
-      where: { id: existing.id },
-      data: {
-        accountName: input.accountName,
-        accountId: input.accountId,
-        apiKey: input.apiKey,
-        status: "CONNECTED",
-        errorMessage: null,
-        lastSyncedAt: new Date(),
-        metadata: (input.metadata || {}) as never
-      }
-    });
+    return prisma.integration.update({ where: { id: existing.id }, data: data as never });
   }
 
   return prisma.integration.create({
     data: {
       workspaceId: input.workspaceId,
       platform: platformEnum,
-      accountName: input.accountName,
+      accountName: input.verifiedName || input.accountName,
       accountId: input.accountId,
-      apiKey: input.apiKey,
+      apiKeyEncrypted: encryptedApiKey || "",
       status: "CONNECTED",
       lastSyncedAt: new Date(),
       metadata: (input.metadata || {}) as never

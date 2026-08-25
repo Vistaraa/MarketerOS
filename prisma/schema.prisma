@@ -448,6 +448,7 @@ model Integration {
   accountName           String?
   accountId             String?
   apiKey                String?
+  apiKeyEncrypted       String?
   status                IntegrationStatus    @default(DISCONNECTED)
   accessTokenEncrypted  String?
   refreshTokenEncrypted String?

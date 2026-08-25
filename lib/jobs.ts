@@ -52,9 +52,10 @@ export async function processNextJob() {
 async function processIntegrationSync(jobId: string, workspaceId: string, integrationId: string | null, payload: JobPayload) {
   if (!integrationId) throw new Error("Integration sync jobs require an integrationId.");
   const integration = await prisma.integration.findFirst({ where: { id: integrationId, workspaceId } });
-  if (!integration?.accessTokenEncrypted) throw new Error("This integration is not connected. Configure OAuth credentials before syncing.");
+  const accessTokenRaw = integration?.accessTokenEncrypted || integration?.apiKeyEncrypted;
+  if (!accessTokenRaw) throw new Error("This integration is not connected. Configure credentials before syncing.");
   const provider = getProvider((integration.providerKey || integration.platform) as never);
-  const accessToken = decryptSecret(integration.accessTokenEncrypted);
+  const accessToken = decryptSecret(accessTokenRaw);
   const from = new Date(typeof payload.from === "string" ? payload.from : Date.now() - 30 * 24 * 60 * 60 * 1000);
   const to = new Date(typeof payload.to === "string" ? payload.to : Date.now());
   await prisma.integration.update({ where: { id: integration.id }, data: { lastSyncStarted: new Date(), errorMessage: null } });
