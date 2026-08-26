@@ -586,7 +586,6 @@ function RecentCampaignsCard() {
             <thead>
               <tr className="border-b border-zinc-100 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:border-zinc-800">
                 <th className="pb-2 pl-1">Campaign</th>
-                <th className="pb-2 px-2">Platform</th>
                 <th className="pb-2 px-2">Status</th>
                 <th className="pb-2 px-2">Spend</th>
                 <th className="pb-2 px-2">Clicks</th>
@@ -605,9 +604,6 @@ function RecentCampaignsCard() {
                   <td className="py-2.5 pl-1">
                     <div className="font-semibold text-zinc-900 dark:text-zinc-100">{c.name}</div>
                     <div className="text-[10px] text-zinc-400">{c.objective}</div>
-                  </td>
-                  <td className="py-2.5 px-2">
-                    <PlatformIcon platform={c.platform} size={16} />
                   </td>
                   <td className="py-2.5 px-2">
                     <StatusBadge status={c.status} />
