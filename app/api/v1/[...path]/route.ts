@@ -492,6 +492,69 @@ export async function POST(request: Request, { params }: { params: { path: strin
     } catch (e) { return error(e instanceof Error ? e.message : "Failed to load dashboard", 502, "YOUTUBE_API_ERROR"); }
   }
 
+  // ==================== YOUTUBE ADS ROUTES ====================
+  if (path === "youtube-ads/validate") {
+    const parsed = z.object({ apiKey: z.string().min(1), channelId: z.string().min(1) }).safeParse(body);
+    if (!parsed.success) return error("API Key and Channel ID are required.", 422);
+    const { validateYouTubeAdsCredentials } = await import("@/lib/youtube/ads");
+    const result = await validateYouTubeAdsCredentials(parsed.data);
+    if (!result.valid) return error(result.error || "Invalid credentials.", 422, "YOUTUBE_ADS_INVALID");
+    return ok({ valid: true, message: "YouTube Ads credentials verified." });
+  }
+
+  if (path === "youtube-ads/connect") {
+    const parsed = z.object({ apiKey: z.string().min(1), channelId: z.string().min(1), displayName: z.string().optional() }).safeParse(body);
+    if (!parsed.success) return error("API Key and Channel ID are required.", 422);
+    const { validateYouTubeAdsCredentials } = await import("@/lib/youtube/ads");
+    const result = await validateYouTubeAdsCredentials(parsed.data);
+    if (!result.valid) return error(result.error || "Invalid credentials.", 422, "YOUTUBE_ADS_INVALID");
+    const { encryptSecret } = await import("@/lib/crypto");
+    const existing = await prisma.integration.findFirst({ where: { workspaceId: auth.session.workspaceId, platform: "YOUTUBE_ADS" } });
+    if (existing) {
+      await prisma.integration.update({ where: { id: existing.id }, data: { apiKeyEncrypted: encryptSecret(parsed.data.apiKey), accountId: parsed.data.channelId, accountName: parsed.data.displayName || "YouTube Ads", status: "Connected", verifiedName: "YouTube Ads", lastSyncedAt: new Date() } });
+    } else {
+      await prisma.integration.create({ data: { workspaceId: auth.session.workspaceId, platform: "YOUTUBE_ADS", accountName: parsed.data.displayName || "YouTube Ads", accountId: parsed.data.channelId, apiKeyEncrypted: encryptSecret(parsed.data.apiKey), status: "Connected", verifiedName: "YouTube Ads", lastSyncedAt: new Date() } });
+    }
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CONNECT", module: "integrations", entityType: "Integration", entityId: "youtube-ads", afterData: { channelId: parsed.data.channelId } });
+    return ok({ connected: true, message: "YouTube Ads connected successfully." });
+  }
+
+  if (path === "youtube-ads/campaigns") {
+    const integration = await prisma.integration.findFirst({ where: { workspaceId: auth.session.workspaceId, platform: "YOUTUBE_ADS" } });
+    if (!integration) return error("YouTube Ads not connected.", 404, "YOUTUBE_ADS_NOT_CONNECTED");
+    const apiKeyRaw = integration.apiKeyEncrypted ? (await import("@/lib/crypto")).decryptSecret(integration.apiKeyEncrypted) : null;
+    if (!apiKeyRaw) return error("API Key not configured.", 409, "YOUTUBE_ADS_API_KEY_REQUIRED");
+    try {
+      const { fetchYouTubeAdCampaigns } = await import("@/lib/youtube/ads");
+      const campaigns = await fetchYouTubeAdCampaigns(apiKeyRaw, String(integration.accountId));
+      return ok({ campaigns });
+    } catch (e) { return error(e instanceof Error ? e.message : "Failed to fetch campaigns", 502, "YOUTUBE_ADS_API_ERROR"); }
+  }
+
+  if (path === "youtube-ads/dashboard") {
+    const integration = await prisma.integration.findFirst({ where: { workspaceId: auth.session.workspaceId, platform: "YOUTUBE_ADS" } });
+    if (!integration) return error("YouTube Ads not connected.", 404, "YOUTUBE_ADS_NOT_CONNECTED");
+    const apiKeyRaw = integration.apiKeyEncrypted ? (await import("@/lib/crypto")).decryptSecret(integration.apiKeyEncrypted) : null;
+    if (!apiKeyRaw) return error("API Key not configured.", 409, "YOUTUBE_ADS_API_KEY_REQUIRED");
+    try {
+      const { fetchYouTubeAdsDashboard } = await import("@/lib/youtube/ads");
+      const dashboard = await fetchYouTubeAdsDashboard(apiKeyRaw, String(integration.accountId));
+      return ok({ dashboard, integration: { id: integration.id, accountName: integration.accountName, status: integration.status, lastSyncedAt: integration.lastSyncedAt } });
+    } catch (e) { return error(e instanceof Error ? e.message : "Failed to load dashboard", 502, "YOUTUBE_ADS_API_ERROR"); }
+  }
+
+  if (path === "youtube-ads/metrics") {
+    const integration = await prisma.integration.findFirst({ where: { workspaceId: auth.session.workspaceId, platform: "YOUTUBE_ADS" } });
+    if (!integration) return error("YouTube Ads not connected.", 404, "YOUTUBE_ADS_NOT_CONNECTED");
+    const apiKeyRaw = integration.apiKeyEncrypted ? (await import("@/lib/crypto")).decryptSecret(integration.apiKeyEncrypted) : null;
+    if (!apiKeyRaw) return error("API Key not configured.", 409, "YOUTUBE_ADS_API_KEY_REQUIRED");
+    try {
+      const { fetchYouTubeAdsMetrics } = await import("@/lib/youtube/ads");
+      const metrics = await fetchYouTubeAdsMetrics(apiKeyRaw, String(integration.accountId), 30);
+      return ok({ metrics });
+    } catch (e) { return error(e instanceof Error ? e.message : "Failed to fetch metrics", 502, "YOUTUBE_ADS_API_ERROR"); }
+  }
+
   return error("Action not found.", 404);
 }
 
