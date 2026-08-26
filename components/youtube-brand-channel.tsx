@@ -10,10 +10,12 @@ import {
   ExternalLink,
   Key,
   Loader2,
+  MousePointerClick,
   Play,
   Settings,
   Shield,
   ShieldCheck,
+  Target,
   X,
   Youtube,
   Video,
@@ -438,7 +440,7 @@ function YouTubeConnectedDashboard({ status, onRefresh }: { status: YouTubeInteg
   const [dashboardData, setDashboardData] = useState<{ channel: YouTubeChannelInfo; recentVideos: YouTubeVideo[]; integration: Record<string, unknown> } | null>(null);
   const [analytics, setAnalytics] = useState<YouTubeAnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "videos" | "analytics">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "videos" | "analytics" | "ads">("overview");
 
   useEffect(() => { loadDashboard(); }, []);
 
@@ -476,9 +478,9 @@ function YouTubeConnectedDashboard({ status, onRefresh }: { status: YouTubeInteg
           </div>
 
           <div className="flex gap-2">
-            {(["overview", "videos", "analytics"] as const).map((tab) => (
+            {(["overview", "videos", "analytics", "ads"] as const).map((tab) => (
               <button key={tab} onClick={() => { setActiveTab(tab); if (tab === "analytics" && !analytics) loadAnalytics(); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${activeTab === tab ? "bg-red-600 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"}`}>
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {tab === "ads" ? "YouTube Ads" : tab.charAt(0).toUpperCase() + tab.slice(1)}
               </button>
             ))}
           </div>
@@ -527,7 +529,124 @@ function YouTubeConnectedDashboard({ status, onRefresh }: { status: YouTubeInteg
               <p className="mt-2 text-xs text-zinc-500">OAuth not configured. Add OAuth Client ID and Secret to view analytics.</p>
             </div>
           )}
+
+          {activeTab === "ads" && (
+            <YouTubeAdsTab />
+          )}
         </>
+      )}
+    </div>
+  );
+}
+
+function YouTubeAdsTab() {
+  const [adsDashboard, setAdsDashboard] = useState<{
+    totalViews: number;
+    totalImpressions: number;
+    totalClicks: number;
+    totalConversions: number;
+    averageCTR: number;
+    averageViewRate: number;
+    campaigns: Array<{
+      id: string;
+      name: string;
+      status: string;
+      impressions: number;
+      views: number;
+      clicks: number;
+      conversions: number;
+      ctr: number;
+    }>;
+    recentAds: Array<{
+      id: string;
+      name: string;
+      videoTitle: string;
+      thumbnailUrl: string;
+      impressions: number;
+      views: number;
+      clicks: number;
+      viewRate: number;
+    }>;
+  } | null>(null);
+  const [adsMetrics, setAdsMetrics] = useState<Array<{
+    date: string;
+    views: number;
+    impressions: number;
+    clicks: number;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => { loadAdsData(); }, []);
+
+  async function loadAdsData() {
+    setLoading(true);
+    try {
+      const [dashRes, metricsRes] = await Promise.all([
+        fetch("/api/v1/youtube-ads/dashboard", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }),
+        fetch("/api/v1/youtube-ads/metrics", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+      ]);
+      if (dashRes.ok) { const data = await dashRes.json(); setAdsDashboard(data.data?.dashboard || data.dashboard); }
+      if (metricsRes.ok) { const data = await metricsRes.json(); setAdsMetrics(data.data?.metrics || data.metrics || []); }
+    } catch { /* ignore */ }
+    setLoading(false);
+  }
+
+  if (loading) return <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-zinc-400" /></div>;
+
+  if (!adsDashboard) return (
+    <div className="rounded-xl border border-zinc-200 bg-white p-8 text-center dark:border-zinc-800 dark:bg-zinc-950/60">
+      <Youtube className="mx-auto h-8 w-8 text-zinc-400" />
+      <p className="mt-2 text-xs text-zinc-500">YouTube Ads data not available. Connect YouTube Ads from Integrations page.</p>
+    </div>
+  );
+
+  const formatNumber = (n: number) => n >= 1000000 ? `${(n/1000000).toFixed(1)}M` : n >= 1000 ? `${(n/1000).toFixed(1)}K` : n.toString();
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {[
+          { label: "Views", value: formatNumber(adsDashboard.totalViews), icon: <Eye size={14} />, color: "text-blue-600 bg-blue-50 dark:bg-blue-950/30" },
+          { label: "Impressions", value: formatNumber(adsDashboard.totalImpressions), icon: <BarChart3 size={14} />, color: "text-purple-600 bg-purple-50 dark:bg-purple-950/30" },
+          { label: "Clicks", value: formatNumber(adsDashboard.totalClicks), icon: <MousePointerClick size={14} />, color: "text-green-600 bg-green-50 dark:bg-green-950/30" },
+          { label: "Conversions", value: formatNumber(adsDashboard.totalConversions), icon: <Target size={14} />, color: "text-orange-600 bg-orange-50 dark:bg-orange-950/30" }
+        ].map(s => (
+          <div key={s.label} className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950/60">
+            <div className={`inline-flex rounded-lg p-1.5 ${s.color}`}>{s.icon}</div>
+            <p className="mt-2 text-sm font-bold text-zinc-900 dark:text-zinc-100">{s.value}</p>
+            <p className="text-[10px] text-zinc-500">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {adsMetrics.length > 0 && (
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950/60">
+          <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Views Trend (Last 30 Days)</h4>
+          <div className="mt-2 flex items-end gap-px" style={{ height: 60 }}>
+            {adsMetrics.slice(-30).map((m, i) => {
+              const maxViews = Math.max(...adsMetrics.map(x => x.views));
+              const height = maxViews > 0 ? (m.views / maxViews) * 100 : 0;
+              return <div key={i} className="flex-1 rounded-t bg-red-400 dark:bg-red-600" style={{ height: `${height}%` }} title={`${m.date}: ${m.views} views`} />;
+            })}
+          </div>
+        </div>
+      )}
+
+      {adsDashboard.recentAds.length > 0 && (
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950/60">
+          <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Recent Video Ads</h4>
+          <div className="mt-2 space-y-2">
+            {adsDashboard.recentAds.slice(0, 5).map(ad => (
+              <div key={ad.id} className="flex items-center gap-3 rounded-lg border border-zinc-100 p-2 dark:border-zinc-800">
+                {ad.thumbnailUrl && <img src={ad.thumbnailUrl} alt="" className="h-10 w-16 rounded object-cover" />}
+                <div className="flex-1 min-w-0">
+                  <p className="truncate text-xs font-medium text-zinc-900 dark:text-zinc-100">{ad.videoTitle}</p>
+                  <p className="text-[10px] text-zinc-500">{formatNumber(ad.views)} views · {formatNumber(ad.clicks)} clicks · {ad.viewRate.toFixed(1)}% view rate</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -157,7 +157,7 @@ const SUPPORTED_PLATFORMS: PlatformConfig[] = [
     id: "YouTube",
     name: "YouTube Brand Channel",
     ecosystem: "Google",
-    description: "Video performance, subscribers, view rates, and ad engagement.",
+    description: "Video performance, subscribers, view rates, ad campaigns, and conversions.",
     portalName: "YouTube Studio",
     portalUrl: "https://studio.youtube.com",
     idLabel: "Channel ID",
@@ -183,41 +183,7 @@ const SUPPORTED_PLATFORMS: PlatformConfig[] = [
     ]
   },
   {
-    id: "YouTube Ads",
-    name: "YouTube Ads",
-    ecosystem: "Google",
-    description: "Run video ad campaigns on YouTube — track impressions, views, clicks, and conversions for client brands.",
-    portalName: "Google Ads / YouTube Ads",
-    portalUrl: "https://ads.google.com",
-    idLabel: "Channel ID",
-    idPlaceholder: "UC1234567890abcdef",
-    idHelp: "YouTube Channel ID from YouTube Studio > Settings > Channel > Advanced Settings.",
-    keyLabel: "YouTube Data API v3 Key",
-    keyPlaceholder: "AIzaSyC_YouTubeApiSecretKey123",
-    keyHelp: "API Key from Google Cloud Console with YouTube Data API v3 enabled.",
-    prerequisites: ["Active YouTube Brand Channel", "YouTube Data API v3 enabled in Google Cloud Console"],
-    guideSteps: [
-      {
-        step: 1,
-        title: "Get YouTube Channel ID",
-        instruction: "Open studio.youtube.com > Settings > Channel > Advanced Settings. Copy Channel ID (starts with UC).",
-        tip: "This is the same Channel ID used for YouTube Brand Channel."
-      },
-      {
-        step: 2,
-        title: "Get YouTube API Key",
-        instruction: "In Google Cloud Console, enable 'YouTube Data API v3' and create an API Key.",
-        tip: "Copy the AIzaSy... key."
-      },
-      {
-        step: 3,
-        title: "Connect YouTube Ads",
-        instruction: "Paste Channel ID and API Key below. Your YouTube ad campaigns, video ads, and performance metrics will sync automatically.",
-        tip: "Works with any YouTube channel that has videos."
-      }
-    ]
-  },
-  {
+    id: "Google Business Profile",
     name: "Google Business Profile",
     ecosystem: "Google",
     description: "Local search listings, customer reviews, calls, and map views.",
