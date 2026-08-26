@@ -311,6 +311,7 @@ export async function POST(request: Request, { params }: { params: { path: strin
       "Google Search Console": "GOOGLE_SEARCH_CONSOLE",
       "Search Console": "GOOGLE_SEARCH_CONSOLE",
       "YouTube": "YOUTUBE",
+      "YouTube Ads": "YOUTUBE_ADS",
       "Google Business Profile": "GOOGLE_BUSINESS_PROFILE",
       "Firebase": "FIREBASE_ADMOB",
       "AdMob": "FIREBASE_ADMOB",

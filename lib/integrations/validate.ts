@@ -322,6 +322,7 @@ export const PLATFORM_VALIDATORS_MAP: Record<string, Validator> = {
   "Google Search Console": platformValidators.GOOGLE_SEARCH_CONSOLE,
   "Search Console": platformValidators.GOOGLE_SEARCH_CONSOLE,
   "YouTube": platformValidators.YOUTUBE,
+  "YouTube Ads": platformValidators.YOUTUBE,
   "Google Business Profile": platformValidators.GOOGLE_BUSINESS_PROFILE,
   "Firebase & AdMob": platformValidators.FIREBASE_ADMOB,
   "Firebase": platformValidators.FIREBASE_ADMOB,
