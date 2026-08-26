@@ -35,8 +35,7 @@ import {
   User as UserIcon,
   Users,
   X,
-  Zap,
-  Youtube
+  Zap
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -48,7 +47,6 @@ const mainNavItems = [
   { label: "Overview", href: "/", icon: LayoutDashboard },
   { label: "Campaigns", href: "/campaigns", icon: Target },
   { label: "Integrations", href: "/integrations", icon: Network },
-  { label: "YouTube Brand", href: "/youtube", icon: Youtube },
   { label: "Leads", href: "/leads", icon: Users, badge: "New" },
   { label: "Analytics", href: "/analytics", icon: FileBarChart },
   { label: "Reports", href: "/reports", icon: FileBarChart }
@@ -84,7 +82,6 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       { category: "Navigation", label: "Campaigns Management", href: "/campaigns", icon: Target },
       { category: "Navigation", label: "Create New Campaign", href: "/campaigns/create", icon: Plus },
       { category: "Navigation", label: "Platform Integrations", href: "/integrations", icon: Network },
-      { category: "Navigation", label: "YouTube Brand Channel", href: "/youtube", icon: Youtube },
       { category: "Navigation", label: "Leads Pipeline", href: "/leads", icon: Users },
       { category: "Navigation", label: "Analytics Overview", href: "/analytics", icon: FileBarChart },
       { category: "Navigation", label: "Marketing Reports", href: "/reports", icon: FileBarChart },
