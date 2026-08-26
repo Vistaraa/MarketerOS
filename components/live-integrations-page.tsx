@@ -654,6 +654,7 @@ export function LiveIntegrationsPage() {
   };
 
   const getIntegrationForPlatform = (platformId: string) => {
+    if (!platformId) return undefined;
     return integrations.find((item) => {
       const p = item.platform.toLowerCase();
       const target = platformId.toLowerCase();
