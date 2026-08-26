@@ -750,7 +750,7 @@ export function LiveIntegrationsPage() {
                 {/* Bottom Actions */}
                 <div className="mt-5 flex items-center justify-between border-t border-zinc-100 pt-3 text-xs dark:border-zinc-800">
                   <button
-                    onClick={() => openGuideModal(platform)}
+                    onClick={() => platform.id === "YouTube" ? router.push("/youtube/guide") : openGuideModal(platform)}
                     className="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
                   >
                     <BookOpen size={12} />
