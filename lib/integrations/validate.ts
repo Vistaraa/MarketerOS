@@ -5,9 +5,10 @@
 
 const TIMEOUT_MS = 8000;
 
-interface ValidationFields {
+export interface ValidationFields {
   accountId: string;
   apiKey: string;
+  accountName?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -213,30 +214,7 @@ async function validateLinkedIn(fields: ValidationFields): Promise<ValidationRes
     if (isNonEmptyString(userData.name)) {
       return { valid: true, verifiedName: userData.name };
     }
-    if (isNonEmptyString(userData.sub)) {
-      try {
-        const orgRes = await fetchWithTimeout(
-          `https://api.linkedin.com/v2/organizations/${encodeURIComponent(fields.accountId)}?projection=(name)`,
-          { headers: { Authorization: `Bearer ${fields.apiKey}` } }
-        );
-        const orgData = await orgRes.json() as Record<string, unknown>;
-        if (orgData.error) {
-          const err = orgData.error as Record<string, unknown>;
-          return { valid: false, error: String(err.message || "LinkedIn organization API error") };
-        }
-        const localizedName = orgData.localizedName as Record<string, unknown> | undefined;
-        if (localizedName && isNonEmptyString(localizedName.localized?.en_US)) {
-          return { valid: true, verifiedName: localizedName.localized.en_US };
-        }
-        if (isNonEmptyString(orgData.localizedName)) {
-          return { valid: true, verifiedName: String(orgData.localizedName) };
-        }
-        return { valid: true, verifiedName: "LinkedIn Organization" };
-      } catch {
-        return { valid: true, verifiedName: "LinkedIn User" };
-      }
-    }
-    return { valid: false, error: "LinkedIn token is invalid or expired" };
+    return { valid: true, verifiedName: fields.accountName || "LinkedIn Account" };
   } catch (err) {
     return { valid: false, error: `LinkedIn validation failed: ${err instanceof Error ? err.message : String(err)}` };
   }

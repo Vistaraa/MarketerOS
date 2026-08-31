@@ -113,7 +113,29 @@ export function LiveCampaignCreate() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error?.message || "Failed to launch campaign");
 
-      router.push("/campaigns");
+      const createdId = json.data?.id || json.data?.campaign?.id;
+
+      // If Google Ads is selected, trigger live Google Ads API mutation immediately
+      if (createdId && selectedPlatforms.includes("Google Ads")) {
+        fetch("/api/google-ads/publish-campaign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ campaignId: createdId })
+        })
+          .then(async (r) => {
+            const rJson = await r.json();
+            if (!r.ok) {
+              console.warn("Google Ads mutate on create:", rJson.error);
+            }
+          })
+          .catch((err) => console.error("Google Ads publish error:", err));
+      }
+
+      if (createdId) {
+        router.push(`/campaigns/${createdId}`);
+      } else {
+        router.push("/campaigns");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Campaign creation failed");
     } finally {

@@ -187,7 +187,7 @@ export async function connectPersistedIntegrationCredentials(input: {
       status: "CONNECTED",
       lastSyncedAt: new Date(),
       metadata: (input.metadata || {}) as never
-    }
+    } as never
   });
 }
 

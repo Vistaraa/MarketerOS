@@ -52,7 +52,8 @@ export async function processNextJob() {
 async function processIntegrationSync(jobId: string, workspaceId: string, integrationId: string | null, payload: JobPayload) {
   if (!integrationId) throw new Error("Integration sync jobs require an integrationId.");
   const integration = await prisma.integration.findFirst({ where: { id: integrationId, workspaceId } });
-  const accessTokenRaw = integration?.accessTokenEncrypted || integration?.apiKeyEncrypted;
+  if (!integration) throw new Error("Integration not found.");
+  const accessTokenRaw = integration.accessTokenEncrypted || (integration as any).apiKeyEncrypted || (integration as any).apiKey;
   if (!accessTokenRaw) throw new Error("This integration is not connected. Configure credentials before syncing.");
   const provider = getProvider((integration.providerKey || integration.platform) as never);
   const accessToken = decryptSecret(accessTokenRaw);
