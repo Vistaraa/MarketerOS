@@ -22,87 +22,9 @@ import type { Campaign } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { AppShell, Card, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
 
-const DEFAULT_CAMPAIGNS: Campaign[] = [
-  {
-    id: "camp-01",
-    name: "Summer Sale 2024",
-    platform: "Google Ads",
-    status: "Active",
-    budget: 5000,
-    spend: 5420,
-    clicks: 32145,
-    conversions: 832,
-    roas: 3.82,
-    ctr: 2.58,
-    cpa: 6.51,
-    objective: "Sales",
-    startDate: "May 01, 2024"
-  },
-  {
-    id: "camp-02",
-    name: "Retargeting Catalog Ads",
-    platform: "Meta Ads",
-    status: "Active",
-    budget: 4000,
-    spend: 4230,
-    clicks: 28945,
-    conversions: 721,
-    roas: 4.15,
-    ctr: 3.12,
-    cpa: 5.86,
-    objective: "Conversions",
-    startDate: "May 01, 2024"
-  },
-  {
-    id: "camp-03",
-    name: "Instagram Engagement Viral",
-    platform: "Instagram",
-    status: "Active",
-    budget: 3000,
-    spend: 3250,
-    clicks: 18562,
-    conversions: 512,
-    roas: 2.91,
-    ctr: 4.25,
-    cpa: 6.34,
-    objective: "Engagement",
-    startDate: "May 05, 2024"
-  },
-  {
-    id: "camp-04",
-    name: "B2B Lead Generation - Q2",
-    platform: "LinkedIn",
-    status: "Active",
-    budget: 2500,
-    spend: 2450,
-    clicks: 15623,
-    conversions: 312,
-    roas: 2.08,
-    ctr: 1.85,
-    cpa: 7.85,
-    objective: "Leads",
-    startDate: "May 08, 2024"
-  },
-  {
-    id: "camp-05",
-    name: "New Product Search & Display",
-    platform: "Google Ads",
-    status: "Paused",
-    budget: 3500,
-    spend: 2980,
-    clicks: 16245,
-    conversions: 492,
-    roas: 3.12,
-    ctr: 2.15,
-    cpa: 6.05,
-    objective: "Awareness",
-    startDate: "May 01, 2024"
-  }
-];
-
 export function LiveCampaignsPage() {
   const router = useRouter();
-  const [campaigns, setCampaigns] = useState<Campaign[]>(DEFAULT_CAMPAIGNS);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -116,13 +38,18 @@ export function LiveCampaignsPage() {
       const payload = await res.json();
       if (res.ok && payload?.data) {
         if (Array.isArray(payload.data)) {
-          setCampaigns(payload.data.length > 0 ? payload.data : DEFAULT_CAMPAIGNS);
+          setCampaigns(payload.data);
         } else if (Array.isArray(payload.data.items)) {
-          setCampaigns(payload.data.items.length > 0 ? payload.data.items : DEFAULT_CAMPAIGNS);
+          setCampaigns(payload.data.items);
+        } else {
+          setCampaigns([]);
         }
+      } else {
+        setCampaigns([]);
       }
     } catch (e) {
       console.error(e);
+      setCampaigns([]);
     } finally {
       setLoading(false);
     }
@@ -143,7 +70,7 @@ export function LiveCampaignsPage() {
       });
       if (res.ok) {
         setCampaigns((prev) =>
-          (Array.isArray(prev) ? prev : DEFAULT_CAMPAIGNS).map((c) =>
+          prev.map((c) =>
             c.id === campaign.id
               ? { ...c, status: nextStatus === "ACTIVE" ? "Active" : "Paused" }
               : c
@@ -157,7 +84,7 @@ export function LiveCampaignsPage() {
     }
   };
 
-  const list = Array.isArray(campaigns) ? campaigns : DEFAULT_CAMPAIGNS;
+  const list = Array.isArray(campaigns) ? campaigns : [];
 
   // Filter campaigns
   const filtered = list.filter((c) => {

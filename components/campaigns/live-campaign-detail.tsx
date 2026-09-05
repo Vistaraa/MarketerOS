@@ -182,8 +182,8 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
         conversions,
         roas,
         cpa,
-        startDate: campaign?.startDate && campaign.startDate !== "Not started" ? campaign.startDate : "Aug 15, 2026",
-        endDate: "Sep 15, 2026",
+        startDate: campaign?.startDate && campaign.startDate !== "Not started" ? campaign.startDate : "Live",
+        endDate: "Continuous",
         objective: campaign?.objective || "Sales",
         targetRoas: targetRoasVal,
         biddingStrategy: detail?.biddingStrategy || detail?.externalData?.biddingStrategy || "Maximize Conversions",
@@ -534,7 +534,7 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
 
                   <div className="text-[11px] text-zinc-600 dark:text-zinc-400">
                     <div>Provider: <strong className="text-zinc-800 dark:text-zinc-200">{selectedPlatform.platform}</strong></div>
-                    <div>Account: <strong className="font-mono text-zinc-800 dark:text-zinc-200">{data?.detail?.integration?.accountId || "849-204-1839"}</strong></div>
+                    <div>Account: <strong className="font-mono text-zinc-800 dark:text-zinc-200">{data?.detail?.integration?.accountId || data?.detail?.integration?.accountName || "Connected Channel"}</strong></div>
                   </div>
 
                   <div className="flex items-center gap-2 pt-1 border-t border-zinc-200/60 dark:border-zinc-800">
@@ -547,7 +547,11 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
                     </button>
                     <button
                       onClick={async () => {
-                        const intgId = data?.detail?.integrationId || "seed-google-ads";
+                        const intgId = data?.detail?.integrationId;
+                        if (!intgId) {
+                          alert("No specific integration ID linked. Navigate to Integrations to sync accounts.");
+                          return;
+                        }
                         try {
                           await fetch(`/api/v1/integrations/${intgId}/sync`, { method: "POST" });
                           alert(`Triggered live metric sync for ${selectedPlatform.platform}!`);
@@ -572,40 +576,70 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
                 <div>
                   <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">Spend</span>
                   <div className="mt-0.5 text-base font-bold text-zinc-900 dark:text-zinc-100">${Number(selectedPlatform.spend || 0).toLocaleString()}</div>
-                  <div className="mt-0.5 flex items-center gap-0.5 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">
-                    <ArrowUpRight size={10} /> 8.4%
+                  <div className="mt-0.5 flex items-center gap-0.5 text-[9px] font-semibold text-zinc-400">
+                    {Number(selectedPlatform.spend || 0) > 0 ? (
+                      <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400">
+                        <ArrowUpRight size={10} /> Live
+                      </span>
+                    ) : (
+                      <span>0.0%</span>
+                    )}
                   </div>
                 </div>
 
                 <div>
                   <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">Clicks</span>
                   <div className="mt-0.5 text-base font-bold text-zinc-900 dark:text-zinc-100">{Number(selectedPlatform.clicks || 0).toLocaleString()}</div>
-                  <div className="mt-0.5 flex items-center gap-0.5 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">
-                    <ArrowUpRight size={10} /> 12.6%
+                  <div className="mt-0.5 flex items-center gap-0.5 text-[9px] font-semibold text-zinc-400">
+                    {Number(selectedPlatform.clicks || 0) > 0 ? (
+                      <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400">
+                        <ArrowUpRight size={10} /> Live
+                      </span>
+                    ) : (
+                      <span>0.0%</span>
+                    )}
                   </div>
                 </div>
 
                 <div>
                   <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">Conversions</span>
                   <div className="mt-0.5 text-base font-bold text-zinc-900 dark:text-zinc-100">{Number(selectedPlatform.conversions || 0).toLocaleString()}</div>
-                  <div className="mt-0.5 flex items-center gap-0.5 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">
-                    <ArrowUpRight size={10} /> 18.3%
+                  <div className="mt-0.5 flex items-center gap-0.5 text-[9px] font-semibold text-zinc-400">
+                    {Number(selectedPlatform.conversions || 0) > 0 ? (
+                      <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400">
+                        <ArrowUpRight size={10} /> Live
+                      </span>
+                    ) : (
+                      <span>0.0%</span>
+                    )}
                   </div>
                 </div>
 
                 <div>
                   <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">Cost / Conv.</span>
                   <div className="mt-0.5 text-base font-bold text-zinc-900 dark:text-zinc-100">${Number(selectedPlatform.cpa || 0).toFixed(2)}</div>
-                  <div className="mt-0.5 flex items-center gap-0.5 text-[9px] font-semibold text-rose-600 dark:text-rose-400">
-                    <ArrowDownRight size={10} /> 3.2%
+                  <div className="mt-0.5 flex items-center gap-0.5 text-[9px] font-semibold text-zinc-400">
+                    {Number(selectedPlatform.cpa || 0) > 0 ? (
+                      <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400">
+                        <ArrowDownRight size={10} /> Live
+                      </span>
+                    ) : (
+                      <span>0.0%</span>
+                    )}
                   </div>
                 </div>
 
                 <div>
                   <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">ROAS</span>
-                  <div className="mt-0.5 text-base font-bold text-zinc-900 dark:text-zinc-100">{Number(selectedPlatform.roas || 0).toFixed(2)}</div>
-                  <div className="mt-0.5 flex items-center gap-0.5 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">
-                    <ArrowUpRight size={10} /> 16.7%
+                  <div className="mt-0.5 text-base font-bold text-zinc-900 dark:text-zinc-100">{Number(selectedPlatform.roas || 0).toFixed(2)}x</div>
+                  <div className="mt-0.5 flex items-center gap-0.5 text-[9px] font-semibold text-zinc-400">
+                    {Number(selectedPlatform.roas || 0) > 0 ? (
+                      <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400">
+                        <ArrowUpRight size={10} /> Live
+                      </span>
+                    ) : (
+                      <span>0.00x</span>
+                    )}
                   </div>
                 </div>
               </div>

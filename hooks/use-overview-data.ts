@@ -10,10 +10,18 @@ type OverviewState = {
   error: string | null;
 };
 
-export function useOverviewData(query: OverviewQuery) {
+export function useOverviewData(query: Partial<OverviewQuery> = {}) {
   const [state, setState] = useState<OverviewState>({ data: null, loading: true, error: null });
   const [reloadKey, setReloadKey] = useState(0);
-  const queryString = useMemo(() => new URLSearchParams(Object.entries(query)).toString(), [query]);
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams();
+    Object.entries(query).forEach(([key, val]) => {
+      if (val !== undefined && val !== null && val !== "") {
+        params.set(key, String(val));
+      }
+    });
+    return params.toString();
+  }, [query]);
 
   const retry = useCallback(() => setReloadKey((value) => value + 1), []);
 

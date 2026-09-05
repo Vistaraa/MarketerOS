@@ -10,7 +10,9 @@ describe("Overview data service", () => {
     const parsed = parseOverviewQuery(query());
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
-    expect(parsed.data).toMatchObject({ dateFrom: "2024-05-01", dateTo: "2024-05-31", granularity: "daily", platform: "", status: "" });
+    expect(parsed.data.dateFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(parsed.data.dateTo).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(parsed.data).toMatchObject({ granularity: "daily", platform: "", status: "" });
   });
 
   it("accepts deep-linkable granularity and filters", () => {

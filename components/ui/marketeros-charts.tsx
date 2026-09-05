@@ -20,20 +20,8 @@ import {
 import type { ChartPoint } from "@/lib/types";
 import { cn, money } from "@/lib/utils";
 
-const DEFAULT_POINTS: ChartPoint[] = [
-  { date: "May 01", spend: 420, clicks: 680, conversions: 28, roas: 3.8 },
-  { date: "May 05", spend: 480, clicks: 760, conversions: 31, roas: 3.9 },
-  { date: "May 09", spend: 720, clicks: 1140, conversions: 50, roas: 4.5 },
-  { date: "May 13", spend: 810, clicks: 1290, conversions: 58, roas: 4.6 },
-  { date: "May 17", spend: 840, clicks: 1350, conversions: 61, roas: 4.4 },
-  { date: "May 21", spend: 1050, clicks: 1680, conversions: 79, roas: 4.8 },
-  { date: "May 25", spend: 1120, clicks: 1810, conversions: 86, roas: 5.1 },
-  { date: "May 29", spend: 1180, clicks: 1890, conversions: 89, roas: 5.0 },
-  { date: "May 31", spend: 1310, clicks: 2100, conversions: 102, roas: 5.4 }
-];
-
 export function TrendChart({
-  data,
+  data = [],
   compact = false,
   showRoas = false
 }: {
@@ -42,8 +30,16 @@ export function TrendChart({
   showRoas?: boolean;
   social?: boolean;
 }) {
-  const chartData = data && data.length > 0 ? data : DEFAULT_POINTS;
+  const chartData = data || [];
   const [metric, setMetric] = useState<"spend" | "conversions" | "clicks">("spend");
+
+  if (!chartData.length) {
+    return (
+      <div className={cn("flex w-full items-center justify-center text-xs text-zinc-400 dark:text-zinc-500", compact ? "h-[160px]" : "h-[270px]")}>
+        No time-series metrics recorded.
+      </div>
+    );
+  }
 
   return (
     <div className={cn("w-full space-y-3", compact ? "h-[160px]" : "h-[270px]")}>
@@ -150,11 +146,12 @@ export function TrendChart({
 }
 
 export function Sparkline({
-  data = [20, 27, 22, 38, 34, 46, 41, 55]
+  data = []
 }: {
   color?: string;
   data?: number[];
 }) {
+  if (!data || !data.length) return null;
   const points = data.map((value, index) => ({ index, value }));
   return (
     <div className="h-8 w-20">
@@ -170,12 +167,7 @@ export function Sparkline({
 }
 
 export function DonutChart({
-  data = [
-    { label: "Google Ads", value: 10450, color: "#4285f4" },
-    { label: "Meta Ads", value: 8320, color: "#1877f2" },
-    { label: "Instagram", value: 3680, color: "#e4405f" },
-    { label: "LinkedIn", value: 2120, color: "#0a66c2" }
-  ],
+  data = [],
   total,
   label = "Total Spend",
   center = true
@@ -185,6 +177,13 @@ export function DonutChart({
   label?: string;
   center?: boolean;
 }) {
+  if (!data || !data.length) {
+    return (
+      <div className="flex h-[210px] w-full items-center justify-center text-xs text-zinc-400 dark:text-zinc-500">
+        No platform spend data.
+      </div>
+    );
+  }
   const totalValue = total || `$${data.reduce((sum, item) => sum + item.value, 0).toLocaleString()}`;
   return (
     <div className="relative h-[210px] w-full min-w-0">

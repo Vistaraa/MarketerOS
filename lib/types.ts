@@ -103,6 +103,15 @@ export type OverviewQuery = {
   search: string;
 };
 
+export type OverviewSummary = {
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  cpa: number;
+  conversionRate: number;
+  revenue: number;
+};
+
 export type OverviewPayload = {
   kpis: MetricKpi[];
   series: ChartPoint[];
@@ -110,4 +119,5 @@ export type OverviewPayload = {
   campaigns: Campaign[];
   insights: Insight[];
   integrations: Integration[];
+  summary?: OverviewSummary;
 };

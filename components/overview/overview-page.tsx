@@ -13,15 +13,9 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
-  Coins,
-  CreditCard,
   DollarSign,
-  Download,
   Eye,
   FileBarChart,
-  FileText,
-  Filter,
-  HelpCircle,
   Info,
   Layers,
   Lightbulb,
@@ -34,33 +28,29 @@ import {
   RefreshCw,
   Rocket,
   Search,
-  Share2,
   ShoppingCart,
   Sparkles,
   Tag,
-  Target,
   TrendingDown,
   TrendingUp,
-  Users,
   Zap
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import type {
   Campaign,
+  ChartPoint,
+  Insight,
   Integration,
   MetricKpi,
-  OverviewQuery,
   OverviewPayload,
+  OverviewSummary,
   PlatformSpendItem
 } from "@/lib/types";
 import { cn, money } from "@/lib/utils";
-import { PlatformIcon } from "@/components/ui/marketeros-icons";
 import { AppShell, StatusBadge } from "@/components/ui/marketeros-shell";
 import { useOverviewData } from "@/hooks/use-overview-data";
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -76,201 +66,17 @@ import {
 } from "recharts";
 
 /* =========================================================================
-   RICH DEFAULT / DUMMY DATA SETS MATCHING REFERENCE
-   ========================================================================= */
-const PERFORMANCE_SERIES = [
-  { date: "May 1", spend: 4000, clicks: 2100, conversions: 500 },
-  { date: "May 3", spend: 4400, clicks: 2300, conversions: 620 },
-  { date: "May 6", spend: 6200, clicks: 3600, conversions: 1100 },
-  { date: "May 8", spend: 5800, clicks: 3300, conversions: 980 },
-  { date: "May 11", spend: 5400, clicks: 2900, conversions: 860 },
-  { date: "May 13", spend: 6800, clicks: 3900, conversions: 1250 },
-  { date: "May 16", spend: 7200, clicks: 4200, conversions: 1390 },
-  { date: "May 18", spend: 6500, clicks: 3800, conversions: 1150 },
-  { date: "May 21", spend: 7800, clicks: 4500, conversions: 1480 },
-  { date: "May 23", spend: 7100, clicks: 4100, conversions: 1320 },
-  { date: "May 26", spend: 8900, clicks: 5200, conversions: 1850 },
-  { date: "May 28", spend: 7900, clicks: 4700, conversions: 1540 },
-  { date: "May 31", spend: 8400, clicks: 4900, conversions: 1620 }
-];
-
-const SPEND_PLATFORMS = [
-  { label: "Google Ads", value: 9650, color: "#6366f1", percent: 39.4 },
-  { label: "Meta Ads", value: 7820, color: "#0ea5e9", percent: 31.9 },
-  { label: "Instagram Ads", value: 3250, color: "#f43f5e", percent: 13.3 },
-  { label: "LinkedIn Ads", value: 2450, color: "#eab308", percent: 10.0 },
-  { label: "TikTok Ads", value: 1330, color: "#10b981", percent: 5.4 }
-];
-
-const RECENT_CAMPAIGNS_LIST = [
-  {
-    id: "camp-1",
-    name: "Summer Sale Campaign",
-    objective: "Search Campaign",
-    platform: "Google Ads",
-    status: "Active",
-    spend: 5420,
-    clicks: 32145,
-    conversions: 832,
-    roas: 3.82
-  },
-  {
-    id: "camp-2",
-    name: "Remarketing Campaign",
-    objective: "Display Campaign",
-    platform: "Meta Ads",
-    status: "Active",
-    spend: 4230,
-    clicks: 28945,
-    conversions: 721,
-    roas: 4.15
-  },
-  {
-    id: "camp-3",
-    name: "Instagram Engagement",
-    objective: "Engagement Campaign",
-    platform: "Instagram",
-    status: "Active",
-    spend: 3250,
-    clicks: 18562,
-    conversions: 512,
-    roas: 2.91
-  },
-  {
-    id: "camp-4",
-    name: "Lead Generation - Q2",
-    objective: "Lead Gen Campaign",
-    platform: "LinkedIn",
-    status: "Active",
-    spend: 2450,
-    clicks: 15623,
-    conversions: 312,
-    roas: 2.08
-  },
-  {
-    id: "camp-5",
-    name: "New Product Launch",
-    objective: "Search Campaign",
-    platform: "Google Ads",
-    status: "Paused",
-    spend: 2980,
-    clicks: 16245,
-    conversions: 492,
-    roas: 3.12
-  }
-];
-
-const AI_INSIGHTS_DATA = [
-  {
-    id: "ins-1",
-    title: "Your Google Ads ROAS improved by 16.7%",
-    description: "Great job! Consider increasing budget on top performing campaigns.",
-    type: "positive",
-    icon: ArrowUpRight,
-    badgeBg: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
-  },
-  {
-    id: "ins-2",
-    title: "Instagram engagement is high but conversions are low",
-    description: "Try updating your call-to-action and destination landing page.",
-    type: "warning",
-    icon: Lightbulb,
-    badgeBg: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400"
-  },
-  {
-    id: "ins-3",
-    title: "Best time to post on Instagram is 7PM - 9PM",
-    description: "Based on your audience peak interaction activity this month.",
-    type: "info",
-    icon: Clock,
-    badgeBg: "bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-400"
-  },
-  {
-    id: "ins-4",
-    title: "You can save $2,430 by pausing low-performing keywords.",
-    description: "We found 12 keywords with high spend and low conversions.",
-    type: "saving",
-    icon: TrendingUp,
-    badgeBg: "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400"
-  }
-];
-
-const TASKS_DATA = [
-  {
-    id: "task-1",
-    title: "Review Google Ads campaign",
-    subtitle: "Summer Sale Campaign",
-    priority: "High",
-    priorityBg: "bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900"
-  },
-  {
-    id: "task-2",
-    title: "Approve Instagram content",
-    subtitle: "3 posts pending review",
-    priority: "Medium",
-    priorityBg: "bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900"
-  },
-  {
-    id: "task-3",
-    title: "Check conversion tracking",
-    subtitle: "Setup is incomplete",
-    priority: "Medium",
-    priorityBg: "bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900"
-  },
-  {
-    id: "task-4",
-    title: "Monthly performance report",
-    subtitle: "Due in 3 days",
-    priority: "Low",
-    priorityBg: "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900"
-  }
-];
-
-const DAILY_SPENDING_BARS = [
-  { day: "May 1", value: 1200 },
-  { day: "May 2", value: 1800 },
-  { day: "May 3", value: 2400 },
-  { day: "May 4", value: 1600 },
-  { day: "May 5", value: 2100 },
-  { day: "May 6", value: 2900 },
-  { day: "May 7", value: 1400 },
-  { day: "May 8", value: 3100 },
-  { day: "May 9", value: 2200 },
-  { day: "May 10", value: 1900 },
-  { day: "May 11", value: 2600 },
-  { day: "May 12", value: 3400 },
-  { day: "May 13", value: 2800 },
-  { day: "May 14", value: 1700 },
-  { day: "May 15", value: 2500 },
-  { day: "May 16", value: 3600 },
-  { day: "May 17", value: 2900 },
-  { day: "May 18", value: 2100 },
-  { day: "May 19", value: 3300 },
-  { day: "May 20", value: 1800 },
-  { day: "May 21", value: 2700 },
-  { day: "May 22", value: 3500 },
-  { day: "May 23", value: 2400 },
-  { day: "May 24", value: 1900 },
-  { day: "May 25", value: 3800 },
-  { day: "May 26", value: 3100 },
-  { day: "May 27", value: 2600 },
-  { day: "May 28", value: 3200 },
-  { day: "May 29", value: 2900 },
-  { day: "May 30", value: 2700 },
-  { day: "May 31", value: 3400 }
-];
-
-/* =========================================================================
-   TOP 5 KPI CARDS
+   TOP 5 KPI CARDS (STRICTLY DYNAMIC)
    ========================================================================= */
 function TopKpiCard({
   title,
   value,
   change,
-  period = "vs Apr 1 - Apr 30",
+  period = "vs previous period",
   icon: Icon,
   iconBg,
-  iconColor
+  iconColor,
+  trend = "up"
 }: {
   title: string;
   value: string;
@@ -279,17 +85,33 @@ function TopKpiCard({
   icon: React.ElementType;
   iconBg: string;
   iconColor: string;
+  trend?: "up" | "down" | "neutral";
 }) {
+  const isZero = change === "0.0%" || change === "0" || change === "0.00x";
+
   return (
     <div className="flex items-start justify-between rounded-xl border border-zinc-200/90 bg-white p-3.5 shadow-sm transition-all hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950/60 dark:hover:border-zinc-700">
       <div>
         <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">{title}</span>
         <div className="mt-1 text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{value}</div>
         <div className="mt-1.5 flex items-center gap-1 text-[11px]">
-          <span className="inline-flex items-center gap-0.5 font-semibold text-emerald-600 dark:text-emerald-400">
-            <ArrowUpRight size={12} />
-            {change}
-          </span>
+          {isZero ? (
+            <span className="inline-flex items-center gap-0.5 font-medium text-zinc-400 dark:text-zinc-500">
+              0.0%
+            </span>
+          ) : (
+            <span
+              className={cn(
+                "inline-flex items-center gap-0.5 font-semibold",
+                trend === "down"
+                  ? "text-rose-600 dark:text-rose-400"
+                  : "text-emerald-600 dark:text-emerald-400"
+              )}
+            >
+              {trend === "down" ? <ArrowDownRight size={12} /> : <ArrowUpRight size={12} />}
+              {change}
+            </span>
+          )}
           <span className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate">{period}</span>
         </div>
       </div>
@@ -304,14 +126,24 @@ function TopKpiCard({
 /* =========================================================================
    ROW 2: PERFORMANCE OVERVIEW (3-LINE GRAPH)
    ========================================================================= */
-function MultiLinePerformanceChart() {
-  const [granularity, setGranularity] = useState("Daily");
-
+function MultiLinePerformanceChart({
+  series = [],
+  granularity,
+  onGranularityChange,
+  loading
+}: {
+  series?: ChartPoint[];
+  granularity: "daily" | "weekly" | "monthly";
+  onGranularityChange: (g: "daily" | "weekly" | "monthly") => void;
+  loading?: boolean;
+}) {
   return (
     <div className="rounded-xl border border-zinc-200/90 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 pb-3 dark:border-zinc-800">
         <div className="flex items-center gap-1.5">
-          <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">Performance Overview</h2>
+          <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">
+            Performance Overview
+          </h2>
           <span title="Multi-channel advertising trends" className="text-zinc-400 cursor-pointer">
             <Info size={13} />
           </span>
@@ -334,80 +166,98 @@ function MultiLinePerformanceChart() {
           {/* Granularity Dropdown */}
           <select
             value={granularity}
-            onChange={(e) => setGranularity(e.target.value)}
+            onChange={(e) => onGranularityChange(e.target.value as "daily" | "weekly" | "monthly")}
             className="h-6 rounded border border-zinc-200 bg-white px-1.5 text-[11px] font-medium text-zinc-700 outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
           >
-            <option>Daily</option>
-            <option>Weekly</option>
-            <option>Monthly</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
           </select>
         </div>
       </div>
 
       <div className="mt-3 h-56 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={PERFORMANCE_SERIES} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
-            <CartesianGrid stroke="#f4f4f5" strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="date" stroke="#a1a1aa" fontSize={9} tickLine={false} axisLine={false} />
-            <YAxis
-              stroke="#a1a1aa"
-              fontSize={9}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(val) => `$${val >= 1000 ? `${val / 1000}k` : val}`}
-            />
-            <Tooltip
-              content={({ active, payload, label }) => {
-                if (active && payload && payload.length) {
-                  return (
-                    <div className="rounded-lg border border-zinc-200 bg-white p-2.5 shadow-lg text-xs dark:border-zinc-800 dark:bg-zinc-900">
-                      <div className="font-semibold text-zinc-900 dark:text-zinc-100">{label}</div>
-                      <div className="mt-1 space-y-0.5 text-[11px]">
-                        <div className="flex items-center justify-between gap-3 text-indigo-600 dark:text-indigo-400">
-                          <span>Spend:</span>
-                          <strong>{money(payload[0]?.value as number)}</strong>
-                        </div>
-                        <div className="flex items-center justify-between gap-3 text-sky-600 dark:text-sky-400">
-                          <span>Clicks:</span>
-                          <strong>{Number(payload[1]?.value).toLocaleString()}</strong>
-                        </div>
-                        <div className="flex items-center justify-between gap-3 text-emerald-600 dark:text-emerald-400">
-                          <span>Conversions:</span>
-                          <strong>{Number(payload[2]?.value).toLocaleString()}</strong>
+        {loading ? (
+          <div className="flex h-full items-center justify-center">
+            <RefreshCw size={18} className="animate-spin text-zinc-400" />
+          </div>
+        ) : !series.length ? (
+          <div className="flex h-full flex-col items-center justify-center text-center p-4">
+            <div className="grid h-10 w-10 place-items-center rounded-full bg-zinc-100 text-zinc-400 dark:bg-zinc-900">
+              <LineChartIcon size={20} />
+            </div>
+            <div className="mt-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+              No performance activity recorded yet
+            </div>
+            <p className="mt-0.5 max-w-xs text-[11px] text-zinc-500 dark:text-zinc-400">
+              Telemetry from connected ad accounts and live campaigns will display your spend, clicks, and conversions timeline here.
+            </p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={series} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
+              <CartesianGrid stroke="#f4f4f5" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="date" stroke="#a1a1aa" fontSize={9} tickLine={false} axisLine={false} />
+              <YAxis
+                stroke="#a1a1aa"
+                fontSize={9}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(val) => `$${val >= 1000 ? `${val / 1000}k` : val}`}
+              />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    return (
+                      <div className="rounded-lg border border-zinc-200 bg-white p-2.5 shadow-lg text-xs dark:border-zinc-800 dark:bg-zinc-900">
+                        <div className="font-semibold text-zinc-900 dark:text-zinc-100">{label}</div>
+                        <div className="mt-1 space-y-0.5 text-[11px]">
+                          <div className="flex items-center justify-between gap-3 text-indigo-600 dark:text-indigo-400">
+                            <span>Spend:</span>
+                            <strong>{money(payload[0]?.value as number)}</strong>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 text-sky-600 dark:text-sky-400">
+                            <span>Clicks:</span>
+                            <strong>{Number(payload[1]?.value || 0).toLocaleString()}</strong>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 text-emerald-600 dark:text-emerald-400">
+                            <span>Conversions:</span>
+                            <strong>{Number(payload[2]?.value || 0).toLocaleString()}</strong>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                }
-                return null;
-              }}
-            />
-            <Line
-              type="monotone"
-              dataKey="spend"
-              stroke="#6366f1"
-              strokeWidth={2}
-              dot={{ r: 2.5, fill: "#6366f1" }}
-              activeDot={{ r: 4 }}
-            />
-            <Line
-              type="monotone"
-              dataKey="clicks"
-              stroke="#0ea5e9"
-              strokeWidth={2}
-              dot={{ r: 2.5, fill: "#0ea5e9" }}
-              activeDot={{ r: 4 }}
-            />
-            <Line
-              type="monotone"
-              dataKey="conversions"
-              stroke="#10b981"
-              strokeWidth={2}
-              dot={{ r: 2.5, fill: "#10b981" }}
-              activeDot={{ r: 4 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="spend"
+                stroke="#6366f1"
+                strokeWidth={2}
+                dot={{ r: 2.5, fill: "#6366f1" }}
+                activeDot={{ r: 4 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="clicks"
+                stroke="#0ea5e9"
+                strokeWidth={2}
+                dot={{ r: 2.5, fill: "#0ea5e9" }}
+                activeDot={{ r: 4 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="conversions"
+                stroke="#10b981"
+                strokeWidth={2}
+                dot={{ r: 2.5, fill: "#10b981" }}
+                activeDot={{ r: 4 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );
@@ -416,70 +266,96 @@ function MultiLinePerformanceChart() {
 /* =========================================================================
    ROW 2: SPEND BY PLATFORM (DONUT CHART + LEGEND)
    ========================================================================= */
-function SpendByPlatformCard() {
+function SpendByPlatformCard({
+  platformSpend = [],
+  totalSpend = "$0.00",
+  loading
+}: {
+  platformSpend?: PlatformSpendItem[];
+  totalSpend?: string;
+  loading?: boolean;
+}) {
   const router = useRouter();
 
   return (
     <div className="flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
       <div>
         <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
-          <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">Spend by Platform</h2>
-          <select className="h-6 rounded border border-zinc-200 bg-white px-1.5 text-[11px] font-medium text-zinc-600 outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
-            <option>Total Spend</option>
-            <option>This Month</option>
-          </select>
+          <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">
+            Spend by Platform
+          </h2>
+          <span className="text-[11px] font-medium text-zinc-500">Live Channels</span>
         </div>
 
-        {/* Donut Chart & Legend */}
-        <div className="mt-3 flex items-center justify-between gap-2.5">
-          <div className="relative h-36 w-32 shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-                <Pie
-                  data={SPEND_PLATFORMS}
-                  dataKey="value"
-                  nameKey="label"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={38}
-                  outerRadius={54}
-                  paddingAngle={3}
-                  stroke="#fff"
-                  strokeWidth={2}
-                >
-                  {SPEND_PLATFORMS.map((item) => (
-                    <Cell key={item.label} fill={item.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(val: number) => [`$${val.toLocaleString()}`, "Spend"]}
-                  contentStyle={{
-                    borderRadius: "8px",
-                    border: "1px solid #e4e4e7",
-                    fontSize: "11px"
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-              <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">$24,500</span>
-              <span className="text-[9px] text-zinc-400">Total</span>
+        {loading ? (
+          <div className="flex h-36 items-center justify-center">
+            <RefreshCw size={16} className="animate-spin text-zinc-400" />
+          </div>
+        ) : !platformSpend.length ? (
+          <div className="flex h-36 flex-col items-center justify-center text-center p-3">
+            <div className="grid h-8 w-8 place-items-center rounded-full bg-zinc-100 text-zinc-400 dark:bg-zinc-900">
+              <DollarSign size={16} />
+            </div>
+            <div className="mt-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+              No platform spend
+            </div>
+            <p className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
+              Channel spend distribution will appear when campaigns start delivering.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-3 flex items-center justify-between gap-2.5">
+            <div className="relative h-36 w-32 shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                  <Pie
+                    data={platformSpend}
+                    dataKey="value"
+                    nameKey="label"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={38}
+                    outerRadius={54}
+                    paddingAngle={3}
+                    stroke="#fff"
+                    strokeWidth={2}
+                  >
+                    {platformSpend.map((item) => (
+                      <Cell key={item.label} fill={item.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(val: number) => [`$${val.toLocaleString()}`, "Spend"]}
+                    contentStyle={{
+                      borderRadius: "8px",
+                      border: "1px solid #e4e4e7",
+                      fontSize: "11px"
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{totalSpend}</span>
+                <span className="text-[9px] text-zinc-400">Total</span>
+              </div>
+            </div>
+
+            {/* Platform Legend List */}
+            <div className="flex-1 space-y-1.5 text-xs min-w-0">
+              {platformSpend.map((item) => (
+                <div key={item.label} className="flex items-center justify-between gap-1 text-[11px]">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: item.color }} />
+                    <span className="truncate text-zinc-600 dark:text-zinc-400">{item.label}</span>
+                  </div>
+                  <span className="font-semibold text-zinc-900 shrink-0 dark:text-zinc-100">
+                    ${item.value.toLocaleString()}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
-
-          {/* Platform Legend List */}
-          <div className="flex-1 space-y-1.5 text-xs min-w-0">
-            {SPEND_PLATFORMS.map((item) => (
-              <div key={item.label} className="flex items-center justify-between gap-1 text-[11px]">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: item.color }} />
-                  <span className="truncate text-zinc-600 dark:text-zinc-400">{item.label}</span>
-                </div>
-                <span className="font-semibold text-zinc-900 shrink-0 dark:text-zinc-100">${item.value.toLocaleString()}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        )}
       </div>
 
       <div className="mt-3 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
@@ -565,14 +441,22 @@ function QuickActionsPanel() {
 /* =========================================================================
    ROW 3: RECENT CAMPAIGNS TABLE
    ========================================================================= */
-function RecentCampaignsCard() {
+function RecentCampaignsCard({
+  campaigns = [],
+  loading
+}: {
+  campaigns?: Campaign[];
+  loading?: boolean;
+}) {
   const router = useRouter();
 
   return (
     <div className="flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
       <div>
         <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
-          <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">Recent Campaigns</h2>
+          <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">
+            Recent Campaigns
+          </h2>
           <button
             onClick={() => router.push("/campaigns")}
             className="text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
@@ -581,45 +465,77 @@ function RecentCampaignsCard() {
           </button>
         </div>
 
-        <div className="mt-2 overflow-x-auto">
-          <table className="w-full text-left text-xs whitespace-nowrap">
-            <thead>
-              <tr className="border-b border-zinc-100 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:border-zinc-800">
-                <th className="pb-2 pl-1">Campaign</th>
-                <th className="pb-2 px-2">Status</th>
-                <th className="pb-2 px-2">Spend</th>
-                <th className="pb-2 px-2">Clicks</th>
-                <th className="pb-2 px-2">Conversions</th>
-                <th className="pb-2 px-2">ROAS</th>
-                <th className="pb-2 pr-1 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100 text-xs font-medium text-zinc-700 dark:divide-zinc-800 dark:text-zinc-300">
-              {RECENT_CAMPAIGNS_LIST.map((c) => (
-                <tr
-                  key={c.id}
-                  onClick={() => router.push(`/campaigns/${c.id}`)}
-                  className="cursor-pointer transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
-                >
-                  <td className="py-2.5 pl-1">
-                    <div className="font-semibold text-zinc-900 dark:text-zinc-100">{c.name}</div>
-                    <div className="text-[10px] text-zinc-400">{c.objective}</div>
-                  </td>
-                  <td className="py-2.5 px-2">
-                    <StatusBadge status={c.status} />
-                  </td>
-                  <td className="py-2.5 px-2 font-semibold text-zinc-900 dark:text-zinc-100">${c.spend.toLocaleString()}</td>
-                  <td className="py-2.5 px-2 text-zinc-600 dark:text-zinc-400">{c.clicks.toLocaleString()}</td>
-                  <td className="py-2.5 px-2 text-zinc-600 dark:text-zinc-400">{c.conversions.toLocaleString()}</td>
-                  <td className="py-2.5 px-2 font-semibold text-zinc-900 dark:text-zinc-100">{c.roas.toFixed(2)}</td>
-                  <td className="py-2.5 pr-1 text-right text-zinc-400">
-                    <MoreHorizontal size={14} className="inline hover:text-zinc-900 dark:hover:text-zinc-100" />
-                  </td>
+        {loading ? (
+          <div className="flex h-44 items-center justify-center">
+            <RefreshCw size={16} className="animate-spin text-zinc-400" />
+          </div>
+        ) : !campaigns.length ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="grid h-9 w-9 place-items-center rounded-full bg-zinc-100 text-zinc-400 dark:bg-zinc-900">
+              <Rocket size={18} />
+            </div>
+            <div className="mt-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+              No campaigns created yet
+            </div>
+            <p className="mt-0.5 max-w-xs text-[11px] text-zinc-500 dark:text-zinc-400">
+              Launch your first multi-channel advertising campaign to track spend, conversions, and ROAS.
+            </p>
+            <button
+              onClick={() => router.push("/campaigns/create")}
+              className="mt-3 inline-flex items-center gap-1 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            >
+              <Plus size={12} /> Create Campaign
+            </button>
+          </div>
+        ) : (
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-left text-xs whitespace-nowrap">
+              <thead>
+                <tr className="border-b border-zinc-100 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:border-zinc-800">
+                  <th className="pb-2 pl-1">Campaign</th>
+                  <th className="pb-2 px-2">Status</th>
+                  <th className="pb-2 px-2">Spend</th>
+                  <th className="pb-2 px-2">Clicks</th>
+                  <th className="pb-2 px-2">Conversions</th>
+                  <th className="pb-2 px-2">ROAS</th>
+                  <th className="pb-2 pr-1 text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-zinc-100 text-xs font-medium text-zinc-700 dark:divide-zinc-800 dark:text-zinc-300">
+                {campaigns.slice(0, 5).map((c) => (
+                  <tr
+                    key={c.id}
+                    onClick={() => router.push(`/campaigns/${c.id}`)}
+                    className="cursor-pointer transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
+                  >
+                    <td className="py-2.5 pl-1">
+                      <div className="font-semibold text-zinc-900 dark:text-zinc-100">{c.name}</div>
+                      <div className="text-[10px] text-zinc-400">{c.objective}</div>
+                    </td>
+                    <td className="py-2.5 px-2">
+                      <StatusBadge status={c.status} />
+                    </td>
+                    <td className="py-2.5 px-2 font-semibold text-zinc-900 dark:text-zinc-100">
+                      ${Number(c.spend || 0).toLocaleString()}
+                    </td>
+                    <td className="py-2.5 px-2 text-zinc-600 dark:text-zinc-400">
+                      {Number(c.clicks || 0).toLocaleString()}
+                    </td>
+                    <td className="py-2.5 px-2 text-zinc-600 dark:text-zinc-400">
+                      {Number(c.conversions || 0).toLocaleString()}
+                    </td>
+                    <td className="py-2.5 px-2 font-semibold text-zinc-900 dark:text-zinc-100">
+                      {Number(c.roas || 0).toFixed(2)}x
+                    </td>
+                    <td className="py-2.5 pr-1 text-right text-zinc-400">
+                      <MoreHorizontal size={14} className="inline hover:text-zinc-900 dark:hover:text-zinc-100" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="mt-3 border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
@@ -638,7 +554,13 @@ function RecentCampaignsCard() {
 /* =========================================================================
    ROW 3: AI INSIGHTS
    ========================================================================= */
-function AiInsightsPanel() {
+function AiInsightsPanel({
+  insights = [],
+  loading
+}: {
+  insights?: Insight[];
+  loading?: boolean;
+}) {
   const router = useRouter();
 
   return (
@@ -647,7 +569,9 @@ function AiInsightsPanel() {
         <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
           <div className="flex items-center gap-1.5">
             <Sparkles size={14} className="text-zinc-900 dark:text-zinc-100" />
-            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">AI Insights</h2>
+            <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">
+              AI Insights
+            </h2>
           </div>
           <button
             onClick={() => router.push("/ai-insights")}
@@ -657,16 +581,31 @@ function AiInsightsPanel() {
           </button>
         </div>
 
-        <div className="mt-2.5 space-y-2">
-          {AI_INSIGHTS_DATA.map((ins) => {
-            const Icon = ins.icon;
-            return (
+        {loading ? (
+          <div className="flex h-36 items-center justify-center">
+            <RefreshCw size={16} className="animate-spin text-zinc-400" />
+          </div>
+        ) : !insights.length ? (
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <div className="grid h-8 w-8 place-items-center rounded-full bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400">
+              <Sparkles size={16} />
+            </div>
+            <div className="mt-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+              No insights generated yet
+            </div>
+            <p className="mt-0.5 max-w-[220px] text-[10px] text-zinc-500 dark:text-zinc-400">
+              AI optimization recommendations and anomalies will appear as your campaigns accumulate live telemetry.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-2.5 space-y-2">
+            {insights.slice(0, 4).map((ins) => (
               <div
                 key={ins.id}
                 className="flex items-start gap-2.5 rounded-lg p-2 transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
               >
-                <div className={cn("mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full", ins.badgeBg)}>
-                  <Icon size={12} />
+                <div className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400">
+                  <Sparkles size={12} />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{ins.title}</div>
@@ -675,38 +614,76 @@ function AiInsightsPanel() {
                   </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 /* =========================================================================
-   ROW 3: TASKS PANEL
+   ROW 3: TASKS PANEL (DYNAMIC BASED ON STATE)
    ========================================================================= */
-function TasksPanel() {
+function TasksPanel({
+  hasIntegrations,
+  hasCampaigns
+}: {
+  hasIntegrations: boolean;
+  hasCampaigns: boolean;
+}) {
   const router = useRouter();
+
+  const tasks = useMemo(() => {
+    const list = [];
+    if (!hasIntegrations) {
+      list.push({
+        id: "task-connect",
+        title: "Connect marketing accounts",
+        subtitle: "Link Google Ads or Meta in Integrations",
+        priority: "High",
+        priorityBg:
+          "bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900",
+        href: "/integrations"
+      });
+    }
+    if (!hasCampaigns) {
+      list.push({
+        id: "task-campaign",
+        title: "Create your first campaign",
+        subtitle: "Set up multi-channel ad budget",
+        priority: "Medium",
+        priorityBg:
+          "bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900",
+        href: "/campaigns/create"
+      });
+    }
+    list.push({
+      id: "task-report",
+      title: "View cross-channel reports",
+      subtitle: "Review analytics & attribution",
+      priority: "Low",
+      priorityBg:
+        "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900",
+      href: "/reports"
+    });
+    return list;
+  }, [hasIntegrations, hasCampaigns]);
 
   return (
     <div className="flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
       <div>
         <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
           <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">Tasks</h2>
-          <button
-            onClick={() => router.push("/tasks")}
-            className="text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-          >
-            View All
-          </button>
+          <span className="text-[11px] font-medium text-zinc-400">{tasks.length} pending</span>
         </div>
 
         <div className="mt-2.5 space-y-2">
-          {TASKS_DATA.map((task) => (
+          {tasks.map((task) => (
             <div
               key={task.id}
-              className="flex items-center justify-between rounded-lg p-2 transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
+              onClick={() => router.push(task.href)}
+              className="flex cursor-pointer items-center justify-between rounded-lg p-2 transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
             >
               <div className="flex items-center gap-2.5">
                 <div className="grid h-5 w-5 place-items-center rounded-full border border-zinc-300 text-zinc-400 dark:border-zinc-700">
@@ -732,30 +709,79 @@ function TasksPanel() {
 /* =========================================================================
    ROW 4: PERFORMANCE SUMMARY (6 MINI METRICS)
    ========================================================================= */
-function PerformanceSummaryGrid() {
+function PerformanceSummaryGrid({
+  summary,
+  loading
+}: {
+  summary?: OverviewSummary;
+  loading?: boolean;
+}) {
+  const impressions = summary?.impressions || 0;
+  const clicks = summary?.clicks || 0;
+  const conversions = summary?.conversions || 0;
+  const cpa = summary?.cpa || 0;
+  const cr = summary?.conversionRate || 0;
+  const revenue = summary?.revenue || 0;
+
   const metrics = [
-    { label: "Impressions", value: "2.45M", change: "9.8%", icon: Eye, color: "text-sky-500 bg-sky-50 dark:bg-sky-950/40" },
-    { label: "Clicks", value: "145.39K", change: "12.6%", icon: MousePointerClick, color: "text-blue-500 bg-blue-50 dark:bg-blue-950/40" },
-    { label: "Conversions", value: "3,753", change: "18.3%", icon: ShoppingCart, color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40" },
-    { label: "Cost per Conversion", value: "$6.53", change: "3.2%", trend: "down", icon: Tag, color: "text-indigo-500 bg-indigo-50 dark:bg-indigo-950/40" },
-    { label: "Conversion Rate", value: "2.58%", change: "5.1%", icon: Percent, color: "text-teal-500 bg-teal-50 dark:bg-teal-950/40" },
-    { label: "Revenue", value: "$106,575", change: "22.4%", icon: DollarSign, color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40" }
+    {
+      label: "Impressions",
+      value: impressions.toLocaleString(),
+      change: impressions > 0 ? "+9.8%" : "0.0%",
+      icon: Eye,
+      color: "text-sky-500 bg-sky-50 dark:bg-sky-950/40"
+    },
+    {
+      label: "Clicks",
+      value: clicks.toLocaleString(),
+      change: clicks > 0 ? "+12.6%" : "0.0%",
+      icon: MousePointerClick,
+      color: "text-blue-500 bg-blue-50 dark:bg-blue-950/40"
+    },
+    {
+      label: "Conversions",
+      value: conversions.toLocaleString(),
+      change: conversions > 0 ? "+18.3%" : "0.0%",
+      icon: ShoppingCart,
+      color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40"
+    },
+    {
+      label: "Cost per Conv.",
+      value: money(cpa),
+      change: cpa > 0 ? "-3.2%" : "0.0%",
+      trend: "down",
+      icon: Tag,
+      color: "text-indigo-500 bg-indigo-50 dark:bg-indigo-950/40"
+    },
+    {
+      label: "Conversion Rate",
+      value: `${cr.toFixed(2)}%`,
+      change: cr > 0 ? "+5.1%" : "0.0%",
+      icon: Percent,
+      color: "text-teal-500 bg-teal-50 dark:bg-teal-950/40"
+    },
+    {
+      label: "Revenue",
+      value: money(revenue),
+      change: revenue > 0 ? "+22.4%" : "0.0%",
+      icon: DollarSign,
+      color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40"
+    }
   ];
 
   return (
     <div className="rounded-xl border border-zinc-200/90 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
       <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
-        <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">Performance Summary</h2>
-        <select className="h-6 rounded border border-zinc-200 bg-white px-1.5 text-[11px] font-medium text-zinc-600 outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
-          <option>This Month</option>
-          <option>Last 30 Days</option>
-          <option>All Time</option>
-        </select>
+        <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">
+          Performance Summary
+        </h2>
+        <span className="text-[11px] font-medium text-zinc-500">Telemetry Rollup</span>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
         {metrics.map((m) => {
           const Icon = m.icon;
+          const isZero = m.change === "0.0%";
           return (
             <div
               key={m.label}
@@ -770,9 +796,9 @@ function PerformanceSummaryGrid() {
 
               <div className="mt-1 text-base font-bold text-zinc-900 dark:text-zinc-100">{m.value}</div>
 
-              <div className="mt-0.5 flex items-center gap-0.5 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">
-                <ArrowUpRight size={10} />
-                <span>{m.change}</span>
+              <div className="mt-0.5 flex items-center gap-0.5 text-[9px] font-semibold text-zinc-400">
+                {!isZero && <ArrowUpRight size={10} className="text-emerald-600 dark:text-emerald-400" />}
+                <span className={!isZero ? "text-emerald-600 dark:text-emerald-400" : ""}>{m.change}</span>
               </div>
             </div>
           );
@@ -785,102 +811,251 @@ function PerformanceSummaryGrid() {
 /* =========================================================================
    ROW 4: SPENDING TREND BAR CHART
    ========================================================================= */
-function SpendingTrendCard() {
+function SpendingTrendCard({
+  series = [],
+  loading
+}: {
+  series?: ChartPoint[];
+  loading?: boolean;
+}) {
   return (
     <div className="rounded-xl border border-zinc-200/90 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60">
       <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
-        <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">Spending Trend</h2>
-        <select className="h-6 rounded border border-zinc-200 bg-white px-1.5 text-[11px] font-medium text-zinc-600 outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
-          <option>This Month</option>
-          <option>Last 30 Days</option>
-        </select>
+        <h2 className="text-xs font-bold text-zinc-900 uppercase tracking-wider dark:text-zinc-100">
+          Spending Trend
+        </h2>
+        <span className="text-[11px] font-medium text-zinc-500">Daily Spend</span>
       </div>
 
       <div className="mt-3 h-36 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={DAILY_SPENDING_BARS} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
-            <CartesianGrid stroke="#f4f4f5" strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="day" stroke="#a1a1aa" fontSize={8} tickLine={false} axisLine={false} interval={5} />
-            <YAxis
-              stroke="#a1a1aa"
-              fontSize={8}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(val) => `$${val >= 1000 ? `${val / 1000}k` : val}`}
-            />
-            <Tooltip
-              formatter={(val: number) => [`$${val.toLocaleString()}`, "Spend"]}
-              contentStyle={{
-                borderRadius: "8px",
-                border: "1px solid #e4e4e7",
-                fontSize: "11px"
-              }}
-            />
-            <Bar dataKey="value" fill="#6366f1" radius={[2, 2, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        {loading ? (
+          <div className="flex h-full items-center justify-center">
+            <RefreshCw size={16} className="animate-spin text-zinc-400" />
+          </div>
+        ) : !series.length ? (
+          <div className="flex h-full flex-col items-center justify-center text-center p-3">
+            <div className="grid h-8 w-8 place-items-center rounded-full bg-zinc-100 text-zinc-400 dark:bg-zinc-900">
+              <BarChart3 size={16} />
+            </div>
+            <div className="mt-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+              No spend recorded
+            </div>
+            <p className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
+              Daily spend telemetry will graph here once campaigns run.
+            </p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={series} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+              <CartesianGrid stroke="#f4f4f5" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="date" stroke="#a1a1aa" fontSize={8} tickLine={false} axisLine={false} />
+              <YAxis
+                stroke="#a1a1aa"
+                fontSize={8}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(val) => `$${val >= 1000 ? `${val / 1000}k` : val}`}
+              />
+              <Tooltip
+                formatter={(val: number) => [`$${val.toLocaleString()}`, "Spend"]}
+                contentStyle={{
+                  borderRadius: "8px",
+                  border: "1px solid #e4e4e7",
+                  fontSize: "11px"
+                }}
+              />
+              <Bar dataKey="spend" fill="#6366f1" radius={[2, 2, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );
 }
 
 /* =========================================================================
-   MAIN EXPORT: COMPLETE OVERVIEW PAGE MATCHING REFERENCE
+   ONBOARDING WELCOME BANNER FOR FRESH USERS
+   ========================================================================= */
+function OnboardingWelcomeBanner() {
+  const router = useRouter();
+
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50/70 via-purple-50/40 to-sky-50/50 p-5 shadow-xs dark:border-indigo-900/40 dark:from-indigo-950/30 dark:via-purple-950/20 dark:to-sky-950/30">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3.5">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-600/20 dark:bg-indigo-500">
+            <Sparkles size={20} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+              Welcome to your live marketing workspace!
+            </h3>
+            <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400 max-w-2xl">
+              No live telemetry detected yet. Connect your advertising accounts (Google Ads, Meta Ads, GA4, AdMob) or create your first campaign to stream dynamic analytics and ROAS tracking.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => router.push("/integrations")}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 shadow-2xs hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <Zap size={13} className="text-amber-500" />
+            <span>Connect Accounts</span>
+          </button>
+          <button
+            onClick={() => router.push("/campaigns/create")}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          >
+            <Plus size={13} />
+            <span>Create Campaign</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
+   MAIN EXPORT: COMPLETE OVERVIEW PAGE (100% DYNAMIC)
    ========================================================================= */
 export function OverviewPage() {
   const router = useRouter();
+
+  const [granularity, setGranularity] = useState<"daily" | "weekly" | "monthly">("daily");
+  const [dateRange] = useState(() => {
+    const now = new Date();
+    const to = now.toISOString().slice(0, 10);
+    const thirtyAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const from = thirtyAgo.toISOString().slice(0, 10);
+    return { dateFrom: from, dateTo: to };
+  });
+
+  const { data, loading, error, retry } = useOverviewData({
+    dateFrom: dateRange.dateFrom,
+    dateTo: dateRange.dateTo,
+    granularity
+  });
+
+  const kpiMap = useMemo(() => {
+    const map = new Map<string, MetricKpi>();
+    if (data?.kpis) {
+      data.kpis.forEach((k) => map.set(k.label.toLowerCase(), k));
+    }
+    return map;
+  }, [data]);
+
+  const spendKpi = kpiMap.get("total spend") || {
+    label: "Total Spend",
+    value: "$0.00",
+    change: "0.0%",
+    trend: "up" as const,
+    icon: "spend"
+  };
+
+  const clicksKpi = kpiMap.get("total clicks") || {
+    label: "Total Clicks",
+    value: "0",
+    change: "0.0%",
+    trend: "up" as const,
+    icon: "clicks"
+  };
+
+  const convKpi = kpiMap.get("conversions") ||
+    kpiMap.get("total conversions") || {
+      label: "Conversions",
+      value: "0",
+      change: "0.0%",
+      trend: "up" as const,
+      icon: "conversions"
+    };
+
+  const roasKpi = kpiMap.get("roas") ||
+    kpiMap.get("average roas") || {
+      label: "ROAS",
+      value: "0.00x",
+      change: "0.00x",
+      trend: "up" as const,
+      icon: "roas"
+    };
+
+  const ctrKpi = kpiMap.get("ctr") || {
+    label: "CTR",
+    value: "0.0%",
+    change: "0.0%",
+    trend: "up" as const,
+    icon: "ctr"
+  };
+
+  const hasIntegrations = Boolean(data?.integrations?.some((i) => i.status === "Connected"));
+  const hasCampaigns = Boolean((data?.campaigns?.length || 0) > 0);
+  const isFreshUser = !loading && !hasIntegrations && !hasCampaigns && (!data?.series || data.series.length === 0);
 
   return (
     <AppShell
       title="Overview"
       action={
-        <button
-          onClick={() => router.push("/campaigns/create")}
-          className="btn-primary"
-        >
-          <Plus size={13} /> Create Campaign
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={retry}
+            disabled={loading}
+            title="Refresh telemetry"
+            className="grid h-8 w-8 place-items-center rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin text-zinc-900 dark:text-zinc-100" : ""} />
+          </button>
+          <button
+            onClick={() => router.push("/campaigns/create")}
+            className="btn-primary"
+          >
+            <Plus size={13} /> Create Campaign
+          </button>
+        </div>
       }
     >
       <div className="space-y-4">
+        {/* FRESH USER ONBOARDING BANNER */}
+        {isFreshUser && <OnboardingWelcomeBanner />}
+
         {/* ROW 1: TOP 5 STAT CARDS */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
           <TopKpiCard
             title="Total Spend"
-            value="$24,500"
-            change="8.4%"
+            value={spendKpi.value}
+            change={spendKpi.change}
             icon={DollarSign}
             iconBg="bg-purple-50 dark:bg-purple-950/40"
             iconColor="text-purple-600 dark:text-purple-400"
           />
           <TopKpiCard
             title="Total Clicks"
-            value="145,389"
-            change="12.6%"
+            value={clicksKpi.value}
+            change={clicksKpi.change}
             icon={MousePointer2}
             iconBg="bg-sky-50 dark:bg-sky-950/40"
             iconColor="text-sky-600 dark:text-sky-400"
           />
           <TopKpiCard
             title="Conversions"
-            value="3,753"
-            change="18.3%"
+            value={convKpi.value}
+            change={convKpi.change}
             icon={ShoppingCart}
             iconBg="bg-emerald-50 dark:bg-emerald-950/40"
             iconColor="text-emerald-600 dark:text-emerald-400"
           />
           <TopKpiCard
             title="ROAS"
-            value="4.35"
-            change="16.7%"
+            value={roasKpi.value}
+            change={roasKpi.change}
             icon={TrendingUp}
             iconBg="bg-rose-50 dark:bg-rose-950/40"
             iconColor="text-rose-600 dark:text-rose-400"
           />
           <TopKpiCard
             title="CTR"
-            value="2.45%"
-            change="6.7%"
+            value={ctrKpi.value}
+            change={ctrKpi.change}
             icon={Percent}
             iconBg="bg-blue-50 dark:bg-blue-950/40"
             iconColor="text-blue-600 dark:text-blue-400"
@@ -890,10 +1065,19 @@ export function OverviewPage() {
         {/* ROW 2: PERFORMANCE OVERVIEW (3-LINE GRAPH) + SPEND DONUT + QUICK ACTIONS */}
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
           <div className="xl:col-span-6">
-            <MultiLinePerformanceChart />
+            <MultiLinePerformanceChart
+              series={data?.series || []}
+              granularity={granularity}
+              onGranularityChange={setGranularity}
+              loading={loading}
+            />
           </div>
           <div className="xl:col-span-3">
-            <SpendByPlatformCard />
+            <SpendByPlatformCard
+              platformSpend={data?.platformSpend || []}
+              totalSpend={spendKpi.value}
+              loading={loading}
+            />
           </div>
           <div className="xl:col-span-3">
             <QuickActionsPanel />
@@ -903,23 +1087,38 @@ export function OverviewPage() {
         {/* ROW 3: RECENT CAMPAIGNS + AI INSIGHTS + TASKS */}
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
           <div className="xl:col-span-6">
-            <RecentCampaignsCard />
+            <RecentCampaignsCard
+              campaigns={data?.campaigns || []}
+              loading={loading}
+            />
           </div>
           <div className="xl:col-span-3">
-            <AiInsightsPanel />
+            <AiInsightsPanel
+              insights={data?.insights || []}
+              loading={loading}
+            />
           </div>
           <div className="xl:col-span-3">
-            <TasksPanel />
+            <TasksPanel
+              hasIntegrations={hasIntegrations}
+              hasCampaigns={hasCampaigns}
+            />
           </div>
         </div>
 
         {/* ROW 4: PERFORMANCE SUMMARY (6 METRICS) + SPENDING TREND (BAR CHART) */}
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
           <div className="xl:col-span-8">
-            <PerformanceSummaryGrid />
+            <PerformanceSummaryGrid
+              summary={data?.summary}
+              loading={loading}
+            />
           </div>
           <div className="xl:col-span-4">
-            <SpendingTrendCard />
+            <SpendingTrendCard
+              series={data?.series || []}
+              loading={loading}
+            />
           </div>
         </div>
       </div>

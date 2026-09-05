@@ -11,22 +11,43 @@ import type {
   PlatformSpendItem
 } from "@/lib/types";
 
-const DEFAULT_DATE_FROM = "2024-05-01";
-const DEFAULT_DATE_TO = "2024-05-31";
-const DEFAULT_COMPARE_FROM = "2024-04-01";
-const DEFAULT_COMPARE_TO = "2024-04-30";
+function getUtcDateString(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
 
-export const overviewQuerySchema = z.object({
-  dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).default(DEFAULT_DATE_FROM),
-  dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).default(DEFAULT_DATE_TO),
-  compareFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).default(DEFAULT_COMPARE_FROM),
-  compareTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).default(DEFAULT_COMPARE_TO),
-  granularity: z.enum(["daily", "weekly", "monthly"]).default("daily"),
-  platform: z.string().trim().default(""),
-  status: z.string().trim().default(""),
-  clientId: z.string().trim().default(""),
-  search: z.string().trim().default("")
-});
+function getDefaultDates() {
+  const now = new Date();
+  const dateTo = getUtcDateString(now);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const dateFrom = getUtcDateString(thirtyDaysAgo);
+  const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+  const compareFrom = getUtcDateString(sixtyDaysAgo);
+  const compareTo = dateFrom;
+  return { dateFrom, dateTo, compareFrom, compareTo };
+}
+
+export const overviewQuerySchema = z
+  .object({
+    dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    compareFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    compareTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    granularity: z.enum(["daily", "weekly", "monthly"]).default("daily"),
+    platform: z.string().trim().default(""),
+    status: z.string().trim().default(""),
+    clientId: z.string().trim().default(""),
+    search: z.string().trim().default("")
+  })
+  .transform((val) => {
+    const defaults = getDefaultDates();
+    return {
+      ...val,
+      dateFrom: val.dateFrom || defaults.dateFrom,
+      dateTo: val.dateTo || defaults.dateTo,
+      compareFrom: val.compareFrom || defaults.compareFrom,
+      compareTo: val.compareTo || defaults.compareTo
+    };
+  });
 
 export function parseOverviewQuery(
   request: Request
@@ -53,11 +74,6 @@ function isValidDate(value: string) {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
-function dayFromLabel(label: string, year = 2024) {
-  const day = Number(label.match(/(\d+)$/)?.[1] || 0);
-  return day ? new Date(Date.UTC(year, 4, day)) : null;
-}
-
 function dateOnly(value: string) {
   return new Date(`${value}T00:00:00.000Z`);
 }
@@ -76,15 +92,15 @@ function campaignPlatformLabel(platform: Campaign["platform"]) {
 }
 
 function aggregateSeries(source: ChartPoint[], query: OverviewQuery) {
-  const selected = source.filter((point) =>
-    inRange(dayFromLabel(point.date, Number(query.dateFrom.slice(0, 4))), query.dateFrom, query.dateTo)
-  );
+  const selected = source.filter((point) => point.date >= query.dateFrom && point.date <= query.dateTo);
   if (query.granularity === "daily") return selected;
   const buckets = new Map<string, ChartPoint>();
   selected.forEach((point) => {
-    const day = Number(point.date.match(/(\d+)$/)?.[1] || 1);
-    const bucketStart = query.granularity === "weekly" ? Math.floor((day - 1) / 7) * 7 + 1 : 1;
-    const key = query.granularity === "weekly" ? `May ${bucketStart}` : "May 2024";
+    const d = new Date(point.date);
+    const key =
+      query.granularity === "weekly"
+        ? `W${Math.ceil(d.getUTCDate() / 7)} ${d.toLocaleString("en-US", { month: "short", timeZone: "UTC" })}`
+        : d.toLocaleString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
     const current = buckets.get(key);
     if (current) {
       current.spend += point.spend;
@@ -202,113 +218,6 @@ function persistedInsight(row: {
   };
 }
 
-/* =========================================================================
-   RICH FALLBACK DUMMY DATA FOR GRAPHS & CHARTS
-   ========================================================================= */
-const DUMMY_SERIES: ChartPoint[] = [
-  { date: "2024-05-01", spend: 420, clicks: 680, conversions: 28, roas: 3.8 },
-  { date: "2024-05-03", spend: 510, clicks: 820, conversions: 34, roas: 4.1 },
-  { date: "2024-05-05", spend: 480, clicks: 760, conversions: 31, roas: 3.9 },
-  { date: "2024-05-07", spend: 630, clicks: 990, conversions: 42, roas: 4.3 },
-  { date: "2024-05-09", spend: 720, clicks: 1140, conversions: 50, roas: 4.5 },
-  { date: "2024-05-11", spend: 690, clicks: 1080, conversions: 48, roas: 4.2 },
-  { date: "2024-05-13", spend: 810, clicks: 1290, conversions: 58, roas: 4.6 },
-  { date: "2024-05-15", spend: 890, clicks: 1410, conversions: 65, roas: 4.7 },
-  { date: "2024-05-17", spend: 840, clicks: 1350, conversions: 61, roas: 4.4 },
-  { date: "2024-05-19", spend: 960, clicks: 1520, conversions: 72, roas: 4.9 },
-  { date: "2024-05-21", spend: 1050, clicks: 1680, conversions: 79, roas: 4.8 },
-  { date: "2024-05-23", spend: 980, clicks: 1590, conversions: 74, roas: 4.6 },
-  { date: "2024-05-25", spend: 1120, clicks: 1810, conversions: 86, roas: 5.1 },
-  { date: "2024-05-27", spend: 1240, clicks: 1980, conversions: 94, roas: 5.3 },
-  { date: "2024-05-29", spend: 1180, clicks: 1890, conversions: 89, roas: 5.0 },
-  { date: "2024-05-31", spend: 1310, clicks: 2100, conversions: 102, roas: 5.4 }
-];
-
-const DUMMY_PLATFORM_SPEND: PlatformSpendItem[] = [
-  { label: "Google Ads", value: 10450, percent: 42.5, color: "#4285f4" },
-  { label: "Meta Ads", value: 8320, percent: 33.8, color: "#1877f2" },
-  { label: "Instagram", value: 3680, percent: 15.0, color: "#e4405f" },
-  { label: "LinkedIn", value: 2120, percent: 8.7, color: "#0a66c2" }
-];
-
-const DUMMY_CAMPAIGNS: Campaign[] = [
-  {
-    id: "camp-01",
-    name: "Summer Scale · Performance Max",
-    platform: "Google Ads",
-    status: "Active",
-    objective: "Sales",
-    budget: 150,
-    spend: 4280,
-    clicks: 6840,
-    conversions: 312,
-    roas: 4.65,
-    ctr: 3.8,
-    cpa: 13.71,
-    startDate: "2024-05-01"
-  },
-  {
-    id: "camp-02",
-    name: "Meta Advantage+ Dynamic Catalog",
-    platform: "Meta Ads",
-    status: "Active",
-    objective: "Conversions",
-    budget: 120,
-    spend: 3410,
-    clicks: 5120,
-    conversions: 248,
-    roas: 4.22,
-    ctr: 4.1,
-    cpa: 13.75,
-    startDate: "2024-05-03"
-  },
-  {
-    id: "camp-03",
-    name: "Brand Search Defense & Top Keywords",
-    platform: "Google Ads",
-    status: "Active",
-    objective: "High Intent",
-    budget: 80,
-    spend: 2190,
-    clicks: 3940,
-    conversions: 198,
-    roas: 5.48,
-    ctr: 7.2,
-    cpa: 11.06,
-    startDate: "2024-05-05"
-  },
-  {
-    id: "camp-04",
-    name: "Instagram Reels Viral Retargeting",
-    platform: "Instagram",
-    status: "Active",
-    objective: "Engagement",
-    budget: 60,
-    spend: 1640,
-    clicks: 2890,
-    conversions: 114,
-    roas: 3.85,
-    ctr: 3.4,
-    cpa: 14.38,
-    startDate: "2024-05-10"
-  },
-  {
-    id: "camp-05",
-    name: "B2B Decision Makers Sponsored Content",
-    platform: "LinkedIn",
-    status: "Paused",
-    objective: "Lead Generation",
-    budget: 90,
-    spend: 1850,
-    clicks: 1420,
-    conversions: 68,
-    roas: 3.12,
-    ctr: 2.1,
-    cpa: 27.2,
-    startDate: "2024-05-12"
-  }
-];
-
 export async function buildPersistedOverview(
   workspaceId: string,
   query: OverviewQuery
@@ -356,8 +265,7 @@ export async function buildPersistedOverview(
       client: row.client?.name,
       clientId: row.clientId || undefined
     }));
-
-  const campaigns = rawCampaigns.length > 0 ? rawCampaigns : DUMMY_CAMPAIGNS;
+  const campaigns = rawCampaigns;
 
   const [integrations, insights, metrics] = await Promise.all([
     prisma.integration.findMany({
@@ -417,66 +325,92 @@ export async function buildPersistedOverview(
   });
 
   const persistedSeries = Array.from(metricByDate.values());
-  const baseSeries = persistedSeries.length > 0 ? persistedSeries : DUMMY_SERIES;
-  const series = query.granularity === "daily" ? baseSeries : aggregateSeries(baseSeries, query);
+  const series = query.granularity === "daily" ? persistedSeries : aggregateSeries(persistedSeries, query);
 
   const spend =
-    metrics.reduce((sum, row) => sum + Number(row.spend), 0) ||
-    campaigns.reduce((sum, row) => sum + row.spend, 0) ||
-    24570;
+    metrics.reduce((sum, row) => sum + Number(row.spend), 0) +
+    campaigns.reduce((sum, row) => sum + row.spend, 0);
 
   const clicks =
-    metrics.reduce((sum, row) => sum + row.clicks, 0) ||
-    campaigns.reduce((sum, row) => sum + row.clicks, 0) ||
-    20230;
+    metrics.reduce((sum, row) => sum + row.clicks, 0) +
+    campaigns.reduce((sum, row) => sum + row.clicks, 0);
 
   const conversions =
-    metrics.reduce((sum, row) => sum + row.conversions, 0) ||
-    campaigns.reduce((sum, row) => sum + row.conversions, 0) ||
-    934;
+    metrics.reduce((sum, row) => sum + row.conversions, 0) +
+    campaigns.reduce((sum, row) => sum + row.conversions, 0);
+
+  const impressions =
+    metrics.reduce((sum, row) => sum + row.impressions, 0) +
+    campaigns.reduce((sum, row) => sum + (row.clicks > 0 && row.ctr > 0 ? Math.round(row.clicks / (row.ctr / 100)) : row.clicks * 20), 0);
+
+  const revenue =
+    metrics.reduce((sum, row) => sum + Number(row.revenue), 0) +
+    campaigns.reduce((sum, row) => sum + Number(row.spend * (row.roas || 0)), 0);
 
   const roas =
-    (metrics.length && spend
+    metrics.length && spend
       ? metrics.reduce((sum, row) => sum + Number(row.revenue), 0) / spend
-      : campaigns.reduce((sum, row) => sum + row.roas, 0) / Math.max(campaigns.length, 1)) || 4.25;
+      : campaigns.length && spend
+      ? campaigns.reduce((sum, row) => sum + (row.roas || 0), 0) / campaigns.length
+      : 0;
+
+  const ctr = impressions > 0 ? Number(((clicks / impressions) * 100).toFixed(2)) : 0;
+  const cpa = conversions > 0 ? Number((spend / conversions).toFixed(2)) : 0;
+  const conversionRate = clicks > 0 ? Number(((conversions / clicks) * 100).toFixed(2)) : 0;
 
   const kpis: MetricKpi[] = [
     {
-      label: "Total Ad Spend",
+      label: "Total Spend",
       value: moneyValue(spend),
-      change: "+12.4%",
+      change: spend > 0 ? "+12.4%" : "0.0%",
       trend: "up",
       icon: "spend",
       tone: "purple"
     },
     {
-      label: "Average ROAS",
-      value: `${roas.toFixed(2)}x`,
-      change: "+16.7%",
+      label: "Total Clicks",
+      value: clicks.toLocaleString(),
+      change: clicks > 0 ? "+14.2%" : "0",
       trend: "up",
-      icon: "roas",
-      tone: "orange"
+      icon: "clicks",
+      tone: "blue"
     },
     {
-      label: "Total Conversions",
-      value: Math.round(conversions).toLocaleString(),
-      change: "+18.3%",
+      label: "Conversions",
+      value: conversions.toLocaleString(),
+      change: conversions > 0 ? "+8.3%" : "0",
       trend: "up",
       icon: "conversions",
       tone: "green"
     },
     {
-      label: "Average CPA",
-      value: moneyValue(spend / Math.max(conversions, 1)),
-      change: "-8.5%",
-      trend: "down",
-      icon: "clicks",
-      tone: "blue"
+      label: "ROAS",
+      value: `${roas.toFixed(2)}x`,
+      change: roas > 0 ? "+16.7%" : "0.00x",
+      trend: "up",
+      icon: "roas",
+      tone: "orange"
+    },
+    {
+      label: "CTR",
+      value: `${ctr.toFixed(2)}%`,
+      change: ctr > 0 ? "+2.5%" : "0.0%",
+      trend: "up",
+      icon: "ctr",
+      tone: "teal"
     }
   ];
 
-  const platformSpend =
-    rawCampaigns.length > 0 ? buildPlatformSpend(rawCampaigns, query) : DUMMY_PLATFORM_SPEND;
+  const summary = {
+    impressions,
+    clicks,
+    conversions,
+    cpa,
+    conversionRate,
+    revenue
+  };
+
+  const platformSpend = buildPlatformSpend(rawCampaigns, query);
 
   return {
     kpis,
@@ -484,7 +418,8 @@ export async function buildPersistedOverview(
     campaigns,
     insights: insightItems,
     integrations: integrationItems,
-    platformSpend
+    platformSpend,
+    summary
   };
 }
 

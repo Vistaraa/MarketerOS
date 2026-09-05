@@ -244,7 +244,7 @@ export function LiveCampaignCreate() {
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="e.g. Summer Sale 2024 - Omnichannel Growth"
+                      placeholder="e.g. Omnichannel Growth & Conversions"
                       required
                       className="input-clean mt-1"
                     />

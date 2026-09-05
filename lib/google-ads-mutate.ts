@@ -17,53 +17,45 @@ export async function publishCampaignToGoogleAds(campaignId: string, workspaceId
     return { success: false, error: "Campaign not found" };
   }
 
-  // 2. Locate Google Ads Integration
+  // 2. Locate Google Ads Integration & Decrypted Credentials
   const targetWorkspaceId = workspaceId || campaign.workspaceId;
-  let integration = await prisma.integration.findFirst({
-    where: {
-      workspaceId: targetWorkspaceId,
-      platform: "GOOGLE_ADS"
-    }
-  });
+  const { getDecryptedGoogleIntegration, formatCustomerId } = await import("@/lib/google");
+  const { Platform } = await import("@prisma/client");
 
-  if (!integration || !integration.refreshTokenEncrypted) {
-    integration = await prisma.integration.findFirst({
-      where: {
-        platform: "GOOGLE_ADS",
-        refreshTokenEncrypted: { not: null }
-      },
+  const byokIntegration = await getDecryptedGoogleIntegration(targetWorkspaceId, Platform.GOOGLE_ADS);
+
+  const devToken = byokIntegration?.developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+  const clientId = byokIntegration?.oauth?.clientId || process.env.GOOGLE_OAUTH_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = byokIntegration?.oauth?.clientSecret || process.env.GOOGLE_OAUTH_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = byokIntegration?.oauth?.refreshToken || (byokIntegration ? "" : "");
+
+  if (!devToken || !clientId || !clientSecret || !refreshToken) {
+    // Check fallback integration with refreshTokenEncrypted
+    let fallbackIntegration = await prisma.integration.findFirst({
+      where: { platform: "GOOGLE_ADS", refreshTokenEncrypted: { not: null } },
       orderBy: { updatedAt: "desc" }
     });
+
+    let decryptedRefresh = "";
+    if (fallbackIntegration?.refreshTokenEncrypted) {
+      try {
+        decryptedRefresh = decryptSecret(fallbackIntegration.refreshTokenEncrypted);
+      } catch {}
+    }
+
+    const finalRefresh = refreshToken || decryptedRefresh;
+    if (!devToken || !clientId || !clientSecret || !finalRefresh) {
+      console.error("[GOOGLE_ADS_API] ❌ Error: Missing Google Ads credentials in database or environment.");
+      return { success: false, error: "Google Ads not connected. Please connect your credentials in Integrations." };
+    }
   }
 
-  if (!integration || !integration.refreshTokenEncrypted) {
-    console.error("[GOOGLE_ADS_API] ❌ Error: No Google Ads refresh token found in database.");
-    return { success: false, error: "Google Ads not connected. Please connect via Integrations page." };
-  }
-
-  const devToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
-  if (!devToken) {
-    console.error("[GOOGLE_ADS_API] ❌ Error: GOOGLE_ADS_DEVELOPER_TOKEN is missing in .env");
-    return { success: false, error: "Developer token missing in .env" };
-  }
-
-  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
-
-  if (!clientId || !clientSecret) {
-    return { success: false, error: "Google OAuth credentials missing in .env" };
-  }
-
-  let refreshToken = "";
-  try {
-    refreshToken = decryptSecret(integration.refreshTokenEncrypted);
-  } catch (err) {
-    console.error("[GOOGLE_ADS_API] ❌ Error decrypting refresh token:", err);
-    return { success: false, error: "Failed to decrypt OAuth refresh token" };
-  }
-
-  const targetCustomerId = (process.env.GOOGLE_ADS_CUSTOMER_ID || integration.accountId || "3049938456").replaceAll("-", "").trim();
-  const loginCustomerId = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replaceAll("-", "").trim();
+  const targetCustomerId = formatCustomerId(
+    byokIntegration?.accountId || process.env.GOOGLE_ADS_CUSTOMER_ID || "3049938456"
+  );
+  const loginCustomerId = byokIntegration?.loginCustomerId
+    ? formatCustomerId(byokIntegration.loginCustomerId)
+    : process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replaceAll("-", "").trim();
 
   const dailyBudgetDollars = Number(campaign.dailyBudget || Number(campaign.budget || 3000) / 30) || 100;
   const budgetMicros = dailyBudgetDollars * 1_000_000;

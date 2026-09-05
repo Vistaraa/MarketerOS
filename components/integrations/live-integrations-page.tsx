@@ -37,6 +37,8 @@ import { GoogleAdsConnectModal } from "@/components/integrations/google-ads-conn
 import { GoogleAdsSetupGuide } from "@/components/integrations/google-ads-setup-guide";
 import { AdMobConnectModal } from "@/components/integrations/admob-connect-modal";
 import { AdMobSetupGuide } from "@/components/integrations/admob-setup-guide";
+import { GoogleDynamicModal, GooglePlatformType } from "@/components/integrations/google-dynamic-modal";
+import { GoogleLiveDashboard } from "@/components/integrations/google-live-dashboard";
 
 interface StepGuide {
   step: number;
@@ -347,6 +349,13 @@ export function LiveIntegrationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"All" | "Google" | "Meta" | "Other">("All");
+  const [pageMode, setPageMode] = useState<"directory" | "live_dashboard">("directory");
+
+  // Dynamic Google Ecosystem (BYOK) Modals
+  const [googleDynamicModalOpen, setGoogleDynamicModalOpen] = useState(false);
+  const [googleDynamicPlatform, setGoogleDynamicPlatform] = useState<GooglePlatformType>("GOOGLE_ADS");
+  const [googleDynamicInitialId, setGoogleDynamicInitialId] = useState("");
+  const [googleDynamicInitialName, setGoogleDynamicInitialName] = useState("");
 
   // Google Ads Modals
   const [googleAdsConnectOpen, setGoogleAdsConnectOpen] = useState(false);
@@ -423,11 +432,31 @@ export function LiveIntegrationsPage() {
 
   const handleOpenConnect = (platform: PlatformConfig, existing?: Integration) => {
     if (platform.id === "Google Ads") {
-      setGoogleAdsConnectOpen(true);
+      setGoogleDynamicPlatform("GOOGLE_ADS");
+      setGoogleDynamicInitialId(existing?.account || "");
+      setGoogleDynamicInitialName(existing?.account ? `Google Ads (${existing.account})` : "My Google Ads");
+      setGoogleDynamicModalOpen(true);
+      return;
+    }
+    if (platform.id === "Google Analytics" || platform.name.toLowerCase().includes("analytics")) {
+      setGoogleDynamicPlatform("GOOGLE_ANALYTICS");
+      setGoogleDynamicInitialId(existing?.account || "");
+      setGoogleDynamicInitialName(existing?.account ? `GA4 (${existing.account})` : "My GA4 Property");
+      setGoogleDynamicModalOpen(true);
+      return;
+    }
+    if (platform.id === "Google Search Console" || platform.name.toLowerCase().includes("search console")) {
+      setGoogleDynamicPlatform("GOOGLE_SEARCH_CONSOLE");
+      setGoogleDynamicInitialId(existing?.account || "");
+      setGoogleDynamicInitialName(existing?.account ? `GSC (${existing.account})` : "My Search Console Site");
+      setGoogleDynamicModalOpen(true);
       return;
     }
     if (platform.id === "Firebase" || platform.name.toLowerCase().includes("admob")) {
-      setAdMobConnectOpen(true);
+      setGoogleDynamicPlatform("FIREBASE_ADMOB");
+      setGoogleDynamicInitialId(existing?.account || "");
+      setGoogleDynamicInitialName(existing?.account ? `AdMob (${existing.account})` : "My AdMob Account");
+      setGoogleDynamicModalOpen(true);
       return;
     }
     setSelectedPlatform(platform);
@@ -532,11 +561,42 @@ export function LiveIntegrationsPage() {
   return (
     <AppShell title="Integrations & Ad Accounts">
       <div className="space-y-5">
-        <PageHeading
-          title="Platform Integrations"
-          description="Connect advertising accounts and analytics properties with zero-API-key OAuth and live data synchronization."
-        />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <PageHeading
+            title="Platform Integrations"
+            description="Connect advertising accounts and analytics properties with zero-API-key OAuth and live data synchronization."
+          />
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shrink-0 self-start sm:self-auto">
+            <button
+              onClick={() => setPageMode("directory")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                pageMode === "directory"
+                  ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs"
+                  : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400"
+              )}
+            >
+              Directory View
+            </button>
+            <button
+              onClick={() => setPageMode("live_dashboard")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all",
+                pageMode === "live_dashboard"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400"
+              )}
+            >
+              <Sparkles size={13} />
+              <span>Live Google Hub</span>
+            </button>
+          </div>
+        </div>
 
+        {pageMode === "live_dashboard" ? (
+          <GoogleLiveDashboard />
+        ) : (
+          <>
         {/* Global Tab Switcher */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-50/70 p-1 text-xs dark:border-zinc-800 dark:bg-zinc-900">
@@ -590,9 +650,13 @@ export function LiveIntegrationsPage() {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {(isGoogleAds || isAdMob) && (
+                        {platform.ecosystem === "Google" ? (
+                          <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[9px] font-bold text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
+                            BYOK Direct
+                          </span>
+                        ) : (
                           <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
-                            OAuth 2.0
+                            Direct API
                           </span>
                         )}
                         <StatusBadge status={isConnected ? "Connected" : "Not connected"} />
@@ -625,59 +689,7 @@ export function LiveIntegrationsPage() {
                     </button>
 
                     <div className="flex items-center gap-1.5">
-                      {isGoogleAds ? (
-                        isConnected ? (
-                          <>
-                            <button
-                              onClick={() => setGoogleAdsConnectOpen(true)}
-                              className="rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                            >
-                              Configure
-                            </button>
-
-                            <button
-                              onClick={() => setDisconnectTarget({ integrationId: existing.id, platformName: platform.name })}
-                              className="rounded-lg p-1 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400"
-                              title="Disconnect Google Ads"
-                            >
-                              <Unlink size={14} />
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => setGoogleAdsConnectOpen(true)}
-                            className="rounded-lg bg-zinc-900 px-3 py-1 text-xs font-medium text-white shadow-2xs hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-                          >
-                            Connect
-                          </button>
-                        )
-                      ) : isAdMob ? (
-                        isConnected ? (
-                          <>
-                            <button
-                              onClick={() => setAdMobConnectOpen(true)}
-                              className="rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                            >
-                              Configure
-                            </button>
-
-                            <button
-                              onClick={() => setDisconnectTarget({ integrationId: existing.id, platformName: platform.name })}
-                              className="rounded-lg p-1 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400"
-                              title="Disconnect AdMob"
-                            >
-                              <Unlink size={14} />
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => setAdMobConnectOpen(true)}
-                            className="rounded-lg bg-zinc-900 px-3 py-1 text-xs font-medium text-white shadow-2xs hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-                          >
-                            Connect
-                          </button>
-                        )
-                      ) : isConnected ? (
+                      {isConnected ? (
                         <>
                           <button
                             onClick={() => handleOpenConnect(platform, existing)}
@@ -688,7 +700,7 @@ export function LiveIntegrationsPage() {
                           <button
                             onClick={() => setDisconnectTarget({ integrationId: existing.id, platformName: platform.name })}
                             className="rounded-lg p-1 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400"
-                            title="Disconnect"
+                            title={`Disconnect ${platform.name}`}
                           >
                             <Unlink size={14} />
                           </button>
@@ -707,7 +719,24 @@ export function LiveIntegrationsPage() {
               );
             })}
         </div>
+          </>
+        )}
       </div>
+
+      {/* =========================================================================
+         GOOGLE ECOSYSTEM DYNAMIC (BYOK) MODAL
+         ========================================================================= */}
+      <GoogleDynamicModal
+        open={googleDynamicModalOpen}
+        platform={googleDynamicPlatform}
+        initialAccountId={googleDynamicInitialId}
+        initialAccountName={googleDynamicInitialName}
+        onClose={() => setGoogleDynamicModalOpen(false)}
+        onSuccess={() => {
+          setGoogleDynamicModalOpen(false);
+          fetchIntegrations();
+        }}
+      />
 
       {/* =========================================================================
          GOOGLE ADS OAUTH CONNECT MODAL
