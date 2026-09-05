@@ -1,4 +1,4 @@
-import { LiveCampaignsPage } from "@/components/live-campaigns-page";
+import { LiveCampaignsPage } from "@/components/campaigns/live-campaigns-page";
 
 export const metadata = {
   title: "Campaigns Management | MarketerOS",

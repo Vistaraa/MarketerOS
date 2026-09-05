@@ -1,4 +1,4 @@
-import { LiveIntegrationsPage } from "@/components/live-integrations-page";
+import { LiveIntegrationsPage } from "@/components/integrations/live-integrations-page";
 
 export const metadata = {
   title: "Integrations | MarketerOS",

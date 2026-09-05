@@ -1,4 +1,4 @@
-import { OverviewPage } from "@/components/overview-page";
+import { OverviewPage } from "@/components/overview/overview-page";
 
 export const metadata = {
   title: "Dashboard Overview | MarketerOS",

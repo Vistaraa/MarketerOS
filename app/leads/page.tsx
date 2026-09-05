@@ -1,4 +1,4 @@
-import { LiveLeadsPage } from "@/components/live-leads-page";
+import { LiveLeadsPage } from "@/components/leads/live-leads-page";
 
 export const metadata = {
   title: "Leads Management | MarketerOS",

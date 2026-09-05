@@ -1,7 +1,7 @@
 "use client";
 
-import { YouTubeAdsDashboard } from "@/components/youtube-ads-dashboard";
-import { AppShell } from "@/components/marketeros-shell";
+import { YouTubeAdsDashboard } from "@/components/integrations/youtube-ads-dashboard";
+import { AppShell } from "@/components/ui/marketeros-shell";
 
 export default function YouTubeAdsPage() {
   return (

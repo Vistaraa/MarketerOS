@@ -1,4 +1,4 @@
-import { LiveSettingsPage } from "@/components/live-settings-page";
+import { LiveSettingsPage } from "@/components/settings/live-settings-page";
 
 export const metadata = {
   title: "Settings | MarketerOS",

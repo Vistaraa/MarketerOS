@@ -1,4 +1,4 @@
-import { LiveAutomationPage } from "@/components/live-workspace-pages";
+import { LiveAutomationPage } from "@/components/common/live-workspace-pages";
 
 export default function AutomationRoute() {
   return <LiveAutomationPage />;

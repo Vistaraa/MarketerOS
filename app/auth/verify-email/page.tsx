@@ -1,4 +1,4 @@
-import { RealAuthPage } from "@/components/real-auth-page";
+import { RealAuthPage } from "@/components/auth/real-auth-page";
 
 export const metadata = {
   title: "Verify Email | MarketerOS",

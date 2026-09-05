@@ -14,7 +14,7 @@ import {
   Youtube,
   Zap
 } from "lucide-react";
-import { AppShell } from "@/components/marketeros-shell";
+import { AppShell } from "@/components/ui/marketeros-shell";
 
 const SETUP_STEPS = [
   {

@@ -42,6 +42,7 @@ export type Integration = {
   synced?: string;
   color: string;
   initials: string;
+  providerKey?: string;
 };
 
 export type Insight = {

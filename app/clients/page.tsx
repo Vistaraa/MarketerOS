@@ -1,4 +1,4 @@
-import { LiveClientsPage } from "@/components/live-workspace-pages";
+import { LiveClientsPage } from "@/components/common/live-workspace-pages";
 
 export default function ClientsRoute() {
   return <LiveClientsPage />;

@@ -177,8 +177,10 @@ function persistedInsight(row: {
   type: string;
   title: string;
   description: string;
-  expectedImpact: string | null;
-  confidence: number;
+  expectedImpact?: string | null;
+  impact?: string | null;
+  confidence?: unknown;
+  score?: number | null;
 }): Insight {
   const tone =
     row.type === "BUDGET" || row.type === "KEYWORD"
@@ -193,8 +195,8 @@ function persistedInsight(row: {
       : row.type.charAt(0) + row.type.slice(1).toLowerCase()) as Insight["category"],
     title: row.title,
     description: row.description,
-    impact: row.expectedImpact || "Review",
-    confidence: row.confidence,
+    impact: row.expectedImpact || row.impact || "Review",
+    confidence: Number(row.confidence || row.score || 85),
     tone,
     action: "View details"
   };

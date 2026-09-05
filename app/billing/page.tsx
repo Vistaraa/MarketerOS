@@ -1,4 +1,4 @@
-import { LiveBillingPage } from "@/components/live-billing-page";
+import { LiveBillingPage } from "@/components/billing/live-billing-page";
 
 export const metadata = {
   title: "Billing & Subscriptions | MarketerOS",

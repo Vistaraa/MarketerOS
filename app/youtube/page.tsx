@@ -1,6 +1,6 @@
 "use client";
 
-import { YouTubeBrandChannelSetup } from "@/components/youtube-brand-channel";
+import { YouTubeBrandChannelSetup } from "@/components/integrations/youtube-brand-channel";
 
 export default function YouTubeBrandChannelPage() {
   return (

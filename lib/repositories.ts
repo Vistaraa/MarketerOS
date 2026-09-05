@@ -102,7 +102,7 @@ export async function createPersistedCampaign(input: { workspaceId: string; crea
       targetRoas: input.targetRoas,
       targetCpa: input.targetCpa,
       biddingStrategy: input.biddingStrategy,
-      externalData: (input.metadata as Prisma.InputJsonValue) ?? undefined
+      metadata: (input.metadata as Prisma.InputJsonValue) ?? undefined
     }
   });
 }
@@ -121,12 +121,12 @@ export async function listPersistedLeads(workspaceId: string, query = "") {
   return rows.map(leadFromRow);
 }
 
-function leadFromRow(row: { id: string; firstName: string; lastName: string; company: string | null; source: string; status: string; score: number; owner?: { firstName: string; lastName: string } | null; createdAt: Date; revenue: unknown }): Lead {
-  return { id: row.id, name: `${row.firstName} ${row.lastName}`, company: row.company || "—", source: row.source.replaceAll("_", " "), status: row.status.replace("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) as Lead["status"], score: row.score, owner: row.owner ? `${row.owner.firstName} ${row.owner.lastName}` : "Unassigned", created: row.createdAt.toISOString(), revenue: Number(row.revenue || 0) };
+function leadFromRow(row: { id: string; firstName: string; lastName: string; company: string | null; source: string; status: string; score: number; owner?: { firstName: string; lastName: string } | null; createdAt: Date; estimatedValue?: unknown; revenue?: unknown }): Lead {
+  return { id: row.id, name: `${row.firstName} ${row.lastName}`, company: row.company || "—", source: row.source.replaceAll("_", " "), status: row.status.replace("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) as Lead["status"], score: row.score, owner: row.owner ? `${row.owner.firstName} ${row.owner.lastName}` : "Unassigned", created: row.createdAt.toISOString(), revenue: Number(row.estimatedValue || row.revenue || 0) };
 }
 
 export async function getPersistedLead(workspaceId: string, id: string) {
-  const row = await prisma.lead.findFirst({ where: { id, workspaceId }, include: { owner: true, activities: { orderBy: { createdAt: "desc" }, take: 25 }, notes: { orderBy: { createdAt: "desc" }, take: 25 }, opportunities: true } });
+  const row = await prisma.lead.findFirst({ where: { id, workspaceId }, include: { owner: true } });
   return row ? { lead: leadFromRow(row), detail: row } : null;
 }
 
@@ -241,8 +241,27 @@ function socialStatus(status: string): SocialPost["status"] {
 }
 
 export async function listPersistedSocialPosts(workspaceId: string, query = "") {
-  const rows = await prisma.socialPost.findMany({ where: { workspaceId, ...(query ? { OR: [{ title: { contains: query, mode: "insensitive" } }, { caption: { contains: query, mode: "insensitive" } }] } : {}) }, include: { socialAccount: true }, orderBy: { updatedAt: "desc" } });
-  return rows.map((row): SocialPost => { const platform = platformName[row.socialAccount.platform] || "Google Ads"; return { id: row.id, title: row.title || row.caption?.slice(0, 60) || "Untitled post", platform: platform as SocialPost["platform"], status: socialStatus(row.status), date: (row.publishedAt || row.scheduledAt || row.createdAt).toISOString(), engagement: `${Number(row.engagementRate).toFixed(2)}%`, color: integrationColor[platform] || "#6940e8", image: row.mediaUrls[0] }; });
+  const rows = await prisma.socialPost.findMany({
+    where: {
+      socialAccount: { workspaceId },
+      ...(query ? { content: { contains: query, mode: "insensitive" } } : {})
+    },
+    include: { socialAccount: true },
+    orderBy: { updatedAt: "desc" }
+  });
+  return rows.map((row): SocialPost => {
+    const platform = (row.socialAccount?.platform && platformName[row.socialAccount.platform]) || "Google Ads";
+    return {
+      id: row.id,
+      title: row.content.slice(0, 60) || "Untitled post",
+      platform: platform as SocialPost["platform"],
+      status: socialStatus(row.status),
+      date: (row.publishedAt || row.scheduledFor || row.createdAt).toISOString(),
+      engagement: `${Number(row.clicks ? (row.clicks / (row.impressions || 1)) * 100 : 0).toFixed(2)}%`,
+      color: integrationColor[platform] || "#6940e8",
+      image: row.mediaUrls[0]
+    };
+  });
 }
 
 export async function listPersistedContent(workspaceId: string, query = "") {
@@ -252,11 +271,20 @@ export async function listPersistedContent(workspaceId: string, query = "") {
 
 export async function listPersistedInsights(workspaceId: string) {
   const rows = await prisma.aIInsight.findMany({ where: { workspaceId }, orderBy: { updatedAt: "desc" }, take: 100 });
-  return rows.map((row): Insight => ({ id: row.id, category: row.type === "KEYWORD" ? "Keywords" : row.type.charAt(0) + row.type.slice(1).toLowerCase() as Insight["category"], title: row.title, description: row.description, impact: row.expectedImpact || "Review", confidence: row.confidence, tone: row.type === "BUDGET" || row.type === "KEYWORD" ? "orange" : row.type === "AUDIENCE" ? "blue" : row.type === "CONTENT" ? "purple" : "green", action: "View details" }));
+  return rows.map((row): Insight => ({
+    id: row.id,
+    category: row.type === "KEYWORD" ? "Keywords" : (row.type.charAt(0) + row.type.slice(1).toLowerCase() as Insight["category"]),
+    title: row.title,
+    description: row.description,
+    impact: row.impact || "Review",
+    confidence: row.score || 85,
+    tone: row.type === "BUDGET" || row.type === "KEYWORD" ? "orange" : row.type === "AUDIENCE" ? "blue" : row.type === "CONTENT" ? "purple" : "green",
+    action: "View details"
+  }));
 }
 
 export async function listPersistedNotifications(workspaceId: string, userId: string, unreadOnly = false) {
-  return prisma.notification.findMany({ where: { workspaceId, userId, ...(unreadOnly ? { readAt: null } : {}) }, orderBy: { createdAt: "desc" }, take: 100 });
+  return prisma.notification.findMany({ where: { workspaceId, userId, ...(unreadOnly ? { isRead: false } : {}) }, orderBy: { createdAt: "desc" }, take: 100 });
 }
 
 export async function searchPersisted(workspaceId: string, query: string) {

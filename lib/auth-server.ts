@@ -77,9 +77,13 @@ export async function requireTenant() {
   return session;
 }
 
-export function can(_role: string, _permission: string) {
-  // Authenticated workspace owner has full permissions
-  return true;
+export function can(role: string, permission: string) {
+  const normalizedRole = role.toUpperCase();
+  if (normalizedRole === "OWNER" || normalizedRole === "ADMIN") return true;
+  if (normalizedRole === "MANAGER") return !permission.includes("manage") && !permission.includes("delete");
+  if (normalizedRole === "ANALYST") return permission.endsWith(".view") || permission.startsWith("analytics.");
+  if (normalizedRole === "VIEWER") return permission.endsWith(".view");
+  return false;
 }
 
 export async function createPersistedUser(input: {

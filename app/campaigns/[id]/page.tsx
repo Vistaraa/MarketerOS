@@ -1,4 +1,4 @@
-import { LiveCampaignDetail } from "@/components/live-campaign-detail";
+import { LiveCampaignDetail } from "@/components/campaigns/live-campaign-detail";
 
 export const metadata = {
   title: "Campaign Details | MarketerOS",

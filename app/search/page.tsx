@@ -1,4 +1,4 @@
-import { SearchPage } from "@/components/live-utility-pages";
+import { SearchPage } from "@/components/common/live-utility-pages";
 
 export default function SearchRoute() {
   return <SearchPage />;

@@ -87,8 +87,9 @@ export async function GET(request: Request, { params }: { params: { path: string
     const state = await consumeOAuthState(stateValue);
     if (!state) return error("This OAuth state is expired or has already been used.", 400, "INVALID_OAUTH_STATE");
     try {
-      const redirectUri = state.providerKey.startsWith("google_") ? process.env.GOOGLE_OAUTH_REDIRECT_URI || `${url.origin}/api/v1/integrations/oauth/callback` : process.env.META_OAUTH_REDIRECT_URI || `${url.origin}/api/v1/integrations/oauth/callback`;
-      const provider = getProvider(state.providerKey as ProviderKey);
+      const providerKey = state.providerKey || "google_ads";
+      const redirectUri = providerKey.startsWith("google_") ? process.env.GOOGLE_OAUTH_REDIRECT_URI || `${url.origin}/api/v1/integrations/oauth/callback` : process.env.META_OAUTH_REDIRECT_URI || `${url.origin}/api/v1/integrations/oauth/callback`;
+      const provider = getProvider(providerKey as ProviderKey);
       const token = await provider.exchangeCode(code, redirectUri);
       const accounts = await provider.listAccounts(token.accessToken);
       const integrationId = state.returnTo?.match(/^\/integrations\/([^/?]+)/)?.[1];
@@ -100,7 +101,7 @@ export async function GET(request: Request, { params }: { params: { path: string
       const returnTo = state.returnTo?.startsWith("/") ? state.returnTo : "/integrations";
       return NextResponse.redirect(new URL(`${returnTo}${returnTo.includes("?") ? "&" : "?"}connected=true`, url.origin));
     } catch (cause) {
-      const returnTo = state.returnTo?.startsWith("/") ? state.returnTo : "/integrations";
+      const returnTo = state?.returnTo?.startsWith("/") ? state.returnTo : "/integrations";
       const message = cause instanceof Error ? cause.message : "Provider connection failed.";
       return NextResponse.redirect(new URL(`${returnTo}${returnTo.includes("?") ? "&" : "?"}error=${encodeURIComponent(message)}`, url.origin));
     }
@@ -251,7 +252,7 @@ export async function POST(request: Request, { params }: { params: { path: strin
     try { await billingProvider.cancelSubscription(subscription.externalSubscriptionId); await prisma.subscription.update({ where: { workspaceId: auth.session.workspaceId }, data: { cancelAtPeriodEnd: true } }); return ok({ cancelAtPeriodEnd: true }); } catch (cause) { return error(cause instanceof Error ? cause.message : "Unable to cancel the subscription.", 503, "BILLING_NOT_CONFIGURED"); }
   }
   if (path === "content") {
-    const auth = await context("content.edit"); if (auth.error) return auth.error; const parsed = contentInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid content."); const created = await prisma.content.create({ data: { workspaceId: auth.session.workspaceId, createdById: auth.session.userId, title: parsed.data.title, type: parsed.data.type as never, body: parsed.data.body, platform: parsed.data.platform ? parsed.data.platform.replaceAll(" ", "_").toUpperCase() as never : undefined, clientId: parsed.data.clientId } }); await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CREATE", module: "content", entityType: "Content", entityId: created.id, afterData: created }); return ok(created, undefined, { status: 201 });
+    const auth = await context("content.edit"); if (auth.error) return auth.error; const parsed = contentInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid content."); const created = await prisma.content.create({ data: { workspaceId: auth.session.workspaceId, createdById: auth.session.userId, title: parsed.data.title || "Untitled Content", type: (parsed.data.type || "SOCIAL_POST") as never, body: parsed.data.body || "", platform: parsed.data.platform ? parsed.data.platform.replaceAll(" ", "_").toUpperCase() as never : undefined, clientId: parsed.data.clientId } }); await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CREATE", module: "content", entityType: "Content", entityId: created.id, afterData: created }); return ok(created, undefined, { status: 201 });
   }
   if (path === "clients") {
     const auth = await context("client.edit"); if (auth.error) return auth.error; const parsed = clientInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid client."); const slug = `${parsed.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`; const created = await prisma.client.create({ data: { workspaceId: auth.session.workspaceId, name: parsed.data.name, slug, industry: parsed.data.industry, website: parsed.data.website || undefined } }); return ok(created, undefined, { status: 201 });
@@ -279,7 +280,7 @@ export async function POST(request: Request, { params }: { params: { path: strin
         }
       } catch (e) { publishedData = { error: e instanceof Error ? e.message : String(e) }; }
     }
-    const created = await prisma.socialPost.create({ data: { workspaceId: auth.session.workspaceId, socialAccountId: account.id, title: parsed.data.title, caption: parsed.data.caption, contentType: parsed.data.contentType as never, scheduledAt: parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : undefined, status: publishedData?.id ? "PUBLISHED" : parsed.data.scheduledAt ? "SCHEDULED" : "DRAFT" } }); return ok({ ...created, published: publishedData }, undefined, { status: 201 });
+    const created = await prisma.socialPost.create({ data: { workspaceId: auth.session.workspaceId, socialAccountId: account.id, title: parsed.data.title, caption: parsed.data.caption, content: parsed.data.caption || parsed.data.title || "", contentType: parsed.data.contentType as never, scheduledFor: parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : undefined, status: publishedData?.id ? "PUBLISHED" : parsed.data.scheduledAt ? "SCHEDULED" : "DRAFT" } }); return ok({ ...created, published: publishedData }, undefined, { status: 201 });
   }
   if (path === "automation") {
     const auth = await context("automation.manage"); if (auth.error) return auth.error; const parsed = automationInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid automation."); const created = await prisma.automation.create({ data: { workspaceId: auth.session.workspaceId, name: parsed.data.name, trigger: parsed.data.trigger, action: parsed.data.action, campaignId: parsed.data.campaignId, triggerConfig: parsed.data.triggerConfig as never, actionConfig: parsed.data.actionConfig as never } }); return ok(created, undefined, { status: 201 });
@@ -399,7 +400,7 @@ export async function POST(request: Request, { params }: { params: { path: strin
     return ok(created, undefined, { status: 201 });
   }
   if (path.startsWith("integrations/") && path.endsWith("/sync")) { const integrationId = path.split("/")[1]; const integration = await prisma.integration.findFirst({ where: { id: integrationId, workspaceId: auth.session.workspaceId } }); if (!integration) return error("Integration not found.", 404); if (!integration.accessTokenEncrypted && !(integration as any).apiKeyEncrypted) return error("This integration is not connected. Configure credentials before syncing.", 409, "INTEGRATION_NOT_CONNECTED"); const job = await enqueueJob("integration.sync", { workspaceId: auth.session.workspaceId, integrationId }); await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "SYNC_REQUESTED", module: "integrations", entityType: "Integration", entityId: integrationId }); return ok({ status: "queued", jobId: job.id, message: "Sync queued for background processing." }, undefined, { status: 202 }); }
-  if (path === "reports") { const parsed = reportInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid report."); const report = await prisma.report.create({ data: { workspaceId: auth.session.workspaceId, createdById: auth.session.userId, name: parsed.data.name, clientId: parsed.data.clientId, format: parsed.data.format as never, configuration: parsed.data.configuration as never, status: "GENERATING" } }); const job = await enqueueJob("report.generate", { workspaceId: auth.session.workspaceId, reportId: report.id, runAt: new Date().toISOString() }); return ok({ ...report, jobId: job.id }, undefined, { status: 202 }); }
+  if (path === "reports") { const parsed = reportInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid report."); const report = await prisma.report.create({ data: { workspaceId: auth.session.workspaceId, createdById: auth.session.userId, name: parsed.data.name, title: parsed.data.name || "Marketing Report", clientId: parsed.data.clientId, format: parsed.data.format as never, configuration: parsed.data.configuration as never, status: "GENERATING" } }); const job = await enqueueJob("report.generate", { workspaceId: auth.session.workspaceId, reportId: report.id, runAt: new Date().toISOString() }); return ok({ ...report, jobId: job.id }, undefined, { status: 202 }); }
 
   if (path === "youtube/validate-api-key") {
     const parsed = z.object({ apiKey: z.string().min(1) }).safeParse(body);
