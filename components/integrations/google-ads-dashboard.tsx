@@ -555,7 +555,7 @@ export function GoogleAdsDashboard({
                 {(data?.topKeywords || []).map((kw: any) => (
                   <tr key={kw.keyword} className="transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60">
                     <td className="py-2.5 pl-4 pr-3 font-semibold text-zinc-900 dark:text-zinc-100">
-                      "{kw.keyword}"
+                      &quot;{kw.keyword}&quot;
                     </td>
                     <td className="px-3 py-2.5">
                       <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">

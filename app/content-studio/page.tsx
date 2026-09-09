@@ -1,5 +1,10 @@
-import { LiveContentPage } from "@/components/common/live-workspace-pages";
+import { AppShell } from "@/components/ui/marketeros-shell";
+import { ContentStudioDashboard } from "@/components/content-studio/content-studio-dashboard";
 
-export default function ContentStudioRoute() {
-  return <LiveContentPage />;
+export default function ContentStudioMainRoute() {
+  return (
+    <AppShell title="Content Studio">
+      <ContentStudioDashboard initialTab="Content Calendar" />
+    </AppShell>
+  );
 }

@@ -1,5 +1,5 @@
-import { LiveAnalyticsPage } from "@/components/common/live-workspace-pages";
+import { AiInsightsPage } from "@/components/ai-insights/ai-insights-page";
 
 export default function AiInsightsRoute() {
-  return <LiveAnalyticsPage />;
+  return <AiInsightsPage />;
 }

@@ -39,6 +39,12 @@ import { AdMobConnectModal } from "@/components/integrations/admob-connect-modal
 import { AdMobSetupGuide } from "@/components/integrations/admob-setup-guide";
 import { GoogleDynamicModal, GooglePlatformType } from "@/components/integrations/google-dynamic-modal";
 import { GoogleLiveDashboard } from "@/components/integrations/google-live-dashboard";
+import {
+  MetaAdsConnectModal,
+  LinkedinConnectModal,
+  TiktokConnectModal,
+  ShopifyConnectModal
+} from "@/components/integrations/channel-connect-modals";
 
 interface StepGuide {
   step: number;
@@ -365,6 +371,12 @@ export function LiveIntegrationsPage() {
   const [admobConnectOpen, setAdMobConnectOpen] = useState(false);
   const [admobGuideOpen, setAdMobGuideOpen] = useState(false);
 
+  // Dedicated Channel Modals
+  const [metaConnectOpen, setMetaConnectOpen] = useState(false);
+  const [linkedinConnectOpen, setLinkedinConnectOpen] = useState(false);
+  const [tiktokConnectOpen, setTiktokConnectOpen] = useState(false);
+  const [shopifyConnectOpen, setShopifyConnectOpen] = useState(false);
+
   // Generic Modals for other platforms
   const [genericConnectModalOpen, setGenericConnectModalOpen] = useState(false);
   const [genericGuideModalOpen, setGenericGuideModalOpen] = useState(false);
@@ -457,6 +469,22 @@ export function LiveIntegrationsPage() {
       setGoogleDynamicInitialId(existing?.account || "");
       setGoogleDynamicInitialName(existing?.account ? `AdMob (${existing.account})` : "My AdMob Account");
       setGoogleDynamicModalOpen(true);
+      return;
+    }
+    if (platform.id === "Meta Ads" || platform.id === "Instagram") {
+      setMetaConnectOpen(true);
+      return;
+    }
+    if (platform.id === "LinkedIn") {
+      setLinkedinConnectOpen(true);
+      return;
+    }
+    if (platform.id === "TikTok") {
+      setTiktokConnectOpen(true);
+      return;
+    }
+    if (platform.id === "Shopify") {
+      setShopifyConnectOpen(true);
       return;
     }
     setSelectedPlatform(platform);
@@ -771,6 +799,33 @@ export function LiveIntegrationsPage() {
         isOpen={admobGuideOpen}
         onClose={() => setAdMobGuideOpen(false)}
         onOpenConnect={() => setAdMobConnectOpen(true)}
+      />
+
+      {/* =========================================================================
+         DEDICATED CHANNEL CONNECT MODALS
+         ========================================================================= */}
+      <MetaAdsConnectModal
+        open={metaConnectOpen}
+        onClose={() => setMetaConnectOpen(false)}
+        onSuccess={fetchIntegrations}
+      />
+
+      <LinkedinConnectModal
+        open={linkedinConnectOpen}
+        onClose={() => setLinkedinConnectOpen(false)}
+        onSuccess={fetchIntegrations}
+      />
+
+      <TiktokConnectModal
+        open={tiktokConnectOpen}
+        onClose={() => setTiktokConnectOpen(false)}
+        onSuccess={fetchIntegrations}
+      />
+
+      <ShopifyConnectModal
+        open={shopifyConnectOpen}
+        onClose={() => setShopifyConnectOpen(false)}
+        onSuccess={fetchIntegrations}
       />
 
       {/* =========================================================================

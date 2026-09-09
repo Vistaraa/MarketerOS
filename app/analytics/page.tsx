@@ -1,5 +1,5 @@
-import { LiveAnalyticsPage } from "@/components/common/live-workspace-pages";
+import { AnalyticsCenterPage } from "@/components/analytics/analytics-center-page";
 
 export default function AnalyticsRoute() {
-  return <LiveAnalyticsPage />;
+  return <AnalyticsCenterPage />;
 }

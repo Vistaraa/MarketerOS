@@ -211,7 +211,7 @@ export function GoogleAdsConnectModal({
                 <span>Zero-API-Key OAuth Flow</span>
               </div>
               <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-                You never need to manually enter API keys or developer tokens. Clicking below will open Google's official consent screen where you grant secure read access.
+                You never need to manually enter API keys or developer tokens. Clicking below will open Google&apos;s official consent screen where you grant secure read access.
               </p>
             </div>
 

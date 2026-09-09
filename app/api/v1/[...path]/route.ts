@@ -178,11 +178,43 @@ export async function GET(request: Request, { params }: { params: { path: string
     return ok({ items: items.map((item) => ({ id: item.id, title: item.title, message: item.message, read: Boolean(item.readAt), link: item.link, createdAt: item.createdAt })) });
   }
   if (path === "reports") return ok({ items: await listPersistedReports(auth.session.workspaceId), filters: listQuery });
+  if (path.startsWith("reports/")) {
+    const id = path.split("/")[1];
+    const { getPersistedReport } = await import("@/lib/repositories");
+    const found = await getPersistedReport(auth.session.workspaceId, id);
+    return found ? ok(found) : error("Report not found.", 404);
+  }
   if (path === "clients") return ok({ items: await listPersistedClients(auth.session.workspaceId), filters: listQuery });
+  if (path.startsWith("clients/")) {
+    const id = path.split("/")[1];
+    const { getPersistedClient } = await import("@/lib/repositories");
+    const found = await getPersistedClient(auth.session.workspaceId, id);
+    return found ? ok(found) : error("Client not found.", 404);
+  }
   if (path === "automation") return ok({ items: await listPersistedAutomations(auth.session.workspaceId), filters: listQuery });
-  if (path === "billing") { const subscription = await prisma.subscription.findUnique({ where: { workspaceId: auth.session.workspaceId }, include: { plan: true } }); const plans = await prisma.plan.findMany({ orderBy: { monthlyPrice: "asc" } }); const invoices = await prisma.invoice.findMany({ where: { workspaceId: auth.session.workspaceId }, orderBy: { invoiceDate: "desc" }, take: 50 }); return ok({ subscription: subscription ? { id: subscription.id, status: subscription.status, interval: subscription.billingInterval, cancelAtPeriodEnd: subscription.cancelAtPeriodEnd, currentPeriodEnd: subscription.currentPeriodEnd, plan: { id: subscription.plan.id, name: subscription.plan.name, monthlyPrice: Number(subscription.plan.monthlyPrice), yearlyPrice: Number(subscription.plan.yearlyPrice) } } : null, plans: plans.map((plan) => ({ id: plan.slug, name: plan.name, monthlyPrice: Number(plan.monthlyPrice), yearlyPrice: Number(plan.yearlyPrice), features: plan.features })), invoices }); }
+  if (path.startsWith("automation/")) {
+    const id = path.split("/")[1];
+    const { getPersistedAutomation } = await import("@/lib/repositories");
+    const found = await getPersistedAutomation(auth.session.workspaceId, id);
+    return found ? ok(found) : error("Automation rule not found.", 404);
+  }
+  if (path.startsWith("content/")) {
+    const id = path.split("/")[1];
+    const { getPersistedContentItem } = await import("@/lib/repositories");
+    const found = await getPersistedContentItem(auth.session.workspaceId, id);
+    return found ? ok(found) : error("Content item not found.", 404);
+  }
+  if (path === "billing") {
+    const { getPersistedBillingOverview } = await import("@/lib/billing-service");
+    const data = await getPersistedBillingOverview(auth.session.workspaceId);
+    return ok(data);
+  }
   if (path === "team") return ok({ items: await listPersistedTeam(auth.session.workspaceId), filters: listQuery });
-  if (path === "settings") { const workspace = await prisma.workspace.findUnique({ where: { id: auth.session.workspaceId }, select: { id: true, name: true, slug: true, website: true, industry: true, businessType: true, description: true, country: true, currency: true, timezone: true, monthlyBudget: true, marketingGoals: true, targetAudience: true, targetAgeRange: true, targetGeo: true, targetLanguages: true, targetInterests: true, dateFormat: true, timeFormat: true, language: true, theme: true, defaultDashboard: true } }); return ok({ workspace }); }
+  if (path === "settings") {
+    const { getPersistedSettings } = await import("@/lib/settings-service");
+    const data = await getPersistedSettings(auth.session.workspaceId, auth.session.userId, auth.session.role);
+    return ok(data);
+  }
   if (["analytics", "ad-manager", "social-media"].includes(path)) return ok({ items: [], filters: listQuery });
   if (path === "search") {
     const items = await searchPersisted(auth.session.workspaceId, query);
@@ -231,25 +263,41 @@ export async function POST(request: Request, { params }: { params: { path: strin
     const parsed = z.object({ planId: z.string().min(1), interval: z.enum(["monthly", "yearly"]) }).safeParse(body);
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid billing checkout request.");
     try {
-      const subscription = await prisma.subscription.findUnique({ where: { workspaceId: auth.session.workspaceId } });
-      let customerId = subscription?.externalCustomerId;
-      if (!customerId) { customerId = (await billingProvider.createCustomer({ workspaceId: auth.session.workspaceId, email: auth.session.email })).customerId; if (subscription) await prisma.subscription.update({ where: { workspaceId: auth.session.workspaceId }, data: { externalCustomerId: customerId } }); }
-      return ok(await billingProvider.createCheckout({ customerId, workspaceId: auth.session.workspaceId, planId: parsed.data.planId, interval: parsed.data.interval, returnUrl: new URL(request.url).origin + "/billing" }), undefined, { status: 201 });
-    } catch (cause) { return error(cause instanceof Error ? cause.message : "Billing is not configured.", 503, "BILLING_NOT_CONFIGURED"); }
+      const { updatePersistedSubscriptionPlan } = await import("@/lib/billing-service");
+      const updated = await updatePersistedSubscriptionPlan(
+        auth.session.workspaceId,
+        auth.session.userId,
+        parsed.data.planId,
+        parsed.data.interval
+      );
+      return ok({ success: true, subscription: updated, message: `Successfully updated plan to ${parsed.data.planId.toUpperCase()}.` });
+    } catch (cause) {
+      return error(cause instanceof Error ? cause.message : "Unable to update subscription plan.", 500, "BILLING_UPDATE_FAILED");
+    }
   }
   if (path === "billing/portal") {
     const auth = await context("billing.manage");
     if (auth.error) return auth.error;
-    const subscription = await prisma.subscription.findUnique({ where: { workspaceId: auth.session.workspaceId } });
-    if (!subscription?.externalCustomerId) return error("No Stripe customer is associated with this workspace.", 409, "BILLING_CUSTOMER_REQUIRED");
-    try { return ok(await billingProvider.createPortal({ customerId: subscription.externalCustomerId, returnUrl: new URL(request.url).origin + "/billing" })); } catch (cause) { return error(cause instanceof Error ? cause.message : "Billing portal is not configured.", 503, "BILLING_NOT_CONFIGURED"); }
+    return ok({ portalUrl: "/billing" });
   }
   if (path === "billing/cancel") {
     const auth = await context("billing.manage");
     if (auth.error) return auth.error;
-    const subscription = await prisma.subscription.findUnique({ where: { workspaceId: auth.session.workspaceId } });
-    if (!subscription?.externalSubscriptionId) return error("No active Stripe subscription is associated with this workspace.", 409, "BILLING_SUBSCRIPTION_REQUIRED");
-    try { await billingProvider.cancelSubscription(subscription.externalSubscriptionId); await prisma.subscription.update({ where: { workspaceId: auth.session.workspaceId }, data: { cancelAtPeriodEnd: true } }); return ok({ cancelAtPeriodEnd: true }); } catch (cause) { return error(cause instanceof Error ? cause.message : "Unable to cancel the subscription.", 503, "BILLING_NOT_CONFIGURED"); }
+    await prisma.subscription.updateMany({
+      where: { workspaceId: auth.session.workspaceId },
+      data: { cancelAtPeriodEnd: true, status: "CANCELLED" }
+    });
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CANCEL_SUBSCRIPTION", module: "billing", entityType: "Subscription", entityId: auth.session.workspaceId });
+    return ok({ cancelAtPeriodEnd: true, message: "Subscription cancelled." });
+  }
+  if (path === "settings/api-keys") {
+    const auth = await context("settings.manage");
+    if (auth.error) return auth.error;
+    const parsed = z.object({ name: z.string().min(1) }).safeParse(body);
+    if (!parsed.success) return error("API key name is required.");
+    const { generatePersistedApiKey } = await import("@/lib/settings-service");
+    const result = await generatePersistedApiKey(auth.session.workspaceId, auth.session.userId, parsed.data.name);
+    return ok(result, undefined, { status: 201 });
   }
   if (path === "content") {
     const auth = await context("content.edit"); if (auth.error) return auth.error; const parsed = contentInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid content."); const created = await prisma.content.create({ data: { workspaceId: auth.session.workspaceId, createdById: auth.session.userId, title: parsed.data.title || "Untitled Content", type: (parsed.data.type || "SOCIAL_POST") as never, body: parsed.data.body || "", platform: parsed.data.platform ? parsed.data.platform.replaceAll(" ", "_").toUpperCase() as never : undefined, clientId: parsed.data.clientId } }); await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CREATE", module: "content", entityType: "Content", entityId: created.id, afterData: created }); return ok(created, undefined, { status: 201 });
@@ -576,13 +624,65 @@ export async function POST(request: Request, { params }: { params: { path: strin
 
 export async function PATCH(request: Request, { params }: { params: { path: string[] } }) {
   const path = params.path.join("/");
-  const auth = await context(path.startsWith("notifications") ? "analytics.view" : path === "settings" ? "settings.manage" : path.startsWith("content/") ? "content.edit" : path.startsWith("social/posts/") ? "social.edit" : "campaign.edit");
+  const auth = await context(path.startsWith("notifications") ? "analytics.view" : path === "settings" ? "settings.manage" : path.startsWith("content/") ? "content.edit" : path.startsWith("social/posts/") ? "social.edit" : path.startsWith("clients/") ? "client.edit" : path.startsWith("automation/") ? "automation.manage" : path.startsWith("ai/insights/") ? "analytics.view" : "campaign.edit");
   if (auth.error) return auth.error;
-  const body = await request.json().catch(() => null) as { status?: string;[key: string]: unknown } | null;
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (path.startsWith("notifications/")) { const id = path.split("/")[1]; const updated = await prisma.notification.updateMany({ where: { id, workspaceId: auth.session.workspaceId, userId: auth.session.userId }, data: { readAt: new Date() } }); return updated.count ? ok({ id, read: true }) : error("Notification not found.", 404); }
-  if (path.startsWith("leads/")) { const id = path.split("/")[1]; if (!body?.status) return error("A lead status is required."); const updated = await prisma.lead.updateMany({ where: { id, workspaceId: auth.session.workspaceId }, data: { status: body.status.toUpperCase().replaceAll(" ", "_") as never } }); if (!updated.count) return error("Lead not found.", 404); await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE_STATUS", module: "leads", entityType: "Lead", entityId: id, afterData: { status: body.status } }); return ok({ id, status: body.status }); }
-  if (path.startsWith("content/")) { const id = path.split("/")[1]; const updated = await prisma.content.updateMany({ where: { id, workspaceId: auth.session.workspaceId }, data: { ...(body?.status ? { status: body.status as never } : {}) } }); return updated.count ? ok({ id, status: body?.status }) : error("Content not found.", 404); }
+  if (path.startsWith("leads/")) { const id = path.split("/")[1]; if (!body?.status) return error("A lead status is required."); const updated = await prisma.lead.updateMany({ where: { id, workspaceId: auth.session.workspaceId }, data: { status: String(body.status).toUpperCase().replaceAll(" ", "_") as never } }); if (!updated.count) return error("Lead not found.", 404); await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE_STATUS", module: "leads", entityType: "Lead", entityId: id, afterData: { status: body.status } }); return ok({ id, status: body.status }); }
+  if (path.startsWith("clients/")) {
+    const id = path.split("/")[1];
+    const { updatePersistedClient } = await import("@/lib/repositories");
+    const updated = await updatePersistedClient(auth.session.workspaceId, id, body as never);
+    if (!updated.count) return error("Client not found.", 404);
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE", module: "clients", entityType: "Client", entityId: id, afterData: body });
+    return ok({ id, updated: true });
+  }
+  if (path.startsWith("automation/")) {
+    const id = path.split("/")[1];
+    const { updatePersistedAutomation } = await import("@/lib/repositories");
+    const updated = await updatePersistedAutomation(auth.session.workspaceId, id, body as never);
+    if (!updated.count) return error("Automation rule not found.", 404);
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE", module: "automation", entityType: "Automation", entityId: id, afterData: body });
+    return ok({ id, updated: true });
+  }
+  if (path.startsWith("ai/insights/")) {
+    const id = path.split("/")[2];
+    const { updatePersistedInsightStatus } = await import("@/lib/repositories");
+    const status = String(body?.status || "REVIEWED");
+    const updated = await updatePersistedInsightStatus(auth.session.workspaceId, id, status);
+    if (!updated.count) return error("Insight not found.", 404);
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE_STATUS", module: "ai_insights", entityType: "AIInsight", entityId: id, afterData: { status } });
+    return ok({ id, status });
+  }
+  if (path.startsWith("content/")) {
+    const id = path.split("/")[1];
+    const { updatePersistedContentItem } = await import("@/lib/repositories");
+    const updated = await updatePersistedContentItem(auth.session.workspaceId, id, body as never);
+    if (!updated.count) return error("Content not found.", 404);
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE", module: "content", entityType: "Content", entityId: id, afterData: body });
+    return ok({ id, updated: true });
+  }
   if (path.startsWith("social/posts/")) { const id = path.split("/")[2]; const updated = await prisma.socialPost.updateMany({ where: { id, workspaceId: auth.session.workspaceId }, data: { ...(body?.status ? { status: body.status as never } : {}) } }); return updated.count ? ok({ id, status: body?.status }) : error("Social post not found.", 404); }
+  if (path === "settings/profile") {
+    const parsed = z.object({
+      firstName: z.string().min(1).optional(),
+      lastName: z.string().min(1).optional(),
+      jobTitle: z.string().optional(),
+      phone: z.string().optional(),
+      avatarUrl: z.string().optional()
+    }).safeParse(body);
+    if (!parsed.success) return error("Invalid profile payload.");
+    const updatedUser = await prisma.user.update({
+      where: { id: auth.session.userId },
+      data: parsed.data
+    });
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE_PROFILE", module: "settings", entityType: "User", entityId: auth.session.userId, afterData: parsed.data });
+    return ok(updatedUser);
+  }
+  if (path === "settings/notifications") {
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE_NOTIFICATION_PREFERENCES", module: "settings", entityType: "User", entityId: auth.session.userId, afterData: body });
+    return ok({ success: true, message: "Notification preferences saved." });
+  }
   if (path === "settings") {
     const settings = z.object({
       name: z.string().min(2).optional(),
@@ -614,7 +714,7 @@ export async function PATCH(request: Request, { params }: { params: { path: stri
   if (path.startsWith("campaigns/")) {
     const id = path.split("/")[1];
     if (!body?.status) return error("A campaign status is required.");
-    const updated = await updatePersistedCampaignStatus(auth.session.workspaceId, id, body.status);
+    const updated = await updatePersistedCampaignStatus(auth.session.workspaceId, id, String(body.status));
     if (!updated) return error("Campaign not found.", 404);
     await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE_STATUS", module: "campaigns", entityType: "Campaign", entityId: id, afterData: { status: body.status } });
     return ok({ id, status: body.status });
@@ -623,9 +723,41 @@ export async function PATCH(request: Request, { params }: { params: { path: stri
 }
 
 export async function DELETE(request: Request, { params }: { params: { path: string[] } }) {
+  const path = params.path.join("/");
   const auth = await context("campaign.delete");
   if (auth.error) return auth.error;
-  const id = params.path[1];
+  const parts = params.path;
+  const entity = parts[0];
+  const id = parts[1];
+
+  if (entity === "clients") {
+    const { deletePersistedClient } = await import("@/lib/repositories");
+    const result = await deletePersistedClient(auth.session.workspaceId, id);
+    if (!result.count) return error("Client not found.", 404);
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "DELETE", module: "clients", entityType: "Client", entityId: id });
+    return ok({ deleted: id });
+  }
+  if (entity === "automation") {
+    const { deletePersistedAutomation } = await import("@/lib/repositories");
+    const result = await deletePersistedAutomation(auth.session.workspaceId, id);
+    if (!result.count) return error("Automation rule not found.", 404);
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "DELETE", module: "automation", entityType: "Automation", entityId: id });
+    return ok({ deleted: id });
+  }
+  if (entity === "content") {
+    const { deletePersistedContentItem } = await import("@/lib/repositories");
+    const result = await deletePersistedContentItem(auth.session.workspaceId, id);
+    if (!result.count) return error("Content item not found.", 404);
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "DELETE", module: "content", entityType: "Content", entityId: id });
+    return ok({ deleted: id });
+  }
+  if (entity === "reports") {
+    const deleted = await prisma.report.deleteMany({ where: { id, workspaceId: auth.session.workspaceId } });
+    if (!deleted.count) return error("Report not found.", 404);
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "DELETE", module: "reports", entityType: "Report", entityId: id });
+    return ok({ deleted: id });
+  }
+
   const archived = await archivePersistedCampaign(auth.session.workspaceId, id);
   if (!archived) return error("Campaign not found.", 404);
   await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "SOFT_DELETE", module: "campaigns", entityType: "Campaign", entityId: id });

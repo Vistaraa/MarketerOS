@@ -1,5 +1,5 @@
-import { LiveTeamPage } from "@/components/common/live-workspace-pages";
+import { TeamManagementPage } from "@/components/team/team-management-page";
 
 export default function TeamRoute() {
-  return <LiveTeamPage />;
+  return <TeamManagementPage />;
 }

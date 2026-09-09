@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { RealAuthPage } from "@/components/auth/real-auth-page";
 
 export const metadata = {
@@ -6,5 +7,9 @@ export const metadata = {
 };
 
 export default function VerifyEmailPage() {
-  return <RealAuthPage mode="verify-email" />;
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-sm text-zinc-500">Loading auth...</div>}>
+      <RealAuthPage mode="verify-email" />
+    </Suspense>
+  );
 }

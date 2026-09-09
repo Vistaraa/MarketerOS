@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { RealAuthPage } from "@/components/auth/real-auth-page";
 
 export const metadata = {
@@ -6,5 +7,9 @@ export const metadata = {
 };
 
 export default function LoginAliasPage() {
-  return <RealAuthPage mode="login" />;
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-sm text-zinc-500">Loading auth...</div>}>
+      <RealAuthPage mode="login" />
+    </Suspense>
+  );
 }

@@ -147,7 +147,7 @@ ORDER BY metrics.cost_micros DESC`;
                 <span>Enable Google Ads API</span>
               </div>
               <p className="mt-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-                In <a href="https://console.cloud.google.com" target="_blank" className="font-semibold underline">Google Cloud Console</a> &gt; <strong>APIs & Services</strong> &gt; <strong>Library</strong>, search for <em>"Google Ads API"</em> and click <strong>Enable</strong>.
+                In <a href="https://console.cloud.google.com" target="_blank" className="font-semibold underline">Google Cloud Console</a> &gt; <strong>APIs & Services</strong> &gt; <strong>Library</strong>, search for <em>&quot;Google Ads API&quot;</em> and click <strong>Enable</strong>.
               </p>
             </div>
 
@@ -214,7 +214,7 @@ ORDER BY metrics.cost_micros DESC`;
             <div className="rounded-xl border border-zinc-200 bg-white p-3.5 dark:border-zinc-800 dark:bg-zinc-900">
               <div className="font-bold text-zinc-900 dark:text-zinc-100">Step 1: Sign in with Google</div>
               <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                User clicks "Connect Google Ads" and is redirected to Google's official consent prompt.
+                User clicks &quot;Connect Google Ads&quot; and is redirected to Google&apos;s official consent prompt.
               </p>
             </div>
 

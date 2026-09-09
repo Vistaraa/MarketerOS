@@ -1,5 +1,5 @@
-import { LiveAutomationPage } from "@/components/common/live-workspace-pages";
+import { AutomationEnginePage } from "@/components/automation/automation-engine-page";
 
 export default function AutomationRoute() {
-  return <LiveAutomationPage />;
+  return <AutomationEnginePage />;
 }

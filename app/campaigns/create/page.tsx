@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { LiveCampaignCreate } from "@/components/campaigns/live-campaign-create";
 
 export const metadata = {
@@ -6,5 +7,9 @@ export const metadata = {
 };
 
 export default function CampaignCreatePage() {
-  return <LiveCampaignCreate />;
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-sm text-zinc-500">Loading campaign builder...</div>}>
+      <LiveCampaignCreate />
+    </Suspense>
+  );
 }

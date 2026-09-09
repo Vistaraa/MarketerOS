@@ -104,15 +104,15 @@ function aggregateSeries(source: ChartPoint[], query: OverviewQuery) {
     const current = buckets.get(key);
     if (current) {
       current.spend += point.spend;
-      current.clicks += point.clicks;
-      current.conversions += point.conversions;
+      current.clicks = (current.clicks || 0) + (point.clicks || 0);
+      current.conversions = (current.conversions || 0) + (point.conversions || 0);
       current.roas = Number((((current.roas || 0) + (point.roas || 0)) / 2).toFixed(2));
     } else {
       buckets.set(key, {
         date: key,
         spend: point.spend,
-        clicks: point.clicks,
-        conversions: point.conversions,
+        clicks: point.clicks || 0,
+        conversions: point.conversions || 0,
         roas: point.roas
       });
     }
@@ -308,8 +308,8 @@ export async function buildPersistedOverview(
     const current = metricByDate.get(date);
     if (current) {
       current.spend += Number(row.spend);
-      current.clicks += row.clicks;
-      current.conversions += row.conversions;
+      current.clicks = (current.clicks || 0) + row.clicks;
+      current.conversions = (current.conversions || 0) + row.conversions;
     } else {
       metricByDate.set(date, {
         date,

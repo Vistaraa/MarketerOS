@@ -20,6 +20,7 @@ import { TrendChart } from "@/components/ui/marketeros-charts";
 import type { ApiResponse } from "@/lib/api-contracts";
 import type { OverviewPayload } from "@/lib/types";
 import { cn, money } from "@/lib/utils";
+import { ContentStudioDashboard } from "@/components/content-studio/content-studio-dashboard";
 
 type Row = {
   id: string;
@@ -640,27 +641,25 @@ export function LiveContentPage({ ai = false }: { ai?: boolean }) {
 
   return (
     <AppShell title={ai ? "AI Content Creator" : "Content Studio"}>
-      <div className="space-y-6">
-        <PageHeading
-          title={ai ? "AI Ad Copy & Content Generator" : "Content Studio"}
-          description="Draft high-converting ad copy, headlines, and social content."
-        />
+      {ai ? (
+        <div className="space-y-6">
+          <PageHeading
+            title="AI Ad Copy & Content Generator"
+            description="Draft high-converting ad copy, headlines, and social content."
+          />
 
-        {error && (
-          <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400">
-            {error}
-          </div>
-        )}
+          {error && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400">
+              {error}
+            </div>
+          )}
 
-        <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 text-xs">
-          <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-zinc-900 dark:text-zinc-100" />
-            <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-              {ai ? "Generate Copy with AI" : "Recent Content Drafts"}
-            </h2>
-          </div>
+          <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 text-xs">
+            <div className="flex items-center gap-2">
+              <Sparkles size={16} className="text-zinc-900 dark:text-zinc-100" />
+              <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Generate Copy with AI</h2>
+            </div>
 
-          {ai && (
             <div className="mt-4 space-y-3">
               <textarea
                 value={prompt}
@@ -682,21 +681,11 @@ export function LiveContentPage({ ai = false }: { ai?: boolean }) {
                 </div>
               )}
             </div>
-          )}
-
-          <div className="mt-5 divide-y divide-zinc-100 dark:divide-zinc-800">
-            {items.map((item) => (
-              <div className="flex items-center justify-between py-3" key={item.id}>
-                <span className="font-semibold text-zinc-900 dark:text-zinc-100">{item.title}</span>
-                <span className="text-zinc-400">{item.status}</span>
-              </div>
-            ))}
-            {!items.length && !ai && (
-              <div className="py-6 text-center text-zinc-400">No content items recorded yet.</div>
-            )}
           </div>
         </div>
-      </div>
+      ) : (
+        <ContentStudioDashboard />
+      )}
     </AppShell>
   );
 }

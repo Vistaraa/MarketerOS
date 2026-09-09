@@ -70,9 +70,10 @@ export type SocialPost = {
 export type ChartPoint = {
   date: string;
   spend: number;
-  clicks: number;
-  conversions: number;
+  clicks?: number;
+  conversions?: number;
   roas?: number;
+  revenue?: number;
 };
 
 export type MetricKpi = {

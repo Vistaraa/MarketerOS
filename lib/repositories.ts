@@ -156,6 +156,7 @@ export async function connectPersistedIntegrationCredentials(input: {
   apiKey?: string;
   metadata?: Record<string, unknown>;
   verifiedName?: string;
+  providerKey?: string;
 }) {
   const platformEnum = platformMap[input.platform] || Platform.GOOGLE_ADS;
   const existing = await prisma.integration.findFirst({
@@ -171,6 +172,7 @@ export async function connectPersistedIntegrationCredentials(input: {
     lastSyncedAt: new Date(),
     metadata: (input.metadata || {}) as never
   };
+  if (input.providerKey) data.providerKey = input.providerKey;
   if (encryptedApiKey) data.apiKeyEncrypted = encryptedApiKey;
 
   if (existing) {
@@ -184,6 +186,7 @@ export async function connectPersistedIntegrationCredentials(input: {
       accountName: input.verifiedName || input.accountName,
       accountId: input.accountId,
       apiKeyEncrypted: encryptedApiKey || "",
+      providerKey: input.providerKey || undefined,
       status: "CONNECTED",
       lastSyncedAt: new Date(),
       metadata: (input.metadata || {}) as never
@@ -299,19 +302,151 @@ export async function searchPersisted(workspaceId: string, query: string) {
 }
 
 export async function listPersistedClients(workspaceId: string) {
-  return prisma.client.findMany({ where: { workspaceId }, orderBy: { updatedAt: "desc" } });
+  return prisma.client.findMany({
+    where: { workspaceId },
+    include: {
+      campaigns: { select: { id: true, name: true, status: true, budget: true, spend: true, conversions: true, roas: true } },
+      leads: { select: { id: true } }
+    },
+    orderBy: { updatedAt: "desc" }
+  });
+}
+
+export async function getPersistedClient(workspaceId: string, id: string) {
+  const client = await prisma.client.findFirst({
+    where: { id, workspaceId },
+    include: {
+      campaigns: { include: { integration: true }, orderBy: { updatedAt: "desc" } },
+      leads: { include: { owner: true }, orderBy: { createdAt: "desc" } },
+      content: { include: { createdBy: true }, orderBy: { updatedAt: "desc" } },
+      socialAccounts: { include: { posts: true } },
+      integrations: true,
+      reports: { orderBy: { createdAt: "desc" } }
+    }
+  });
+  return client;
+}
+
+export async function updatePersistedClient(workspaceId: string, id: string, data: { name?: string; industry?: string; website?: string; status?: string; contactName?: string; contactEmail?: string; contactPhone?: string; currency?: string; timezone?: string; monthlyBudget?: number }) {
+  const updateData: Record<string, unknown> = {};
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.industry !== undefined) updateData.industry = data.industry;
+  if (data.website !== undefined) updateData.website = data.website || null;
+  if (data.status !== undefined) updateData.status = data.status.toUpperCase() as never;
+  if (data.contactName !== undefined) updateData.contactName = data.contactName;
+  if (data.contactEmail !== undefined) updateData.contactEmail = data.contactEmail;
+  if (data.contactPhone !== undefined) updateData.contactPhone = data.contactPhone;
+  if (data.currency !== undefined) updateData.currency = data.currency;
+  if (data.timezone !== undefined) updateData.timezone = data.timezone;
+  if (data.monthlyBudget !== undefined) updateData.monthlyBudget = data.monthlyBudget;
+
+  return prisma.client.updateMany({
+    where: { id, workspaceId },
+    data: updateData
+  });
+}
+
+export async function deletePersistedClient(workspaceId: string, id: string) {
+  return prisma.client.deleteMany({ where: { id, workspaceId } });
 }
 
 export async function listPersistedReports(workspaceId: string) {
-  return prisma.report.findMany({ where: { workspaceId }, include: { client: true }, orderBy: { updatedAt: "desc" } });
+  return prisma.report.findMany({ where: { workspaceId }, include: { client: true, createdBy: true }, orderBy: { updatedAt: "desc" } });
+}
+
+export async function getPersistedReport(workspaceId: string, id: string) {
+  return prisma.report.findFirst({
+    where: { id, workspaceId },
+    include: { client: true, createdBy: true }
+  });
 }
 
 export async function listPersistedAutomations(workspaceId: string) {
   return prisma.automation.findMany({ where: { workspaceId }, include: { campaign: true }, orderBy: { updatedAt: "desc" } });
 }
 
+export async function getPersistedAutomation(workspaceId: string, id: string) {
+  return prisma.automation.findFirst({
+    where: { id, workspaceId },
+    include: { campaign: true }
+  });
+}
+
+export async function updatePersistedAutomation(workspaceId: string, id: string, data: { name?: string; trigger?: string; action?: string; isActive?: boolean; triggerConfig?: Record<string, unknown>; actionConfig?: Record<string, unknown> }) {
+  const updateData: Record<string, unknown> = {};
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.trigger !== undefined) updateData.trigger = data.trigger;
+  if (data.action !== undefined) updateData.action = data.action;
+  if (data.isActive !== undefined) updateData.isActive = data.isActive;
+  if (data.triggerConfig !== undefined) updateData.triggerConfig = (data.triggerConfig as Prisma.InputJsonValue) ?? undefined;
+  if (data.actionConfig !== undefined) updateData.actionConfig = (data.actionConfig as Prisma.InputJsonValue) ?? undefined;
+
+  return prisma.automation.updateMany({
+    where: { id, workspaceId },
+    data: updateData as never
+  });
+}
+
+export async function deletePersistedAutomation(workspaceId: string, id: string) {
+  return prisma.automation.deleteMany({ where: { id, workspaceId } });
+}
+
+export async function updatePersistedInsightStatus(workspaceId: string, id: string, status: string) {
+  return prisma.aIInsight.updateMany({
+    where: { id, workspaceId },
+    data: { status: status.toUpperCase() as never }
+  });
+}
+
+export async function getPersistedContentItem(workspaceId: string, id: string) {
+  return prisma.content.findFirst({
+    where: { id, workspaceId },
+    include: { client: true, createdBy: true }
+  });
+}
+
+export async function updatePersistedContentItem(workspaceId: string, id: string, data: { title?: string; body?: string; status?: string; type?: string; platform?: string; clientId?: string }) {
+  const updateData: Record<string, unknown> = {};
+  if (data.title !== undefined) updateData.title = data.title;
+  if (data.body !== undefined) updateData.body = data.body;
+  if (data.status !== undefined) updateData.status = data.status.toUpperCase() as never;
+  if (data.type !== undefined) updateData.type = data.type as never;
+  if (data.platform !== undefined) updateData.platform = data.platform.toUpperCase().replace(/\s+/g, "_") as never;
+  if (data.clientId !== undefined) updateData.clientId = data.clientId || null;
+
+  return prisma.content.updateMany({
+    where: { id, workspaceId },
+    data: updateData
+  });
+}
+
+export async function deletePersistedContentItem(workspaceId: string, id: string) {
+  return prisma.content.deleteMany({ where: { id, workspaceId } });
+}
+
 export async function listPersistedTeam(workspaceId: string) {
   const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId }, include: { owner: true } });
   if (!workspace) return [];
-  return [{ id: workspace.owner.id, name: `${workspace.owner.firstName} ${workspace.owner.lastName}`, email: workspace.owner.email, role: "OWNER", status: "ACTIVE", lastLoginAt: workspace.owner.lastLoginAt }];
+  const users = await prisma.user.findMany({
+    where: {
+      OR: [
+        { id: workspace.ownerId },
+        { sessions: { some: { user: { ownedWorkspaces: { some: { id: workspaceId } } } } } }
+      ]
+    },
+    orderBy: { createdAt: "asc" }
+  });
+  if (!users.length) {
+    return [{ id: workspace.owner.id, name: `${workspace.owner.firstName} ${workspace.owner.lastName}`, email: workspace.owner.email, role: "OWNER", status: "ACTIVE", lastLoginAt: workspace.owner.lastLoginAt }];
+  }
+  return users.map((u) => ({
+    id: u.id,
+    name: `${u.firstName} ${u.lastName}`,
+    email: u.email,
+    role: u.id === workspace.ownerId ? "OWNER" : "MANAGER",
+    status: u.status,
+    lastLoginAt: u.lastLoginAt,
+    jobTitle: u.jobTitle || "Team Member"
+  }));
 }
+
