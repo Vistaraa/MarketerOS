@@ -64,13 +64,13 @@ export function MetaAdsConnectModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-      <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900 text-xs">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
+        <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
           <div className="flex items-center gap-2.5">
             <PlatformIcon platform="Meta Ads" size={20} />
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Connect Meta Ads (Facebook & IG)</h3>
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Connect Meta Ads (Facebook & IG)</h3>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <button onClick={onClose} className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
             <X size={16} />
           </button>
         </div>
@@ -85,58 +85,58 @@ export function MetaAdsConnectModal({
         {success ? (
           <div className="py-8 text-center space-y-2">
             <CheckCircle2 size={32} className="mx-auto text-emerald-500" />
-            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">Meta Ads Connected Successfully!</h4>
-            <p className="text-xs text-slate-500">Syncing campaigns and pixel analytics...</p>
+            <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Meta Ads Connected Successfully!</h4>
+            <p className="text-xs text-zinc-500">Syncing campaigns and pixel analytics...</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300">Account Display Name</label>
+              <label className="block font-semibold text-zinc-700 dark:text-zinc-300">Account Display Name</label>
               <input
                 required
                 value={accountName}
                 onChange={(e) => setAccountName(e.target.value)}
                 placeholder="e.g. Acme Primary Meta Ads"
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                className="input-clean font-normal mt-1"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300">Ad Account ID</label>
+              <label className="block font-semibold text-zinc-700 dark:text-zinc-300">Ad Account ID</label>
               <input
                 required
                 value={accountId}
                 onChange={(e) => setAccountId(e.target.value)}
                 placeholder="act_123456789012345"
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-500 font-mono dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                className="input-clean font-mono mt-1"
               />
-              <span className="mt-1 block text-[10px] text-slate-400">Format: act_XXXXXXXXXXXXXXX from Meta Ads Manager.</span>
+              <span className="mt-1 block text-[10px] text-zinc-400">Format: act_XXXXXXXXXXXXXXX from Meta Ads Manager.</span>
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300">System User Access Token</label>
+              <label className="block font-semibold text-zinc-700 dark:text-zinc-300">System User Access Token</label>
               <input
                 required
                 type="password"
                 value={accessToken}
                 onChange={(e) => setAccessToken(e.target.value)}
                 placeholder="EAA..."
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-500 font-mono dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                className="input-clean font-mono mt-1"
               />
-              <span className="mt-1 block text-[10px] text-slate-400">System User token generated in Meta Business Manager with ads_management scope.</span>
+              <span className="mt-1 block text-[10px] text-zinc-400">System User token generated in Meta Business Manager with ads_management scope.</span>
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300">Meta Pixel ID (Optional)</label>
+              <label className="block font-semibold text-zinc-700 dark:text-zinc-300">Meta Pixel ID (Optional)</label>
               <input
                 value={pixelId}
                 onChange={(e) => setPixelId(e.target.value)}
                 placeholder="123456789012345"
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-500 font-mono dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                className="input-clean font-mono mt-1"
               />
             </div>
 
-            <div className="mt-6 flex items-center justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+            <div className="mt-6 flex items-center justify-end gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
               <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
               <button type="submit" disabled={loading} className="btn-primary">
                 {loading ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
@@ -198,13 +198,13 @@ export function LinkedinConnectModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-      <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900 text-xs">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
+        <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
           <div className="flex items-center gap-2.5">
             <PlatformIcon platform="LinkedIn" size={20} />
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Connect LinkedIn Ads</h3>
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Connect LinkedIn Ads</h3>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <button onClick={onClose} className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
             <X size={16} />
           </button>
         </div>
@@ -219,47 +219,47 @@ export function LinkedinConnectModal({
         {success ? (
           <div className="py-8 text-center space-y-2">
             <CheckCircle2 size={32} className="mx-auto text-emerald-500" />
-            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">LinkedIn Ads Connected!</h4>
-            <p className="text-xs text-slate-500">Syncing B2B lead gen metrics...</p>
+            <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">LinkedIn Ads Connected!</h4>
+            <p className="text-xs text-zinc-500">Syncing B2B lead gen metrics...</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300">Account Display Name</label>
+              <label className="block font-semibold text-zinc-700 dark:text-zinc-300">Account Display Name</label>
               <input
                 required
                 value={accountName}
                 onChange={(e) => setAccountName(e.target.value)}
                 placeholder="e.g. Enterprise B2B Ads"
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                className="input-clean font-normal mt-1"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300">LinkedIn Ad Account ID</label>
+              <label className="block font-semibold text-zinc-700 dark:text-zinc-300">LinkedIn Ad Account ID</label>
               <input
                 required
                 value={accountId}
                 onChange={(e) => setAccountId(e.target.value)}
                 placeholder="508291049"
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-500 font-mono dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                className="input-clean font-mono mt-1"
               />
-              <span className="mt-1 block text-[10px] text-slate-400">9-digit numeric Account ID from LinkedIn Campaign Manager.</span>
+              <span className="mt-1 block text-[10px] text-zinc-400">9-digit numeric Account ID from LinkedIn Campaign Manager.</span>
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300">OAuth Access Token</label>
+              <label className="block font-semibold text-zinc-700 dark:text-zinc-300">OAuth Access Token</label>
               <input
                 required
                 type="password"
                 value={accessToken}
                 onChange={(e) => setAccessToken(e.target.value)}
                 placeholder="Paste Access Token"
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-500 font-mono dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                className="input-clean font-mono mt-1"
               />
             </div>
 
-            <div className="mt-6 flex items-center justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+            <div className="mt-6 flex items-center justify-end gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
               <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
               <button type="submit" disabled={loading} className="btn-primary">
                 {loading ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
@@ -321,13 +321,13 @@ export function TiktokConnectModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-      <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900 text-xs">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
+        <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
           <div className="flex items-center gap-2.5">
             <PlatformIcon platform="TikTok" size={20} />
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Connect TikTok Ads Manager</h3>
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Connect TikTok Ads Manager</h3>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <button onClick={onClose} className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
             <X size={16} />
           </button>
         </div>
@@ -342,47 +342,47 @@ export function TiktokConnectModal({
         {success ? (
           <div className="py-8 text-center space-y-2">
             <CheckCircle2 size={32} className="mx-auto text-emerald-500" />
-            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">TikTok Ads Connected!</h4>
-            <p className="text-xs text-slate-500">Syncing video views and Spark Ads campaigns...</p>
+            <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">TikTok Ads Connected!</h4>
+            <p className="text-xs text-zinc-500">Syncing video views and Spark Ads campaigns...</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300">Account Display Name</label>
+              <label className="block font-semibold text-zinc-700 dark:text-zinc-300">Account Display Name</label>
               <input
                 required
                 value={accountName}
                 onChange={(e) => setAccountName(e.target.value)}
                 placeholder="e.g. TikTok Spark Ads"
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                className="input-clean font-normal mt-1"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300">TikTok Advertiser ID</label>
+              <label className="block font-semibold text-zinc-700 dark:text-zinc-300">TikTok Advertiser ID</label>
               <input
                 required
                 value={accountId}
                 onChange={(e) => setAccountId(e.target.value)}
                 placeholder="7019283746192837461"
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-slate-900 font-mono dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                className="input-clean font-mono mt-1"
               />
-              <span className="mt-1 block text-[10px] text-slate-400">19-digit numeric Advertiser ID from TikTok Ads Manager profile.</span>
+              <span className="mt-1 block text-[10px] text-zinc-400">19-digit numeric Advertiser ID from TikTok Ads Manager profile.</span>
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300">Long-Term Access Token</label>
+              <label className="block font-semibold text-zinc-700 dark:text-zinc-300">Long-Term Access Token</label>
               <input
                 required
                 type="password"
                 value={accessToken}
                 onChange={(e) => setAccessToken(e.target.value)}
                 placeholder="Paste Access Token"
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-slate-900 font-mono dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                className="input-clean font-mono mt-1"
               />
             </div>
 
-            <div className="mt-6 flex items-center justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+            <div className="mt-6 flex items-center justify-end gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
               <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
               <button type="submit" disabled={loading} className="btn-primary">
                 {loading ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
@@ -444,13 +444,13 @@ export function ShopifyConnectModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-      <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900 text-xs">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
+        <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
           <div className="flex items-center gap-2.5">
             <PlatformIcon platform="Shopify" size={20} />
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Connect Shopify Store</h3>
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Connect Shopify Store</h3>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <button onClick={onClose} className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
             <X size={16} />
           </button>
         </div>
@@ -465,48 +465,48 @@ export function ShopifyConnectModal({
         {success ? (
           <div className="py-8 text-center space-y-2">
             <CheckCircle2 size={32} className="mx-auto text-emerald-500" />
-            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">Shopify Store Connected!</h4>
-            <p className="text-xs text-slate-500">Syncing revenue, order volume, and AOV analytics...</p>
+            <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Shopify Store Connected!</h4>
+            <p className="text-xs text-zinc-500">Syncing revenue, order volume, and AOV analytics...</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300">Store Name</label>
+              <label className="block font-semibold text-zinc-700 dark:text-zinc-300">Store Name</label>
               <input
                 required
                 value={accountName}
                 onChange={(e) => setAccountName(e.target.value)}
                 placeholder="e.g. Acme E-commerce Store"
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                className="input-clean font-normal mt-1"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300">Shopify Store Domain</label>
+              <label className="block font-semibold text-zinc-700 dark:text-zinc-300">Shopify Store Domain</label>
               <input
                 required
                 value={accountId}
                 onChange={(e) => setAccountId(e.target.value)}
                 placeholder="acme-brand.myshopify.com"
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500 font-mono dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                className="input-clean font-mono mt-1"
               />
-              <span className="mt-1 block text-[10px] text-slate-400">Your unique .myshopify.com store domain.</span>
+              <span className="mt-1 block text-[10px] text-zinc-400">Your unique .myshopify.com store domain.</span>
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300">Admin API Access Token</label>
+              <label className="block font-semibold text-zinc-700 dark:text-zinc-300">Admin API Access Token</label>
               <input
                 required
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder="shpat_..."
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500 font-mono dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                className="input-clean font-mono mt-1"
               />
-              <span className="mt-1 block text-[10px] text-slate-400">Admin API access token generated in Shopify Admin &gt; Develop apps.</span>
+              <span className="mt-1 block text-[10px] text-zinc-400">Admin API access token generated in Shopify Admin &gt; Develop apps.</span>
             </div>
 
-            <div className="mt-6 flex items-center justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+            <div className="mt-6 flex items-center justify-end gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
               <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
               <button type="submit" disabled={loading} className="btn-primary">
                 {loading ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}

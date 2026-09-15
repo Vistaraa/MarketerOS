@@ -15,6 +15,7 @@ import {
   Layers
 } from "lucide-react";
 import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
+import { CustomDialog } from "@/components/ui/custom-dialog";
 import type { ApiResponse } from "@/lib/api-contracts";
 
 export function AutomationDetailView({ ruleId }: { ruleId: string }) {
@@ -22,39 +23,58 @@ export function AutomationDetailView({ ruleId }: { ruleId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<any[]>([]);
+  const [testing, setTesting] = useState(false);
+  const [dialogConfig, setDialogConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type?: "info" | "success" | "warning" | "error" | "confirm";
+  }>({ isOpen: false, message: "" });
+
+  async function load() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/v1/automation/${ruleId}`);
+      const payload = (await res.json()) as ApiResponse<{ rule: any; logs: any[] }>;
+      if (!res.ok) throw new Error(payload.error?.message || "Automation rule not found.");
+      setRule(payload.data.rule || payload.data);
+      setLogs(payload.data.logs || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load automation rule details.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/v1/automation/${ruleId}`);
-        const payload = (await res.json()) as ApiResponse<any>;
-        if (!res.ok) throw new Error(payload.error?.message || "Automation rule not found.");
-        setRule(payload.data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unable to load automation rule.");
-        setRule({
-          id: ruleId,
-          name: "Pause Campaign if ROAS < 2.0 & Spend > $500",
-          trigger: "campaign.roas_below",
-          action: "campaign.pause_and_notify",
-          isActive: true,
-          executionCount: 24,
-          lastRunAt: "2026-09-08T10:45:00Z"
-        });
-      } finally {
-        setLoading(false);
-      }
-
-      setLogs([
-        { id: "log-1", timestamp: "2026-09-08 10:45:02", status: "SUCCESS", message: "Rule evaluated. ROAS = 2.45 (Above threshold 2.0). No action required." },
-        { id: "log-2", timestamp: "2026-09-08 10:40:01", status: "SUCCESS", message: "Rule evaluated. ROAS = 2.42 (Above threshold 2.0). No action required." },
-        { id: "log-3", timestamp: "2026-09-08 10:35:00", status: "SUCCESS", message: "Rule evaluated. ROAS = 2.50 (Above threshold 2.0). No action required." },
-        { id: "log-4", timestamp: "2026-09-07 18:20:14", status: "ACTION_TRIGGERED", message: "Breach detected! ROAS = 1.82 < 2.0 on campaign 'Summer Flash Sale'. Paused campaign & sent alert." }
-      ]);
-    }
     load();
   }, [ruleId]);
+
+  async function handleRunNow() {
+    setTesting(true);
+    try {
+      const res = await fetch(`/api/v1/automation/${ruleId}/run`, { method: "POST" });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error?.message || "Failed to evaluate rule.");
+      setDialogConfig({
+        isOpen: true,
+        title: "Rule Evaluation",
+        message: payload.data?.log?.message || "Rule evaluated successfully.",
+        type: "success"
+      });
+      await load();
+    } catch (err) {
+      setDialogConfig({
+        isOpen: true,
+        title: "Evaluation Failed",
+        message: err instanceof Error ? err.message : "Rule evaluation failed.",
+        type: "error"
+      });
+    } finally {
+      setTesting(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -68,9 +88,15 @@ export function AutomationDetailView({ ruleId }: { ruleId: string }) {
     <AppShell
       title={`Automation Inspector - ${rule?.name || "Rule"}`}
       action={
-        <a href="/automation" className="btn-secondary text-xs flex items-center gap-1">
-          <ArrowLeft size={13} /> Back to Automation Engine
-        </a>
+        <div className="flex items-center gap-2">
+          <button onClick={handleRunNow} disabled={testing} className="btn-primary text-xs flex items-center gap-1">
+            <Play size={12} className={testing ? "animate-spin" : ""} />
+            <span>{testing ? "Evaluating Rule…" : "Run Rule Now"}</span>
+          </button>
+          <a href="/automation" className="btn-secondary text-xs flex items-center gap-1">
+            <ArrowLeft size={13} /> Back to Automations
+          </a>
+        </div>
       }
     >
       <div className="space-y-6">
@@ -142,6 +168,13 @@ export function AutomationDetailView({ ruleId }: { ruleId: string }) {
           </div>
         </div>
       </div>
+      <CustomDialog
+        isOpen={dialogConfig.isOpen}
+        title={dialogConfig.title}
+        message={dialogConfig.message}
+        type={dialogConfig.type}
+        onClose={() => setDialogConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </AppShell>
   );
 }

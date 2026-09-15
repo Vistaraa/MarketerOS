@@ -16,6 +16,7 @@ import {
   Zap
 } from "lucide-react";
 import { AppShell, Card, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
+import { CustomDialog } from "@/components/ui/custom-dialog";
 import { TrendChart } from "@/components/ui/marketeros-charts";
 import type { ApiResponse } from "@/lib/api-contracts";
 import type { OverviewPayload } from "@/lib/types";
@@ -53,6 +54,12 @@ export function LiveReportsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [openModal, setOpenModal] = useState(false);
+  const [dialogConfig, setDialogConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type?: "info" | "success" | "warning" | "error" | "confirm";
+  }>({ isOpen: false, message: "" });
 
   async function load() {
     try {
@@ -180,7 +187,14 @@ export function LiveReportsPage() {
                       <td className="px-4 py-3.5 text-zinc-500">Automated Summary</td>
                       <td className="px-5 py-3.5 text-right">
                         <button
-                          onClick={() => alert(`Opening report: ${item.name}`)}
+                          onClick={() =>
+                            setDialogConfig({
+                              isOpen: true,
+                              title: "View Report",
+                              message: `Opening performance report: ${item.name || "Report"}`,
+                              type: "info"
+                            })
+                          }
                           className="btn-secondary py-1 text-[11px]"
                         >
                           View Report
@@ -288,6 +302,14 @@ export function LiveReportsPage() {
           </div>
         )}
       </div>
+
+      <CustomDialog
+        isOpen={dialogConfig.isOpen}
+        title={dialogConfig.title}
+        message={dialogConfig.message}
+        type={dialogConfig.type}
+        onClose={() => setDialogConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </AppShell>
   );
 }

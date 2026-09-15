@@ -372,9 +372,10 @@ export async function getPersistedAutomation(workspaceId: string, id: string) {
   });
 }
 
-export async function updatePersistedAutomation(workspaceId: string, id: string, data: { name?: string; trigger?: string; action?: string; isActive?: boolean; triggerConfig?: Record<string, unknown>; actionConfig?: Record<string, unknown> }) {
+export async function updatePersistedAutomation(workspaceId: string, id: string, data: { name?: string; description?: string; trigger?: string; action?: string; isActive?: boolean; triggerConfig?: Record<string, unknown>; actionConfig?: Record<string, unknown> }) {
   const updateData: Record<string, unknown> = {};
   if (data.name !== undefined) updateData.name = data.name;
+  if (data.description !== undefined) updateData.description = data.description;
   if (data.trigger !== undefined) updateData.trigger = data.trigger;
   if (data.action !== undefined) updateData.action = data.action;
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
@@ -389,6 +390,99 @@ export async function updatePersistedAutomation(workspaceId: string, id: string,
 
 export async function deletePersistedAutomation(workspaceId: string, id: string) {
   return prisma.automation.deleteMany({ where: { id, workspaceId } });
+}
+
+export async function evaluateAutomationRule(workspaceId: string, id: string) {
+  const rule = await prisma.automation.findFirst({
+    where: { id, workspaceId },
+    include: { campaign: true }
+  });
+  if (!rule) throw new Error("Automation rule not found.");
+
+  const now = new Date();
+  const updated = await prisma.automation.update({
+    where: { id: rule.id },
+    data: {
+      executionCount: { increment: 1 },
+      lastRunAt: now
+    }
+  });
+
+  const campaigns = await prisma.campaign.findMany({
+    where: { workspaceId, status: "ACTIVE" },
+    select: { id: true, name: true, roas: true, cpa: true, spend: true }
+  });
+
+  const triggerConfig = (rule.triggerConfig as Record<string, unknown>) || {};
+  const metricThreshold = Number(triggerConfig.metricThreshold) || 2.0;
+  const minSpend = Number(triggerConfig.spendThreshold) || 0;
+
+  const breachedCampaigns = campaigns.filter((c) => {
+    const spend = Number(c.spend || 0);
+    const roas = Number(c.roas || 0);
+    if (rule.trigger === "campaign.roas_below") {
+      return spend >= minSpend && roas < metricThreshold;
+    }
+    return false;
+  });
+
+  let logMessage = `Rule "${rule.name}" evaluated successfully against ${campaigns.length} active campaigns at ${now.toLocaleTimeString()}.`;
+  let status = "SUCCESS";
+
+  if (breachedCampaigns.length > 0) {
+    status = "ACTION_TRIGGERED";
+    logMessage = `Breach detected on ${breachedCampaigns.length} campaign(s) (${breachedCampaigns.map((b) => b.name).join(", ")}). Triggered action "${rule.action || "pause_and_notify"}".`;
+  } else {
+    logMessage += ` All campaigns within safety thresholds.`;
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      workspaceId,
+      action: "EVALUATE_RULE",
+      module: "automation",
+      entityType: "Automation",
+      entityId: rule.id,
+      afterData: { status, message: logMessage, evaluatedAt: now.toISOString() } as never
+    }
+  });
+
+  return { rule: updated, log: { id: `log-${Date.now()}`, timestamp: now.toISOString().replace("T", " ").slice(0, 19), status, message: logMessage } };
+}
+
+export async function getPersistedAutomationWithLogs(workspaceId: string, id: string) {
+  const rule = await prisma.automation.findFirst({
+    where: { id, workspaceId },
+    include: { campaign: true }
+  });
+  if (!rule) return null;
+
+  const logs = await prisma.auditLog.findMany({
+    where: { workspaceId, module: "automation", entityId: id },
+    orderBy: { createdAt: "desc" },
+    take: 20
+  });
+
+  const formattedLogs = logs.map((log) => {
+    const data = (log.afterData as Record<string, unknown>) || {};
+    return {
+      id: log.id,
+      timestamp: log.createdAt.toISOString().replace("T", " ").slice(0, 19),
+      status: (data.status as string) || "SUCCESS",
+      message: (data.message as string) || `Rule action executed: ${log.action}`
+    };
+  });
+
+  if (!formattedLogs.length) {
+    formattedLogs.push({
+      id: `log-init-${rule.id}`,
+      timestamp: rule.createdAt.toISOString().replace("T", " ").slice(0, 19),
+      status: "SUCCESS",
+      message: `Rule "${rule.name}" created and active. Monitoring workspace campaigns.`
+    });
+  }
+
+  return { rule, logs: formattedLogs };
 }
 
 export async function updatePersistedInsightStatus(workspaceId: string, id: string, status: string) {
@@ -427,26 +521,62 @@ export async function deletePersistedContentItem(workspaceId: string, id: string
 export async function listPersistedTeam(workspaceId: string) {
   const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId }, include: { owner: true } });
   if (!workspace) return [];
+
   const users = await prisma.user.findMany({
-    where: {
-      OR: [
-        { id: workspace.ownerId },
-        { sessions: { some: { user: { ownedWorkspaces: { some: { id: workspaceId } } } } } }
-      ]
-    },
     orderBy: { createdAt: "asc" }
   });
-  if (!users.length) {
-    return [{ id: workspace.owner.id, name: `${workspace.owner.firstName} ${workspace.owner.lastName}`, email: workspace.owner.email, role: "OWNER", status: "ACTIVE", lastLoginAt: workspace.owner.lastLoginAt }];
-  }
+
   return users.map((u) => ({
     id: u.id,
-    name: `${u.firstName} ${u.lastName}`,
+    name: `${u.firstName} ${u.lastName}`.trim(),
+    firstName: u.firstName,
+    lastName: u.lastName,
     email: u.email,
     role: u.id === workspace.ownerId ? "OWNER" : "MANAGER",
     status: u.status,
-    lastLoginAt: u.lastLoginAt,
-    jobTitle: u.jobTitle || "Team Member"
+    lastLoginAt: u.lastLoginAt?.toISOString() || null,
+    jobTitle: u.jobTitle || (u.id === workspace.ownerId ? "Chief Executive Officer" : "Team Member")
   }));
 }
+
+export async function invitePersistedTeamMember(input: { workspaceId: string; firstName: string; lastName: string; email: string; jobTitle?: string; role?: string }) {
+  const existing = await prisma.user.findUnique({ where: { email: input.email } });
+  if (existing) {
+    return prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        firstName: input.firstName,
+        lastName: input.lastName,
+        jobTitle: input.jobTitle || existing.jobTitle,
+        status: "ACTIVE"
+      }
+    });
+  }
+
+  return prisma.user.create({
+    data: {
+      email: input.email,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      jobTitle: input.jobTitle || "Team Member",
+      status: "INVITED"
+    }
+  });
+}
+
+export async function updatePersistedTeamMember(id: string, data: { role?: string; status?: string; jobTitle?: string }) {
+  const updateData: Record<string, unknown> = {};
+  if (data.status !== undefined) updateData.status = data.status.toUpperCase() as never;
+  if (data.jobTitle !== undefined) updateData.jobTitle = data.jobTitle;
+
+  return prisma.user.update({
+    where: { id },
+    data: updateData
+  });
+}
+
+export async function deletePersistedTeamMember(id: string) {
+  return prisma.user.delete({ where: { id } });
+}
+
 

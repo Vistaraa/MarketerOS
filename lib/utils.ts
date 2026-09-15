@@ -13,3 +13,12 @@ export function compactNumber(value: number) {
 export function slugify(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
+
+export async function safeFetchJson<T = any>(res: Response): Promise<T> {
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return (await res.json()) as T;
+  }
+  const text = await res.text();
+  throw new Error(`Server returned non-JSON response (${res.status} ${res.statusText}): ${text.slice(0, 100)}`);
+}

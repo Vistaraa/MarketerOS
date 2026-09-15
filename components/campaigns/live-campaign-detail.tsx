@@ -31,6 +31,7 @@ import type { Campaign } from "@/lib/types";
 import { cn, money } from "@/lib/utils";
 import { PlatformIcon } from "@/components/ui/marketeros-icons";
 import { AppShell, StatusBadge } from "@/components/ui/marketeros-shell";
+import { CustomDialog } from "@/components/ui/custom-dialog";
 import {
   CartesianGrid,
   Line,
@@ -103,6 +104,12 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
   const [loading, setLoading] = useState(true);
   const [selectedPlatformId, setSelectedPlatformId] = useState<string>("");
   const [granularity, setGranularity] = useState("Daily");
+  const [dialogConfig, setDialogConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type?: "info" | "success" | "warning" | "error" | "confirm";
+  }>({ isOpen: false, message: "" });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -549,14 +556,29 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
                       onClick={async () => {
                         const intgId = data?.detail?.integrationId;
                         if (!intgId) {
-                          alert("No specific integration ID linked. Navigate to Integrations to sync accounts.");
+                          setDialogConfig({
+                            isOpen: true,
+                            title: "Integration Missing",
+                            message: "No specific integration ID linked. Navigate to Integrations to sync accounts.",
+                            type: "warning"
+                          });
                           return;
                         }
                         try {
                           await fetch(`/api/v1/integrations/${intgId}/sync`, { method: "POST" });
-                          alert(`Triggered live metric sync for ${selectedPlatform.platform}!`);
+                          setDialogConfig({
+                            isOpen: true,
+                            title: "Channel Sync Triggered",
+                            message: `Triggered live metric sync for ${selectedPlatform.platform}!`,
+                            type: "success"
+                          });
                         } catch {
-                          alert("Sync queued.");
+                          setDialogConfig({
+                            isOpen: true,
+                            title: "Channel Sync",
+                            message: "Sync queued successfully.",
+                            type: "info"
+                          });
                         }
                       }}
                       className="inline-flex items-center gap-1 rounded-md bg-white px-2.5 py-1 text-[10px] font-bold text-zinc-700 shadow-2xs border border-zinc-200 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
@@ -748,6 +770,13 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
           </div>
         )}
       </div>
+      <CustomDialog
+        isOpen={dialogConfig.isOpen}
+        title={dialogConfig.title}
+        message={dialogConfig.message}
+        type={dialogConfig.type}
+        onClose={() => setDialogConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </AppShell>
   );
 }

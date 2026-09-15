@@ -19,22 +19,28 @@ import {
   UserX
 } from "lucide-react";
 import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
+import { CustomDialog } from "@/components/ui/custom-dialog";
 import type { ApiResponse } from "@/lib/api-contracts";
+import { safeFetchJson } from "@/lib/utils";
 
 interface TeamMember {
   id: string;
   name: string;
   email: string;
-  role: "OWNER" | "ADMIN" | "MANAGER" | "ANALYST" | "CONTENT_MANAGER" | "SALES" | "VIEWER" | string;
-  status: "ACTIVE" | "INVITED" | "SUSPENDED" | string;
-  lastLoginAt?: string | null;
+  role: string;
+  status: string;
+  avatarUrl?: string | null;
   jobTitle?: string | null;
+  lastLoginAt?: string | null;
+  createdAt?: string;
 }
 
 export function TeamManagementPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Filters
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -45,8 +51,8 @@ export function TeamManagementPage() {
     firstName: "",
     lastName: "",
     email: "",
-    jobTitle: "",
-    role: "MANAGER"
+    role: "MANAGER",
+    jobTitle: ""
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -54,12 +60,24 @@ export function TeamManagementPage() {
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [editRole, setEditRole] = useState("MANAGER");
 
+  // Custom Dialog State
+  const [dialogConfig, setDialogConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type?: "info" | "success" | "warning" | "error" | "confirm";
+    confirmText?: string;
+    cancelText?: string;
+    confirmTone?: "primary" | "danger" | "warning";
+    onConfirm?: () => void;
+  }>({ isOpen: false, message: "" });
+
   async function loadTeam() {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/v1/team");
-      const payload = (await res.json()) as ApiResponse<{ items: TeamMember[] }>;
+      const payload = await safeFetchJson<ApiResponse<{ items: TeamMember[] }>>(res);
       if (!res.ok) throw new Error(payload.error?.message || "Failed to load team.");
       setMembers(payload.data.items || []);
     } catch (err) {
@@ -85,7 +103,7 @@ export function TeamManagementPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(inviteForm)
       });
-      const payload = await res.json();
+      const payload = await safeFetchJson<ApiResponse<any>>(res);
       if (!res.ok) throw new Error(payload.error?.message || "Failed to send invitation.");
 
       setIsInviteModalOpen(false);
@@ -128,6 +146,27 @@ export function TeamManagementPage() {
     } catch (err) {
       console.error("Failed to update status:", err);
     }
+  }
+
+  async function handleDeleteMember(id: string) {
+    setDialogConfig({
+      isOpen: true,
+      title: "Remove Team Member",
+      message: "Are you sure you want to remove this team member?",
+      type: "confirm",
+      confirmText: "Remove Member",
+      confirmTone: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/v1/team/${id}`, { method: "DELETE" });
+          if (res.ok) {
+            setMembers((prev) => prev.filter((m) => m.id !== id));
+          }
+        } catch (err) {
+          console.error("Failed to delete member:", err);
+        }
+      }
+    });
   }
 
   const filtered = members.filter((m) => {
@@ -312,6 +351,13 @@ export function TeamManagementPage() {
                           >
                             {member.status === "ACTIVE" ? "Suspend" : "Activate"}
                           </button>
+                          <button
+                            onClick={() => handleDeleteMember(member.id)}
+                            className="btn-secondary p-1 text-rose-500"
+                            title="Remove Member"
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         </div>
                       )}
                     </td>
@@ -454,6 +500,17 @@ export function TeamManagementPage() {
             </div>
           </div>
         )}
+        <CustomDialog
+          isOpen={dialogConfig.isOpen}
+          title={dialogConfig.title}
+          message={dialogConfig.message}
+          type={dialogConfig.type}
+          confirmText={dialogConfig.confirmText}
+          cancelText={dialogConfig.cancelText}
+          confirmTone={dialogConfig.confirmTone}
+          onConfirm={dialogConfig.onConfirm}
+          onClose={() => setDialogConfig((prev) => ({ ...prev, isOpen: false }))}
+        />
       </div>
     </AppShell>
   );

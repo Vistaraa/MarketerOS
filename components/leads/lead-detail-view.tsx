@@ -20,6 +20,7 @@ import {
   Activity
 } from "lucide-react";
 import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
+import { CustomDialog } from "@/components/ui/custom-dialog";
 import type { ApiResponse } from "@/lib/api-contracts";
 import { money } from "@/lib/utils";
 
@@ -32,6 +33,12 @@ export function LeadDetailView({ leadId }: { leadId: string }) {
     "Initial discovery call scheduled for Thursday at 2:00 PM EST.",
     "Prospect downloaded whitepaper 'Enterprise Ad Optimization Architecture'."
   ]);
+  const [dialogConfig, setDialogConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type?: "info" | "success" | "warning" | "error" | "confirm";
+  }>({ isOpen: false, message: "" });
 
   useEffect(() => {
     async function load() {
@@ -130,7 +137,17 @@ export function LeadDetailView({ leadId }: { leadId: string }) {
             </div>
 
             <div className="flex items-center gap-2">
-              <button onClick={() => alert("Editing lead profile…")} className="btn-secondary">
+              <button
+                onClick={() =>
+                  setDialogConfig({
+                    isOpen: true,
+                    title: "Edit Lead Profile",
+                    message: `Editing details for ${lead?.name || "lead"}. Save changes directly within the CRM.`,
+                    type: "info"
+                  })
+                }
+                className="btn-secondary"
+              >
                 <Edit3 size={13} /> Edit Lead
               </button>
             </div>
@@ -248,6 +265,14 @@ export function LeadDetailView({ leadId }: { leadId: string }) {
           </div>
         </div>
       </div>
+
+      <CustomDialog
+        isOpen={dialogConfig.isOpen}
+        title={dialogConfig.title}
+        message={dialogConfig.message}
+        type={dialogConfig.type}
+        onClose={() => setDialogConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </AppShell>
   );
 }

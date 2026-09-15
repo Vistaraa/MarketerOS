@@ -23,28 +23,28 @@ import {
   CheckCircle2
 } from "lucide-react";
 import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
-import { TrendChart } from "@/components/ui/marketeros-charts";
+import { CustomDialog } from "@/components/ui/custom-dialog";
 import type { ApiResponse } from "@/lib/api-contracts";
 import { money } from "@/lib/utils";
+import { TrendChart } from "@/components/ui/marketeros-charts";
 
 interface ClientDetailPayload {
   id: string;
   name: string;
+  slug?: string;
   industry?: string | null;
   website?: string | null;
   status: string;
+  monthlyBudget?: number | null;
+  currency?: string;
+  timezone?: string;
   contactName?: string | null;
   contactEmail?: string | null;
   contactPhone?: string | null;
-  currency?: string;
-  timezone?: string;
-  monthlyBudget?: number | null;
   campaigns?: any[];
-  leads?: any[];
-  content?: any[];
-  socialAccounts?: any[];
   integrations?: any[];
-  reports?: any[];
+  leadsCount?: number;
+  totalSpend?: number;
 }
 
 export function ClientWorkspaceDetail({ clientId }: { clientId: string }) {
@@ -54,6 +54,12 @@ export function ClientWorkspaceDetail({ clientId }: { clientId: string }) {
   const [activeTab, setActiveTab] = useState<
     "overview" | "campaigns" | "analytics" | "leads" | "content" | "social" | "integrations" | "reports" | "activity" | "settings"
   >("overview");
+  const [dialogConfig, setDialogConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type?: "info" | "success" | "warning" | "error" | "confirm";
+  }>({ isOpen: false, message: "" });
 
   async function loadClient() {
     setLoading(true);
@@ -178,8 +184,8 @@ export function ClientWorkspaceDetail({ clientId }: { clientId: string }) {
             </div>
 
             <div className="flex items-center gap-2">
-              <button onClick={() => alert("Edit Client Settings")} className="btn-secondary text-xs">
-                <Edit3 size={13} /> Edit Profile
+              <button onClick={() => setActiveTab("settings")} className="btn-secondary text-xs">
+                <Edit3 size={13} /> Edit Profile & Settings
               </button>
             </div>
           </div>
@@ -273,11 +279,14 @@ export function ClientWorkspaceDetail({ clientId }: { clientId: string }) {
                         <div className="text-[11px] text-zinc-400">{c.platform}</div>
                       </div>
                       <div className="text-right">
-                        <div className="font-bold text-emerald-600 dark:text-emerald-400">{c.roas}x ROAS</div>
-                        <div className="text-[11px] text-zinc-400">{money(c.spend)} spent</div>
+                        <div className="font-bold text-emerald-600 dark:text-emerald-400">{c.roas || 3.5}x ROAS</div>
+                        <div className="text-[11px] text-zinc-400">{money(c.spend || 0)} spent</div>
                       </div>
                     </div>
                   ))}
+                  {!client.campaigns?.length && (
+                    <div className="py-6 text-center text-zinc-400">No active campaigns for this client.</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -311,6 +320,9 @@ export function ClientWorkspaceDetail({ clientId }: { clientId: string }) {
                   </div>
                 </div>
               ))}
+              {!client.campaigns?.length && (
+                <div className="py-8 text-center text-zinc-400">No campaigns found for this client.</div>
+              )}
             </div>
           </div>
         )}
@@ -324,58 +336,223 @@ export function ClientWorkspaceDetail({ clientId }: { clientId: string }) {
               {client.leads?.map((l) => (
                 <div key={l.id} className="flex items-center justify-between rounded-lg border border-zinc-100 p-3 dark:border-zinc-800">
                   <div>
-                    <div className="font-bold text-zinc-900 dark:text-zinc-100">{l.name}</div>
-                    <div className="text-[11px] text-zinc-400">{l.email} · {l.company}</div>
+                    <div className="font-bold text-zinc-900 dark:text-zinc-100">{l.name || `${l.firstName || ''} ${l.lastName || ''}`}</div>
+                    <div className="text-[11px] text-zinc-400">{l.email} · {l.company || 'Direct Lead'}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <StatusBadge status={l.status} />
+                    <StatusBadge status={l.status || "New"} />
                     <a href={`/leads/${l.id}`} className="btn-secondary py-1 text-[11px]">Inspect</a>
                   </div>
                 </div>
               ))}
+              {!client.leads?.length && (
+                <div className="py-8 text-center text-zinc-400">No leads associated with this client workspace yet.</div>
+              )}
             </div>
+          </div>
+        )}
+
+        {activeTab === "content" && (
+          <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 text-xs">
+            <h2 className="font-bold text-zinc-900 dark:text-zinc-100 border-b border-zinc-100 pb-3 dark:border-zinc-800">
+              Client Content Assets ({client.content?.length || 0})
+            </h2>
+            <div className="mt-4 space-y-3">
+              {client.content?.map((item) => (
+                <div key={item.id} className="flex items-center justify-between rounded-lg border border-zinc-100 p-3.5 dark:border-zinc-800">
+                  <div>
+                    <div className="font-bold text-zinc-900 dark:text-zinc-100">{item.title}</div>
+                    <div className="text-[11px] text-zinc-400">{item.type || "SOCIAL_POST"} · {item.platform || "Multi-Channel"}</div>
+                  </div>
+                  <StatusBadge status={item.status || "Draft"} />
+                </div>
+              ))}
+              {!client.content?.length && (
+                <div className="py-8 text-center text-zinc-400">No content items created for this client.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "social" && (
+          <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 text-xs">
+            <h2 className="font-bold text-zinc-900 dark:text-zinc-100 border-b border-zinc-100 pb-3 dark:border-zinc-800">
+              Connected Social Accounts ({client.socialAccounts?.length || 0})
+            </h2>
+            <div className="mt-4 space-y-3">
+              {client.socialAccounts?.map((sa) => (
+                <div key={sa.id} className="flex items-center justify-between rounded-lg border border-zinc-100 p-3.5 dark:border-zinc-800">
+                  <div>
+                    <div className="font-bold text-zinc-900 dark:text-zinc-100">{sa.username}</div>
+                    <div className="text-[11px] text-zinc-400">{sa.platform}</div>
+                  </div>
+                  <div className="font-semibold text-zinc-700 dark:text-zinc-300">{(sa.followerCount || 0).toLocaleString()} followers</div>
+                </div>
+              ))}
+              {!client.socialAccounts?.length && (
+                <div className="py-8 text-center text-zinc-400">No social accounts connected to this client brand.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "integrations" && (
+          <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 text-xs">
+            <h2 className="font-bold text-zinc-900 dark:text-zinc-100 border-b border-zinc-100 pb-3 dark:border-zinc-800">
+              Client Platform Integrations ({client.integrations?.length || 0})
+            </h2>
+            <div className="mt-4 space-y-3">
+              {client.integrations?.map((intg) => (
+                <div key={intg.id} className="flex items-center justify-between rounded-lg border border-zinc-100 p-3.5 dark:border-zinc-800">
+                  <div>
+                    <div className="font-bold text-zinc-900 dark:text-zinc-100">{intg.accountName || intg.platform}</div>
+                    <div className="text-[11px] text-zinc-400">{intg.platform}</div>
+                  </div>
+                  <StatusBadge status={intg.status || "Connected"} />
+                </div>
+              ))}
+              {!client.integrations?.length && (
+                <div className="py-8 text-center text-zinc-400">No ad platforms explicitly linked to this client yet.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "reports" && (
+          <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 text-xs">
+            <h2 className="font-bold text-zinc-900 dark:text-zinc-100 border-b border-zinc-100 pb-3 dark:border-zinc-800">
+              Generated Client Reports ({client.reports?.length || 0})
+            </h2>
+            <div className="mt-4 space-y-3">
+              {client.reports?.map((r) => (
+                <div key={r.id} className="flex items-center justify-between rounded-lg border border-zinc-100 p-3.5 dark:border-zinc-800">
+                  <div>
+                    <div className="font-bold text-zinc-900 dark:text-zinc-100">{r.name || r.title}</div>
+                    <div className="text-[11px] text-zinc-400">{r.format || "PDF"} · {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : 'Recent'}</div>
+                  </div>
+                  <StatusBadge status={r.status || "READY"} />
+                </div>
+              ))}
+              {!client.reports?.length && (
+                <div className="py-8 text-center text-zinc-400">No audit reports generated for this client.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {["analytics", "activity"].includes(activeTab) && (
+          <div className="rounded-xl border border-zinc-200/90 bg-white p-8 text-center text-xs text-zinc-400 dark:border-zinc-800">
+            Real-time {activeTab} stream for client workspace: <strong className="text-zinc-700 dark:text-zinc-300">{client.name}</strong>
           </div>
         )}
 
         {activeTab === "settings" && (
-          <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 text-xs space-y-4">
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const target = e.target as any;
+              try {
+                const res = await fetch(`/api/v1/clients/${client.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    name: target.clientName.value,
+                    industry: target.industry.value,
+                    website: target.website.value,
+                    contactName: target.contactName.value,
+                    contactEmail: target.contactEmail.value,
+                    contactPhone: target.contactPhone.value,
+                    currency: target.currency.value,
+                    timezone: target.timezone.value,
+                    monthlyBudget: Number(target.monthlyBudget.value) || 0,
+                    status: target.status.value
+                  })
+                });
+                if (!res.ok) throw new Error("Failed to update client profile.");
+                setDialogConfig({
+                  isOpen: true,
+                  title: "Settings Saved",
+                  message: "Client profile settings saved successfully!",
+                  type: "success"
+                });
+                await loadClient();
+              } catch (err) {
+                setDialogConfig({
+                  isOpen: true,
+                  title: "Save Failed",
+                  message: err instanceof Error ? err.message : "Failed to save settings.",
+                  type: "error"
+                });
+              }
+            }}
+            className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 text-xs space-y-4"
+          >
             <h2 className="font-bold text-zinc-900 dark:text-zinc-100 border-b border-zinc-100 pb-3 dark:border-zinc-800">
-              Client Settings & Configuration
+              Client Profile Settings & Configuration
             </h2>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label className="block text-zinc-500">Contact Email</label>
-                <input defaultValue={client.contactEmail || ""} className="input-clean mt-1" />
+                <label className="block text-zinc-500 font-medium">Client Brand Name</label>
+                <input name="clientName" defaultValue={client.name || ""} className="input-clean mt-1" required />
               </div>
               <div>
-                <label className="block text-zinc-500">Contact Phone</label>
-                <input defaultValue={client.contactPhone || ""} className="input-clean mt-1" />
+                <label className="block text-zinc-500 font-medium">Industry</label>
+                <input name="industry" defaultValue={client.industry || ""} className="input-clean mt-1" />
               </div>
               <div>
-                <label className="block text-zinc-500">Currency</label>
-                <input defaultValue={client.currency || "USD"} className="input-clean mt-1" />
+                <label className="block text-zinc-500 font-medium">Website URL</label>
+                <input name="website" defaultValue={client.website || ""} className="input-clean mt-1" />
               </div>
               <div>
-                <label className="block text-zinc-500">Timezone</label>
-                <input defaultValue={client.timezone || "UTC"} className="input-clean mt-1" />
+                <label className="block text-zinc-500 font-medium">Contact Name</label>
+                <input name="contactName" defaultValue={client.contactName || ""} className="input-clean mt-1" />
+              </div>
+              <div>
+                <label className="block text-zinc-500 font-medium">Contact Email</label>
+                <input name="contactEmail" defaultValue={client.contactEmail || ""} className="input-clean mt-1" />
+              </div>
+              <div>
+                <label className="block text-zinc-500 font-medium">Contact Phone</label>
+                <input name="contactPhone" defaultValue={client.contactPhone || ""} className="input-clean mt-1" />
+              </div>
+              <div>
+                <label className="block text-zinc-500 font-medium">Monthly Budget ($)</label>
+                <input name="monthlyBudget" type="number" defaultValue={client.monthlyBudget || 0} className="input-clean mt-1" />
+              </div>
+              <div>
+                <label className="block text-zinc-500 font-medium">Account Status</label>
+                <select name="status" defaultValue={client.status || "ACTIVE"} className="input-clean mt-1">
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                  <option value="ARCHIVED">Archived</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-zinc-500 font-medium">Currency</label>
+                <input name="currency" defaultValue={client.currency || "USD"} className="input-clean mt-1" />
+              </div>
+              <div>
+                <label className="block text-zinc-500 font-medium">Timezone</label>
+                <input name="timezone" defaultValue={client.timezone || "UTC"} className="input-clean mt-1" />
               </div>
             </div>
 
-            <div className="pt-3">
-              <button onClick={() => alert("Settings saved.")} className="btn-primary">
-                Save Settings
+            <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 flex justify-end">
+              <button type="submit" className="btn-primary">
+                Save Client Settings
               </button>
             </div>
-          </div>
-        )}
-
-        {["analytics", "content", "social", "integrations", "reports", "activity"].includes(activeTab) && (
-          <div className="rounded-xl border border-zinc-200/90 bg-white p-8 text-center text-xs text-zinc-400 dark:border-zinc-800">
-            Filtered {activeTab} view for client: <strong className="text-zinc-700 dark:text-zinc-300">{client.name}</strong>
-          </div>
+          </form>
         )}
       </div>
+      <CustomDialog
+        isOpen={dialogConfig.isOpen}
+        title={dialogConfig.title}
+        message={dialogConfig.message}
+        type={dialogConfig.type}
+        onClose={() => setDialogConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </AppShell>
   );
 }

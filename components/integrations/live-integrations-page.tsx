@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
 import { PlatformIcon } from "@/components/ui/marketeros-icons";
+import { CustomDialog } from "@/components/ui/custom-dialog";
 import type { ApiResponse } from "@/lib/api-contracts";
 import type { Integration } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -343,6 +344,14 @@ export function LiveIntegrationsPage() {
   // Disconnect target
   const [disconnectTarget, setDisconnectTarget] = useState<{ integrationId: string; platformName: string } | null>(null);
 
+  // Custom Dialog State
+  const [dialogConfig, setDialogConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type?: "info" | "success" | "warning" | "error" | "confirm";
+  }>({ isOpen: false, message: "" });
+
   const fetchIntegrations = async () => {
     try {
       setLoading(true);
@@ -408,25 +417,30 @@ export function LiveIntegrationsPage() {
     if (platform.id === "Google Search Console" || platform.name.toLowerCase().includes("search console")) {
       setGoogleDynamicPlatform("GOOGLE_SEARCH_CONSOLE");
       setGoogleDynamicInitialId(existing?.account || "");
-      setGoogleDynamicInitialName(existing?.account ? `GSC (${existing.account})` : "My Search Console Site");
+      setGoogleDynamicInitialName(existing?.account ? `GSC (${existing.account})` : "My Search Console");
+      setGoogleDynamicModalOpen(true);
+      return;
+    }
+    if (platform.id === "YouTube" || platform.name.toLowerCase().includes("youtube")) {
+      setGoogleDynamicPlatform("YOUTUBE");
+      setGoogleDynamicInitialId(existing?.account || "");
+      setGoogleDynamicInitialName(existing?.account ? `YouTube (${existing.account})` : "My YouTube Channel");
       setGoogleDynamicModalOpen(true);
       return;
     }
     if (platform.id === "Firebase" || platform.name.toLowerCase().includes("admob")) {
-      setGoogleDynamicPlatform("FIREBASE_ADMOB");
-      setGoogleDynamicInitialId(existing?.account || "");
-      setGoogleDynamicInitialName(existing?.account ? `AdMob (${existing.account})` : "My AdMob Account");
-      setGoogleDynamicModalOpen(true);
+      setAdMobConnectOpen(true);
       return;
     }
-    if (platform.id === "Meta Ads" || platform.id === "Instagram") {
-      setMetaConnectOpen(true);
+    if (platform.id === "Meta Ads" || platform.name.toLowerCase().includes("meta")) {
+      setMetaAdsConnectOpen(true);
       return;
     }
-    if (platform.id === "LinkedIn") {
+    if (platform.id === "LinkedIn" || platform.name.toLowerCase().includes("linkedin")) {
       setLinkedinConnectOpen(true);
       return;
     }
+
     setSelectedPlatform(platform);
     setAccountName(existing?.account ? `${platform.name} (${existing.account})` : `My ${platform.name}`);
     setAccountId(existing?.account || "");
@@ -450,40 +464,46 @@ export function LiveIntegrationsPage() {
     setGenericGuideModalOpen(true);
   };
 
-  const handleGenericConnect = async (e: React.FormEvent) => {
+  const handleOpenLiveDashboard = (platformId: string, accountName?: string) => {
+    setLiveDashPlatformId(platformId);
+    setLiveDashAccountName(accountName || platformId);
+    setLiveDashOpen(true);
+  };
+
+  const handleSaveGenericIntegration = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPlatform) return;
-
-    if (!accountId.trim()) {
-      setError(`Please enter a valid ${selectedPlatform.idLabel}.`);
-      return;
-    }
-
     setBusy(true);
     setError(null);
+    setSuccessMsg(null);
+
     try {
-      const res = await fetch("/api/v1/integrations/connect-credentials", {
+      const res = await fetch("/api/v1/integrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          platform: selectedPlatform.id,
-          accountName: accountName.trim() || selectedPlatform.name,
-          accountId: accountId.trim(),
-          apiKey: apiKey.trim(),
-          metadata: secondaryId.trim() ? { secondaryId: secondaryId.trim() } : undefined
+          platform: selectedPlatform.name,
+          providerKey: selectedPlatform.providerKey,
+          account: accountId || accountName || selectedPlatform.name,
+          credentials: {
+            apiKey,
+            secondaryId
+          }
         })
       });
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error?.message || "Connection failed");
+      if (!res.ok) {
+        throw new Error(json.error?.message || "Failed to connect integration");
+      }
 
-      setSuccessMsg(`Successfully connected ${selectedPlatform.name}!`);
+      setSuccessMsg(`${selectedPlatform.name} connected successfully!`);
+      await fetchIntegrations();
       setTimeout(() => {
         setGenericConnectModalOpen(false);
-        fetchIntegrations();
-      }, 800);
+      }, 1000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Connection failed");
+      setError(err instanceof Error ? err.message : "Failed to connect platform");
     } finally {
       setBusy(false);
     }
@@ -506,7 +526,12 @@ export function LiveIntegrationsPage() {
       setDisconnectTarget(null);
       await fetchIntegrations();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to disconnect platform");
+      setDialogConfig({
+        isOpen: true,
+        title: "Disconnect Error",
+        message: err instanceof Error ? err.message : "Failed to disconnect platform",
+        type: "error"
+      });
     } finally {
       setBusy(false);
     }
@@ -802,7 +827,7 @@ export function LiveIntegrationsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleGenericConnect} className="p-6 space-y-4 text-xs">
+            <form onSubmit={handleSaveGenericIntegration} className="p-6 space-y-4 text-xs">
               {error && (
                 <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50/70 p-3 text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400">
                   <Shield size={14} className="mt-0.5 shrink-0" />
@@ -887,6 +912,13 @@ export function LiveIntegrationsPage() {
           </div>
         </div>
       )}
+      <CustomDialog
+        isOpen={dialogConfig.isOpen}
+        title={dialogConfig.title}
+        message={dialogConfig.message}
+        type={dialogConfig.type}
+        onClose={() => setDialogConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </AppShell>
   );
 }

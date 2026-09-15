@@ -26,6 +26,7 @@ import {
   Mail
 } from "lucide-react";
 import { AppShell, Card, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
+import { CustomDialog } from "@/components/ui/custom-dialog";
 import type { ApiResponse } from "@/lib/api-contracts";
 import type { BillingOverviewPayload, ResourceUsageItem } from "@/lib/billing-service";
 import { cn, money } from "@/lib/utils";
@@ -40,6 +41,16 @@ export function LiveBillingPage() {
   const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
   const [busy, setBusy] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [dialogConfig, setDialogConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type?: "info" | "success" | "warning" | "error" | "confirm";
+    confirmText?: string;
+    cancelText?: string;
+    confirmTone?: "primary" | "danger" | "warning";
+    onConfirm?: () => void;
+  }>({ isOpen: false, message: "" });
 
   // Upgrade Modal State
   const [selectedPlanToUpgrade, setSelectedPlanToUpgrade] = useState<any | null>(null);
@@ -112,19 +123,28 @@ export function LiveBillingPage() {
   };
 
   const handleCancelSubscription = async () => {
-    if (!confirm("Are you sure you want to cancel your subscription? Your workspace features will remain active until the end of the billing period.")) return;
-    setBusy(true);
-    try {
-      const res = await fetch("/api/v1/billing/cancel", { method: "POST" });
-      const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error?.message || "Failed to cancel subscription.");
-      triggerToast("Subscription set to cancel at period end.");
-      loadBilling();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to cancel subscription.");
-    } finally {
-      setBusy(false);
-    }
+    setDialogConfig({
+      isOpen: true,
+      title: "Cancel Subscription",
+      message: "Are you sure you want to cancel your subscription? Your workspace features will remain active until the end of the billing period.",
+      type: "confirm",
+      confirmText: "Cancel Subscription",
+      confirmTone: "danger",
+      onConfirm: async () => {
+        setBusy(true);
+        try {
+          const res = await fetch("/api/v1/billing/cancel", { method: "POST" });
+          const payload = await res.json();
+          if (!res.ok) throw new Error(payload.error?.message || "Failed to cancel subscription.");
+          triggerToast("Subscription set to cancel at period end.");
+          loadBilling();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Failed to cancel subscription.");
+        } finally {
+          setBusy(false);
+        }
+      }
+    });
   };
 
   if (loading) {
@@ -789,6 +809,17 @@ export function LiveBillingPage() {
             </div>
           </div>
         )}
+        <CustomDialog
+          isOpen={dialogConfig.isOpen}
+          title={dialogConfig.title}
+          message={dialogConfig.message}
+          type={dialogConfig.type}
+          confirmText={dialogConfig.confirmText}
+          cancelText={dialogConfig.cancelText}
+          confirmTone={dialogConfig.confirmTone}
+          onConfirm={dialogConfig.onConfirm}
+          onClose={() => setDialogConfig((prev) => ({ ...prev, isOpen: false }))}
+        />
       </div>
     </AppShell>
   );

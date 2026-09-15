@@ -20,6 +20,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
+import { CustomDialog } from "@/components/ui/custom-dialog";
 import type { ApiResponse } from "@/lib/api-contracts";
 import { money } from "@/lib/utils";
 
@@ -66,6 +67,16 @@ export function ClientsListPage() {
     status: "ACTIVE"
   });
   const [submitting, setSubmitting] = useState(false);
+  const [dialogConfig, setDialogConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type?: "info" | "success" | "warning" | "error" | "confirm";
+    confirmText?: string;
+    cancelText?: string;
+    confirmTone?: "primary" | "danger" | "warning";
+    onConfirm?: () => void;
+  }>({ isOpen: false, message: "" });
 
   async function loadClients() {
     setLoading(true);
@@ -77,7 +88,7 @@ export function ClientsListPage() {
       setClients(payload.data.items || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load clients.");
-      setClients(DEMO_CLIENTS);
+      setClients([]);
     } finally {
       setLoading(false);
     }
@@ -87,39 +98,41 @@ export function ClientsListPage() {
     loadClients();
   }, []);
 
-  function openCreateModal() {
-    setEditingClient(null);
-    setFormData({
-      name: "",
-      industry: "E-Commerce",
-      website: "",
-      contactName: "",
-      contactEmail: "",
-      contactPhone: "",
-      currency: "USD",
-      timezone: "UTC",
-      monthlyBudget: "5000",
-      status: "ACTIVE"
-    });
+  function openModal(client?: ClientRow) {
+    if (client) {
+      setEditingClient(client);
+      setFormData({
+        name: client.name || "",
+        industry: client.industry || "",
+        website: client.website || "",
+        contactName: client.contactName || "",
+        contactEmail: client.contactEmail || "",
+        contactPhone: client.contactPhone || "",
+        currency: client.currency || "USD",
+        timezone: client.timezone || "UTC",
+        monthlyBudget: client.monthlyBudget ? String(client.monthlyBudget) : "5000",
+        status: client.status || "ACTIVE"
+      });
+    } else {
+      setEditingClient(null);
+      setFormData({
+        name: "",
+        industry: "E-Commerce",
+        website: "",
+        contactName: "",
+        contactEmail: "",
+        contactPhone: "",
+        currency: "USD",
+        timezone: "UTC",
+        monthlyBudget: "5000",
+        status: "ACTIVE"
+      });
+    }
     setIsModalOpen(true);
   }
 
-  function openEditModal(client: ClientRow) {
-    setEditingClient(client);
-    setFormData({
-      name: client.name || "",
-      industry: client.industry || "",
-      website: client.website || "",
-      contactName: client.contactName || "",
-      contactEmail: client.contactEmail || "",
-      contactPhone: client.contactPhone || "",
-      currency: client.currency || "USD",
-      timezone: client.timezone || "UTC",
-      monthlyBudget: String(client.monthlyBudget || 5000),
-      status: client.status || "ACTIVE"
-    });
-    setIsModalOpen(true);
-  }
+  const openCreateModal = () => openModal();
+  const openEditModal = (client: ClientRow) => openModal(client);
 
   async function handleSaveClient(e: React.FormEvent) {
     e.preventDefault();
@@ -135,11 +148,11 @@ export function ClientsListPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formData.name.trim(),
-          industry: formData.industry.trim() || undefined,
-          website: formData.website.trim() || undefined,
-          contactName: formData.contactName.trim() || undefined,
-          contactEmail: formData.contactEmail.trim() || undefined,
-          contactPhone: formData.contactPhone.trim() || undefined,
+          industry: formData.industry || undefined,
+          website: formData.website || undefined,
+          contactName: formData.contactName || undefined,
+          contactEmail: formData.contactEmail || undefined,
+          contactPhone: formData.contactPhone || undefined,
           currency: formData.currency,
           timezone: formData.timezone,
           monthlyBudget: Number(formData.monthlyBudget) || 0,
@@ -160,15 +173,24 @@ export function ClientsListPage() {
   }
 
   async function handleDeleteClient(id: string) {
-    if (!confirm("Are you sure you want to delete this client workspace?")) return;
-    try {
-      const res = await fetch(`/api/v1/clients/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        setClients((prev) => prev.filter((c) => c.id !== id));
+    setDialogConfig({
+      isOpen: true,
+      title: "Delete Client Workspace",
+      message: "Are you sure you want to delete this client workspace?",
+      type: "confirm",
+      confirmText: "Delete Workspace",
+      confirmTone: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/v1/clients/${id}`, { method: "DELETE" });
+          if (res.ok) {
+            setClients((prev) => prev.filter((c) => c.id !== id));
+          }
+        } catch (err) {
+          console.error("Failed to delete client:", err);
+        }
       }
-    } catch (err) {
-      console.error("Failed to delete client:", err);
-    }
+    });
   }
 
   const filtered = clients.filter((c) => {
@@ -539,6 +561,17 @@ export function ClientsListPage() {
             </div>
           </div>
         )}
+        <CustomDialog
+          isOpen={dialogConfig.isOpen}
+          title={dialogConfig.title}
+          message={dialogConfig.message}
+          type={dialogConfig.type}
+          confirmText={dialogConfig.confirmText}
+          cancelText={dialogConfig.cancelText}
+          confirmTone={dialogConfig.confirmTone}
+          onConfirm={dialogConfig.onConfirm}
+          onClose={() => setDialogConfig((prev) => ({ ...prev, isOpen: false }))}
+        />
       </div>
     </AppShell>
   );

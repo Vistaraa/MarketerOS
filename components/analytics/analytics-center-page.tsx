@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
 import { TrendChart } from "@/components/ui/marketeros-charts";
+import { CustomDialog } from "@/components/ui/custom-dialog";
 import type { ApiResponse } from "@/lib/api-contracts";
 import type { OverviewPayload } from "@/lib/types";
 import { money } from "@/lib/utils";
@@ -30,6 +31,12 @@ export function AnalyticsCenterPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "drilldown" | "content" | "leads">("overview");
   const [dateRange, setDateRange] = useState("30d");
   const [selectedPlatform, setSelectedPlatform] = useState("ALL");
+  const [dialogConfig, setDialogConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type?: "info" | "success" | "warning" | "error" | "confirm";
+  }>({ isOpen: false, message: "" });
 
   // Expanded row state for drill-down
   const [expandedCampaigns, setExpandedCampaigns] = useState<Record<string, boolean>>({ "c-1": true });
@@ -62,7 +69,17 @@ export function AnalyticsCenterPage() {
       title="Analytics Center"
       action={
         <div className="flex items-center gap-2">
-          <button onClick={() => alert("Exporting CSV report…")} className="btn-secondary">
+          <button
+            onClick={() =>
+              setDialogConfig({
+                isOpen: true,
+                title: "Report Export",
+                message: "Exporting cross-channel analytics report to CSV...",
+                type: "info"
+              })
+            }
+            className="btn-secondary"
+          >
             <Download size={14} /> Export CSV
           </button>
           <button onClick={loadAnalytics} className="btn-secondary grid h-9 w-9 place-items-center p-0">
@@ -274,6 +291,14 @@ export function AnalyticsCenterPage() {
           </div>
         )}
       </div>
+
+      <CustomDialog
+        isOpen={dialogConfig.isOpen}
+        title={dialogConfig.title}
+        message={dialogConfig.message}
+        type={dialogConfig.type}
+        onClose={() => setDialogConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </AppShell>
   );
 }

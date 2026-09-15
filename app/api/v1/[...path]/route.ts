@@ -49,8 +49,9 @@ const aiInput = z.object({ prompt: z.string().min(3).max(20000), kind: z.string(
 const contentInput = z.object({ title: z.string().min(1), type: z.string().default("SOCIAL_POST"), body: z.string().optional(), platform: z.string().optional(), clientId: z.string().optional() });
 const socialPostInput = z.object({ socialAccountId: z.string().min(1), title: z.string().optional(), caption: z.string().optional(), contentType: z.string().default("SOCIAL_POST"), scheduledAt: z.string().datetime().optional() });
 const reportInput = z.object({ name: z.string().min(1), clientId: z.string().optional(), format: z.string().default("PDF"), configuration: z.record(z.unknown()).optional() });
-const automationInput = z.object({ name: z.string().min(1), trigger: z.string().min(1), action: z.string().min(1), campaignId: z.string().optional(), triggerConfig: z.record(z.unknown()).optional(), actionConfig: z.record(z.unknown()).optional() });
-const clientInput = z.object({ name: z.string().min(2), industry: z.string().optional(), website: z.string().url().optional().or(z.literal("")) });
+const automationInput = z.object({ name: z.string().min(1), description: z.string().optional(), trigger: z.string().min(1), action: z.string().min(1), campaignId: z.string().optional(), triggerConfig: z.record(z.unknown()).optional(), actionConfig: z.record(z.unknown()).optional(), isActive: z.boolean().optional() });
+const clientInput = z.object({ name: z.string().min(2), industry: z.string().optional(), website: z.string().optional(), contactName: z.string().optional(), contactEmail: z.string().optional(), contactPhone: z.string().optional(), currency: z.string().optional(), timezone: z.string().optional(), monthlyBudget: z.coerce.number().optional(), status: z.string().optional() });
+const teamInviteInput = z.object({ firstName: z.string().min(1), lastName: z.string().min(1), email: z.string().email(), jobTitle: z.string().optional(), role: z.string().optional() });
 
 function ok(data: unknown, meta?: Record<string, unknown>, init?: ResponseInit) { return NextResponse.json({ data, ...(meta ? { meta } : {}) }, init); }
 function error(message: string, status = 400, code = "BAD_REQUEST") { return NextResponse.json({ error: { code, message } }, { status }); }
@@ -194,8 +195,8 @@ export async function GET(request: Request, { params }: { params: { path: string
   if (path === "automation") return ok({ items: await listPersistedAutomations(auth.session.workspaceId), filters: listQuery });
   if (path.startsWith("automation/")) {
     const id = path.split("/")[1];
-    const { getPersistedAutomation } = await import("@/lib/repositories");
-    const found = await getPersistedAutomation(auth.session.workspaceId, id);
+    const { getPersistedAutomationWithLogs } = await import("@/lib/repositories");
+    const found = await getPersistedAutomationWithLogs(auth.session.workspaceId, id);
     return found ? ok(found) : error("Automation rule not found.", 404);
   }
   if (path.startsWith("content/")) {
@@ -303,35 +304,25 @@ export async function POST(request: Request, { params }: { params: { path: strin
     const auth = await context("content.edit"); if (auth.error) return auth.error; const parsed = contentInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid content."); const created = await prisma.content.create({ data: { workspaceId: auth.session.workspaceId, createdById: auth.session.userId, title: parsed.data.title || "Untitled Content", type: (parsed.data.type || "SOCIAL_POST") as never, body: parsed.data.body || "", platform: parsed.data.platform ? parsed.data.platform.replaceAll(" ", "_").toUpperCase() as never : undefined, clientId: parsed.data.clientId } }); await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CREATE", module: "content", entityType: "Content", entityId: created.id, afterData: created }); return ok(created, undefined, { status: 201 });
   }
   if (path === "clients") {
-    const auth = await context("client.edit"); if (auth.error) return auth.error; const parsed = clientInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid client."); const slug = `${parsed.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`; const created = await prisma.client.create({ data: { workspaceId: auth.session.workspaceId, name: parsed.data.name, slug, industry: parsed.data.industry, website: parsed.data.website || undefined } }); return ok(created, undefined, { status: 201 });
-  }
-  if (path === "social/posts") {
-    const auth = await context("social.edit"); if (auth.error) return auth.error; const parsed = socialPostInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid social post."); const account = await prisma.socialAccount.findFirst({ where: { id: parsed.data.socialAccountId, workspaceId: auth.session.workspaceId } }); if (!account) return error("Connect a social account before creating posts.", 409, "SOCIAL_ACCOUNT_REQUIRED");
-    let publishedData: Record<string, unknown> | undefined;
-    if (account.platform === "INSTAGRAM" && account.accessTokenEncrypted) {
-      try {
-        const { decryptSecret } = await import("@/lib/crypto");
-        const accessToken = decryptSecret(account.accessTokenEncrypted);
-        const igId = account.accountId;
-        const imageUrl = body?.imageUrl;
-        const caption = parsed.data.caption || parsed.data.title || "";
-        if (imageUrl) {
-          const containerRes = await fetch(`https://graph.facebook.com/v20.0/${igId}/media`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image_url: imageUrl, caption, access_token: accessToken }) });
-          const container = await containerRes.json();
-          if (container.id) {
-            const publishRes = await fetch(`https://graph.facebook.com/v20.0/${igId}/media_publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ creation_id: container.id, access_token: accessToken }) });
-            publishedData = await publishRes.json();
-          }
-        } else {
-          const res = await fetch(`https://graph.facebook.com/v20.0/${igId}/media`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: caption, access_token: accessToken }) });
-          publishedData = await res.json();
-        }
-      } catch (e) { publishedData = { error: e instanceof Error ? e.message : String(e) }; }
-    }
-    const created = await prisma.socialPost.create({ data: { workspaceId: auth.session.workspaceId, socialAccountId: account.id, title: parsed.data.title, caption: parsed.data.caption, content: parsed.data.caption || parsed.data.title || "", contentType: parsed.data.contentType as never, scheduledFor: parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : undefined, status: publishedData?.id ? "PUBLISHED" : parsed.data.scheduledAt ? "SCHEDULED" : "DRAFT" } }); return ok({ ...created, published: publishedData }, undefined, { status: 201 });
+    const auth = await context("client.edit"); if (auth.error) return auth.error; const parsed = clientInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid client."); const slug = `${parsed.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`; const created = await prisma.client.create({ data: { workspaceId: auth.session.workspaceId, name: parsed.data.name, slug, industry: parsed.data.industry, website: parsed.data.website || undefined, contactName: parsed.data.contactName, contactEmail: parsed.data.contactEmail, contactPhone: parsed.data.contactPhone, currency: parsed.data.currency || "USD", timezone: parsed.data.timezone || "UTC", monthlyBudget: parsed.data.monthlyBudget || 0, status: (parsed.data.status?.toUpperCase() || "ACTIVE") as never } }); return ok(created, undefined, { status: 201 });
   }
   if (path === "automation") {
-    const auth = await context("automation.manage"); if (auth.error) return auth.error; const parsed = automationInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid automation."); const created = await prisma.automation.create({ data: { workspaceId: auth.session.workspaceId, name: parsed.data.name, trigger: parsed.data.trigger, action: parsed.data.action, campaignId: parsed.data.campaignId, triggerConfig: parsed.data.triggerConfig as never, actionConfig: parsed.data.actionConfig as never } }); return ok(created, undefined, { status: 201 });
+    const auth = await context("automation.manage"); if (auth.error) return auth.error; const parsed = automationInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid automation."); const created = await prisma.automation.create({ data: { workspaceId: auth.session.workspaceId, name: parsed.data.name, description: parsed.data.description, trigger: parsed.data.trigger, action: parsed.data.action, campaignId: parsed.data.campaignId, triggerConfig: parsed.data.triggerConfig as never, actionConfig: parsed.data.actionConfig as never, isActive: parsed.data.isActive ?? true } }); return ok(created, undefined, { status: 201 });
+  }
+  if (path.startsWith("automation/") && path.endsWith("/run")) {
+    const auth = await context("automation.manage"); if (auth.error) return auth.error;
+    const id = path.split("/")[1];
+    const { evaluateAutomationRule } = await import("@/lib/repositories");
+    const result = await evaluateAutomationRule(auth.session.workspaceId, id);
+    return ok(result);
+  }
+  if (path === "team") {
+    const auth = await context("settings.manage"); if (auth.error) return auth.error;
+    const parsed = teamInviteInput.safeParse(body);
+    if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid team invitation.");
+    const { invitePersistedTeamMember } = await import("@/lib/repositories");
+    const created = await invitePersistedTeamMember({ workspaceId: auth.session.workspaceId, ...parsed.data });
+    return ok(created, undefined, { status: 201 });
   }
   if (path === "integrations/connect-credentials") {
     const auth = await context("settings.manage");
@@ -645,6 +636,12 @@ export async function PATCH(request: Request, { params }: { params: { path: stri
     await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE", module: "automation", entityType: "Automation", entityId: id, afterData: body });
     return ok({ id, updated: true });
   }
+  if (path.startsWith("team/")) {
+    const id = path.split("/")[1];
+    const { updatePersistedTeamMember } = await import("@/lib/repositories");
+    const updated = await updatePersistedTeamMember(id, body as never);
+    return ok({ id, updated: true });
+  }
   if (path.startsWith("ai/insights/")) {
     const id = path.split("/")[2];
     const { updatePersistedInsightStatus } = await import("@/lib/repositories");
@@ -742,6 +739,11 @@ export async function DELETE(request: Request, { params }: { params: { path: str
     const result = await deletePersistedAutomation(auth.session.workspaceId, id);
     if (!result.count) return error("Automation rule not found.", 404);
     await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "DELETE", module: "automation", entityType: "Automation", entityId: id });
+    return ok({ deleted: id });
+  }
+  if (entity === "team") {
+    const { deletePersistedTeamMember } = await import("@/lib/repositories");
+    await deletePersistedTeamMember(id);
     return ok({ deleted: id });
   }
   if (entity === "content") {

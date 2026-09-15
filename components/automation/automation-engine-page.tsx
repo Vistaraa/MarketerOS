@@ -21,6 +21,7 @@ import {
   Activity
 } from "lucide-react";
 import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
+import { CustomDialog } from "@/components/ui/custom-dialog";
 import type { ApiResponse } from "@/lib/api-contracts";
 
 interface AutomationRule {
@@ -57,6 +58,16 @@ export function AutomationEnginePage() {
     isActive: true
   });
   const [submitting, setSubmitting] = useState(false);
+  const [dialogConfig, setDialogConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type?: "info" | "success" | "warning" | "error" | "confirm";
+    confirmText?: string;
+    cancelText?: string;
+    confirmTone?: "primary" | "danger" | "warning";
+    onConfirm?: () => void;
+  }>({ isOpen: false, message: "" });
 
   async function loadRules() {
     setLoading(true);
@@ -68,7 +79,6 @@ export function AutomationEnginePage() {
       setRules(payload.data.items || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load automation rules.");
-      setRules(DEMO_RULES);
     } finally {
       setLoading(false);
     }
@@ -96,7 +106,7 @@ export function AutomationEnginePage() {
         name: "",
         description: "",
         trigger: "campaign.roas_below",
-        action: ruleTriggers[0].id,
+        action: "campaign.pause_and_notify",
         metricThreshold: "2.0",
         spendThreshold: "500",
         isActive: true
@@ -111,18 +121,21 @@ export function AutomationEnginePage() {
     setError(null);
 
     try {
-      const url = editingRule ? `/api/v1/automation/${editingRule.id}` : "/api/v1/automation";
-      const method = editingRule ? "PATCH" : "POST";
+      const isEdit = Boolean(editingRule);
+      const url = isEdit ? `/api/v1/automation/${editingRule!.id}` : "/api/v1/automation";
+      const method = isEdit ? "PATCH" : "POST";
 
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.name.trim() || "Untitled Automation Rule",
+          description: form.description.trim() || undefined,
           trigger: form.trigger,
           action: form.action,
           triggerConfig: { metricThreshold: Number(form.metricThreshold), spendThreshold: Number(form.spendThreshold) },
-          actionConfig: { autoNotify: true, notifyChannels: ["EMAIL", "SLACK"] }
+          actionConfig: { autoNotify: true, notifyChannels: ["EMAIL", "SLACK"] },
+          isActive: form.isActive
         })
       });
 
@@ -155,22 +168,48 @@ export function AutomationEnginePage() {
 
   async function handleRunNow(id: string) {
     setTestingId(id);
-    setTimeout(() => {
+    try {
+      const res = await fetch(`/api/v1/automation/${id}/run`, { method: "POST" });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error?.message || "Failed to evaluate rule.");
+      setDialogConfig({
+        isOpen: true,
+        title: "Rule Evaluation",
+        message: payload.data?.log?.message || "Rule evaluated successfully.",
+        type: "success"
+      });
+      await loadRules();
+    } catch (err) {
+      setDialogConfig({
+        isOpen: true,
+        title: "Rule Evaluation Failed",
+        message: err instanceof Error ? err.message : "Rule evaluation failed.",
+        type: "error"
+      });
+    } finally {
       setTestingId(null);
-      alert(`Automation rule "${rules.find((r) => r.id === id)?.name}" evaluated successfully. No campaign threshold breaches detected.`);
-    }, 1200);
+    }
   }
 
   async function handleDeleteRule(id: string) {
-    if (!confirm("Are you sure you want to delete this automation rule?")) return;
-    try {
-      const res = await fetch(`/api/v1/automation/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        setRules((prev) => prev.filter((r) => r.id !== id));
+    setDialogConfig({
+      isOpen: true,
+      title: "Delete Automation Rule",
+      message: "Are you sure you want to delete this automation rule?",
+      type: "confirm",
+      confirmText: "Delete Rule",
+      confirmTone: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/v1/automation/${id}`, { method: "DELETE" });
+          if (res.ok) {
+            setRules((prev) => prev.filter((r) => r.id !== id));
+          }
+        } catch (err) {
+          console.error("Failed to delete rule:", err);
+        }
       }
-    } catch (err) {
-      console.error("Failed to delete rule:", err);
-    }
+    });
   }
 
   const activeRulesCount = rules.filter((r) => r.isActive).length;
@@ -441,6 +480,17 @@ export function AutomationEnginePage() {
             </div>
           </div>
         )}
+        <CustomDialog
+          isOpen={dialogConfig.isOpen}
+          title={dialogConfig.title}
+          message={dialogConfig.message}
+          type={dialogConfig.type}
+          confirmText={dialogConfig.confirmText}
+          cancelText={dialogConfig.cancelText}
+          confirmTone={dialogConfig.confirmTone}
+          onConfirm={dialogConfig.onConfirm}
+          onClose={() => setDialogConfig((prev) => ({ ...prev, isOpen: false }))}
+        />
       </div>
     </AppShell>
   );
