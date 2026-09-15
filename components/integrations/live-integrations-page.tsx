@@ -41,9 +41,7 @@ import { GoogleDynamicModal, GooglePlatformType } from "@/components/integration
 import { GoogleLiveDashboard } from "@/components/integrations/google-live-dashboard";
 import {
   MetaAdsConnectModal,
-  LinkedinConnectModal,
-  TiktokConnectModal,
-  ShopifyConnectModal
+  LinkedinConnectModal
 } from "@/components/integrations/channel-connect-modals";
 
 interface StepGuide {
@@ -299,52 +297,6 @@ const SUPPORTED_PLATFORMS: PlatformConfig[] = [
         tip: "Example: 508291049"
       }
     ]
-  },
-  {
-    id: "TikTok",
-    name: "TikTok Ads Manager",
-    ecosystem: "Other",
-    description: "TikTok for Business ad campaigns, video views, and Spark ads.",
-    portalName: "TikTok Ads Manager",
-    portalUrl: "https://ads.tiktok.com",
-    idLabel: "Advertiser ID",
-    idPlaceholder: "6912345678901234567",
-    idHelp: "Numeric Advertiser ID from top right of TikTok Ads Manager.",
-    keyLabel: "Long-Term Access Token",
-    keyPlaceholder: "Paste Access Token",
-    keyHelp: "Generated in TikTok Developer Center with 'ads.read' scope.",
-    prerequisites: ["TikTok Business Account with active Ads Manager"],
-    guideSteps: [
-      {
-        step: 1,
-        title: "Copy Advertiser ID",
-        instruction: "Sign in to ads.tiktok.com. In top-right profile menu, copy the 19-digit Advertiser ID.",
-        tip: "Example: 7019283746192837461"
-      }
-    ]
-  },
-  {
-    id: "Shopify",
-    name: "Shopify Store",
-    ecosystem: "Other",
-    description: "E-commerce orders, customer lifetime value, store revenue, and cart drop-offs.",
-    portalName: "Shopify Admin",
-    portalUrl: "https://admin.shopify.com",
-    idLabel: "Shopify Store Domain",
-    idPlaceholder: "your-store.myshopify.com",
-    idHelp: "Your unique .myshopify.com domain handle.",
-    keyLabel: "Admin API Access Token",
-    keyPlaceholder: "shpat_...",
-    keyHelp: "Generated in Shopify Admin > Settings > Apps and sales channels > Develop apps.",
-    prerequisites: ["Shopify Store Admin permissions to develop apps"],
-    guideSteps: [
-      {
-        step: 1,
-        title: "Create Custom App",
-        instruction: "In Shopify Admin > Settings > Apps and sales channels > Develop apps > Create an app.",
-        tip: "Configure Admin API scopes for read_orders, read_products, read_analytics."
-      }
-    ]
   }
 ];
 
@@ -374,8 +326,6 @@ export function LiveIntegrationsPage() {
   // Dedicated Channel Modals
   const [metaConnectOpen, setMetaConnectOpen] = useState(false);
   const [linkedinConnectOpen, setLinkedinConnectOpen] = useState(false);
-  const [tiktokConnectOpen, setTiktokConnectOpen] = useState(false);
-  const [shopifyConnectOpen, setShopifyConnectOpen] = useState(false);
 
   // Generic Modals for other platforms
   const [genericConnectModalOpen, setGenericConnectModalOpen] = useState(false);
@@ -436,8 +386,6 @@ export function LiveIntegrationsPage() {
       if (target === "meta ads" && (p === "meta ads" || p === "meta")) return true;
       if (target === "instagram" && p === "instagram") return true;
       if (target === "linkedin" && p === "linkedin") return true;
-      if (target === "tiktok" && p === "tiktok") return true;
-      if (target === "shopify" && p === "shopify") return true;
       return false;
     });
   };
@@ -477,14 +425,6 @@ export function LiveIntegrationsPage() {
     }
     if (platform.id === "LinkedIn") {
       setLinkedinConnectOpen(true);
-      return;
-    }
-    if (platform.id === "TikTok") {
-      setTiktokConnectOpen(true);
-      return;
-    }
-    if (platform.id === "Shopify") {
-      setShopifyConnectOpen(true);
       return;
     }
     setSelectedPlatform(platform);
@@ -813,18 +753,6 @@ export function LiveIntegrationsPage() {
       <LinkedinConnectModal
         open={linkedinConnectOpen}
         onClose={() => setLinkedinConnectOpen(false)}
-        onSuccess={fetchIntegrations}
-      />
-
-      <TiktokConnectModal
-        open={tiktokConnectOpen}
-        onClose={() => setTiktokConnectOpen(false)}
-        onSuccess={fetchIntegrations}
-      />
-
-      <ShopifyConnectModal
-        open={shopifyConnectOpen}
-        onClose={() => setShopifyConnectOpen(false)}
         onSuccess={fetchIntegrations}
       />
 
