@@ -2,77 +2,53 @@
 
 import React, { useState } from "react";
 import {
-  Settings as SettingsIcon,
   Globe,
   Share2,
   Send,
-  GitPullRequest,
   Bell,
-  Users,
-  Palette,
   Sparkles,
-  Network,
-  ShieldCheck,
-  Check,
-  Save,
-  RotateCcw,
+  ChevronRight,
   Plus,
   Trash2,
-  ChevronRight,
-  Upload,
-  Zap,
+  CheckCircle2,
+  AlertCircle,
   Lock,
   RefreshCw,
-  XCircle,
-  CheckCircle2,
-  ArrowLeft
+  ExternalLink
 } from "lucide-react";
 import { useContentStudio } from "../context/content-studio-context";
-import { PlatformIcon, SubPageHeader } from "../components/common-ui";
-import { Platform, WorkflowStep, ContentStudioSettingsState } from "../types/content-studio-types";
+import { PlatformIcon, SubPageHeader, StatusBadge } from "../components/common-ui";
+import { Platform, ContentStudioSettingsState } from "../types/content-studio-types";
 
 type SettingsCategory =
-  | "General"
   | "Social Accounts"
   | "Publishing"
-  | "Approval Workflow"
-  | "Notifications"
-  | "Team & Permissions"
-  | "Branding"
   | "AI Settings"
-  | "Integrations"
-  | "Security";
+  | "Notifications"
+  | "General";
 
 export function SettingsPage() {
   const {
     settings,
     updateSettings,
     socialAccounts,
-    toggleSocialAccountConnect,
-    workflowSteps,
-    updateWorkflowSteps,
+    disconnectSocialAccount,
+    openConnectModal,
     setActiveTab,
     showToast
   } = useContentStudio();
 
-  const [activeCategory, setActiveCategory] = useState<SettingsCategory>("General");
+  const [activeCategory, setActiveCategory] = useState<SettingsCategory>("Social Accounts");
   const [localSettings, setLocalSettings] = useState<ContentStudioSettingsState>(settings);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-
-  // Workflow builder local state
-  const [localWorkflow, setLocalWorkflow] = useState<WorkflowStep[]>(workflowSteps);
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
 
   const categories: { id: SettingsCategory; label: string; icon: React.ElementType }[] = [
-    { id: "General", label: "General Workspace", icon: Globe },
-    { id: "Social Accounts", label: "Social Accounts", icon: Share2 },
+    { id: "Social Accounts", label: "Connected Channels", icon: Share2 },
     { id: "Publishing", label: "Publishing & Timing", icon: Send },
-    { id: "Approval Workflow", label: "Approval Workflow", icon: GitPullRequest },
-    { id: "Notifications", label: "Notifications", icon: Bell },
-    { id: "Team & Permissions", label: "Team & Permissions", icon: Users },
-    { id: "Branding", label: "Brand Kit & Styles", icon: Palette },
     { id: "AI Settings", label: "AI Copilot Config", icon: Sparkles },
-    { id: "Integrations", label: "Integrations", icon: Network },
-    { id: "Security", label: "Security & Sessions", icon: ShieldCheck }
+    { id: "Notifications", label: "Alerts & Notifications", icon: Bell },
+    { id: "General", label: "General Workspace", icon: Globe }
   ];
 
   const handleFieldChange = (section: keyof ContentStudioSettingsState, field: string, value: any) => {
@@ -88,15 +64,25 @@ export function SettingsPage() {
 
   const handleSaveChanges = () => {
     updateSettings(localSettings);
-    updateWorkflowSteps(localWorkflow);
     setHasUnsavedChanges(false);
   };
 
   const handleDiscardChanges = () => {
     setLocalSettings(settings);
-    setLocalWorkflow(workflowSteps);
     setHasUnsavedChanges(false);
     showToast("Changes Discarded", "Reverted to previously saved settings.", "info");
+  };
+
+  const handleDisconnect = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to disconnect "${name}"? You will need to re-enter credentials to publish to this account.`)) {
+      return;
+    }
+    setDisconnectingId(id);
+    try {
+      await disconnectSocialAccount(id);
+    } finally {
+      setDisconnectingId(null);
+    }
   };
 
   return (
@@ -104,9 +90,11 @@ export function SettingsPage() {
       {/* Subpage Header with Navigation Tabs */}
       <SubPageHeader
         title="Content Studio Settings"
-        subtitle="Configure publishing rules, connected social channels, team roles, and AI behaviors."
+        subtitle="Manage authenticated social channels, publishing rules, AI tone, and global defaults."
         secondaryActionLabel="← Back to Calendar"
         onSecondaryAction={() => setActiveTab("Content Calendar")}
+        primaryActionLabel="+ Connect Channel"
+        onPrimaryAction={() => openConnectModal()}
       />
 
       {hasUnsavedChanges && (
@@ -156,134 +144,143 @@ export function SettingsPage() {
               );
             })}
           </div>
+
+          <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/50 p-3 text-[11px] text-zinc-500 space-y-1 dark:border-zinc-800 dark:bg-zinc-900/30">
+            <div className="flex items-center gap-1.5 font-bold text-zinc-800 dark:text-zinc-200">
+              <Lock size={12} className="text-emerald-600 dark:text-emerald-400" />
+              <span>Encrypted Storage</span>
+            </div>
+            <p className="leading-relaxed">
+              API tokens are encrypted with AES-256 and synced across MarketerOS workspace modules.
+            </p>
+          </div>
         </div>
 
         {/* RIGHT PANEL CONTENT (9 cols) */}
         <div className="lg:col-span-9 rounded-xl border border-zinc-200/90 bg-white p-6 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 text-xs space-y-6">
-          {/* PANEL 1: GENERAL */}
-          {activeCategory === "General" && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">General Workspace Configuration</h3>
-                <p className="text-[11px] text-zinc-400">Set regional standards, default timezones, and display preferences.</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Workspace Name</label>
-                  <input
-                    type="text"
-                    value={localSettings.general.workspaceName}
-                    onChange={(e) => handleFieldChange("general", "workspaceName", e.target.value)}
-                    className="input-clean"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Default Timezone</label>
-                  <select
-                    value={localSettings.general.defaultTimezone}
-                    onChange={(e) => handleFieldChange("general", "defaultTimezone", e.target.value)}
-                    className="input-clean"
-                  >
-                    <option>(GMT-05:00) Eastern Time (US & Canada)</option>
-                    <option>(GMT-08:00) Pacific Time (US & Canada)</option>
-                    <option>(GMT+00:00) UTC / London</option>
-                    <option>(GMT+05:30) India Standard Time (IST)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Language</label>
-                  <select
-                    value={localSettings.general.defaultLanguage}
-                    onChange={(e) => handleFieldChange("general", "defaultLanguage", e.target.value)}
-                    className="input-clean"
-                  >
-                    <option>English (US)</option>
-                    <option>Spanish</option>
-                    <option>French</option>
-                    <option>German</option>
-                    <option>Hindi</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Default Landing View</label>
-                  <select
-                    value={localSettings.general.defaultLandingPage}
-                    onChange={(e) => handleFieldChange("general", "defaultLandingPage", e.target.value)}
-                    className="input-clean"
-                  >
-                    <option>Content Calendar</option>
-                    <option>Content Library</option>
-                    <option>Templates</option>
-                    <option>Media Library</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* PANEL 2: SOCIAL ACCOUNTS */}
+          {/* PANEL 1: CONNECTED SOCIAL ACCOUNTS */}
           {activeCategory === "Social Accounts" && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Connected Social Media Accounts</h3>
-                <p className="text-[11px] text-zinc-400">Authorize API permissions for auto-publishing and analytics tracking.</p>
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 pb-4 dark:border-zinc-800">
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    Connected Social Media Channels
+                  </h3>
+                  <p className="text-[11px] text-zinc-400">
+                    Manage API access tokens and connected pages for direct publishing and scheduling.
+                  </p>
+                </div>
+                <button
+                  onClick={() => openConnectModal()}
+                  className="btn-primary py-1.5 text-xs flex items-center gap-1.5"
+                >
+                  <Plus size={13} />
+                  <span>Connect Social Account</span>
+                </button>
               </div>
 
-              <div className="grid gap-3">
-                {socialAccounts.map((acc) => (
-                  <div
-                    key={acc.id}
-                    className="flex items-center justify-between rounded-xl border border-zinc-200 p-4 dark:border-zinc-800"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800">
-                        <PlatformIcon platform={acc.platform} className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="font-bold text-zinc-900 dark:text-zinc-100">{acc.accountName}</div>
-                        <div className="text-[11px] text-zinc-400 font-mono">{acc.handle} · Last synced: {acc.lastSynced}</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                        acc.status === "Connected"
-                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
-                          : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
-                      }`}>
-                        {acc.status}
-                      </span>
-                      <button
-                        onClick={() => toggleSocialAccountConnect(acc.id)}
-                        className="btn-secondary py-1 text-xs"
-                      >
-                        {acc.status === "Connected" ? "Disconnect" : "Connect"}
-                      </button>
-                    </div>
+              {socialAccounts.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-zinc-200 p-8 text-center space-y-3 dark:border-zinc-800">
+                  <div className="grid h-12 w-12 mx-auto place-items-center rounded-full bg-zinc-100 dark:bg-zinc-800">
+                    <Share2 size={20} className="text-zinc-400" />
                   </div>
-                ))}
-              </div>
+                  <div>
+                    <h4 className="font-bold text-zinc-900 dark:text-zinc-100">No Connected Channels</h4>
+                    <p className="text-xs text-zinc-400 max-w-sm mx-auto mt-0.5">
+                      Connect your Instagram, Facebook, LinkedIn, TikTok, or X accounts to begin publishing and scheduling posts.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    {(["instagram", "facebook", "linkedin", "tiktok", "twitter"] as Platform[]).map((plat) => (
+                      <button
+                        key={plat}
+                        onClick={() => openConnectModal(plat)}
+                        className="btn-secondary py-1 text-xs capitalize flex items-center gap-1.5"
+                      >
+                        <PlatformIcon platform={plat} className="w-3.5 h-3.5" />
+                        <span>Connect {plat === "twitter" ? "X" : plat}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {socialAccounts.map((acc) => (
+                    <div
+                      key={acc.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 p-4 transition hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700 bg-zinc-50/40 dark:bg-zinc-900/30"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-xl bg-white shadow-2xs border border-zinc-200 dark:border-zinc-700 dark:bg-zinc-800">
+                          <PlatformIcon platform={acc.platform} className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+                              {acc.accountName}
+                            </span>
+                            <StatusBadge status={acc.status} />
+                          </div>
+                          <div className="text-[11px] text-zinc-400 font-mono mt-0.5 flex items-center gap-2">
+                            <span>{acc.handle}</span>
+                            {acc.followersCount && (
+                              <>
+                                <span>•</span>
+                                <span>{acc.followersCount} Followers</span>
+                              </>
+                            )}
+                            <span>•</span>
+                            <span>Last synced: {acc.lastSynced}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => openConnectModal(acc.platform)}
+                          className="btn-secondary py-1.5 text-xs flex items-center gap-1"
+                        >
+                          <RefreshCw size={12} />
+                          <span>Update Token</span>
+                        </button>
+                        <button
+                          onClick={() => handleDisconnect(acc.id, acc.accountName)}
+                          disabled={disconnectingId === acc.id}
+                          className="btn-secondary py-1.5 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40 flex items-center gap-1"
+                        >
+                          {disconnectingId === acc.id ? (
+                            <RefreshCw size={12} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={12} />
+                          )}
+                          <span>Disconnect</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          {/* PANEL 3: PUBLISHING SETTINGS */}
+          {/* PANEL 2: PUBLISHING SETTINGS */}
           {activeCategory === "Publishing" && (
             <div className="space-y-4">
               <div>
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Publishing & Auto-Scheduling Rules</h3>
-                <p className="text-[11px] text-zinc-400">Configure global defaults for scheduling and auto-publication.</p>
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  Publishing & Auto-Scheduling Rules
+                </h3>
+                <p className="text-[11px] text-zinc-400">
+                  Configure default scheduling behavior, platform defaults, and automated dispatch.
+                </p>
               </div>
 
               <div className="space-y-3">
                 {[
-                  { key: "autoPublish", label: "Auto Publish Scheduled Posts", desc: "Automatically publish posts when scheduled timestamp is reached" },
-                  { key: "scheduleConfirmation", label: "Schedule Confirmation Dialog", desc: "Require double confirmation before committing posts to calendar" },
-                  { key: "retryFailedPosts", label: "Auto Retry Failed Publications", desc: "Attempt up to 3 automatic retries if platform API drops connection" },
-                  { key: "crossPlatformPublishing", label: "Cross-Platform Single Click Publish", desc: "Allow simultaneous broadcast to Instagram, Facebook, and LinkedIn" }
+                  { key: "autoPublish", label: "Auto Publish Scheduled Posts", desc: "Automatically publish posts when the scheduled date and time is reached." },
+                  { key: "scheduleConfirmation", label: "Schedule Confirmation Dialog", desc: "Require confirmation before committing posts to the production calendar." },
+                  { key: "retryFailedPosts", label: "Auto Retry Failed Publications", desc: "Attempt up to 3 automatic retries if platform API drops connection." },
+                  { key: "crossPlatformPublishing", label: "Cross-Platform Publishing Allowed", desc: "Allow publishing the same creative simultaneously across multiple channels." }
                 ].map((item) => (
                   <div key={item.key} className="flex items-center justify-between rounded-xl border border-zinc-200 p-3.5 dark:border-zinc-800">
                     <div>
@@ -302,73 +299,23 @@ export function SettingsPage() {
             </div>
           )}
 
-          {/* PANEL 4: APPROVAL WORKFLOW */}
-          {activeCategory === "Approval Workflow" && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Multi-Stage Content Approval Workflow</h3>
-                <p className="text-[11px] text-zinc-400">Require multi-step review before content goes live.</p>
-              </div>
-
-              <div className="space-y-2">
-                {localWorkflow.map((step, idx) => (
-                  <div key={step.id} className="flex items-center justify-between rounded-xl border border-zinc-200 p-3.5 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-950">
-                    <div className="flex items-center gap-3">
-                      <span className="grid h-6 w-6 place-items-center rounded-full bg-zinc-900 text-[10px] font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
-                        {idx + 1}
-                      </span>
-                      <div>
-                        <div className="font-bold text-zinc-900 dark:text-zinc-100">{step.name}</div>
-                        <div className="text-[10px] text-zinc-400">Role: {step.role} · Assignee: {step.assignee}</div>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">Required</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* PANEL 5: NOTIFICATIONS */}
-          {activeCategory === "Notifications" && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Notification Preferences</h3>
-                <p className="text-[11px] text-zinc-400">Manage alerts across In-App, Email, and Mobile Push channels.</p>
-              </div>
-
-              <div className="space-y-3">
-                {[
-                  { key: "postPublishedInApp", label: "Post Published Notification" },
-                  { key: "postScheduledInApp", label: "Post Scheduled Alert" },
-                  { key: "postFailedEmail", label: "Publication Failure Email Warning" },
-                  { key: "approvalRequestedInApp", label: "Content Review Requested Alert" }
-                ].map((n) => (
-                  <div key={n.key} className="flex items-center justify-between border-b border-zinc-100 pb-2 dark:border-zinc-800">
-                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">{n.label}</span>
-                    <input
-                      type="checkbox"
-                      checked={(localSettings.notifications as any)[n.key]}
-                      onChange={(e) => handleFieldChange("notifications", n.key, e.target.checked)}
-                      className="accent-zinc-900 dark:accent-zinc-100 h-4 w-4"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* PANEL 6: AI SETTINGS */}
+          {/* PANEL 3: AI SETTINGS */}
           {activeCategory === "AI Settings" && (
             <div className="space-y-4">
               <div>
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">AI Copilot & Generation Tone</h3>
-                <p className="text-[11px] text-zinc-400">Configure default voice, tone, and automated caption generation parameters.</p>
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  AI Copilot & Generation Parameters
+                </h3>
+                <p className="text-[11px] text-zinc-400">
+                  Configure default voice tone and creativity temperature used by the live AI generator.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">AI Voice Tone</label>
+                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                    AI Voice Tone
+                  </label>
                   <select
                     value={localSettings.ai.aiTone}
                     onChange={(e) => handleFieldChange("ai", "aiTone", e.target.value)}
@@ -384,7 +331,9 @@ export function SettingsPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Creativity Temperature</label>
+                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                    Creativity Temperature
+                  </label>
                   <select
                     value={localSettings.ai.creativity}
                     onChange={(e) => handleFieldChange("ai", "creativity", e.target.value)}
@@ -392,36 +341,87 @@ export function SettingsPage() {
                   >
                     <option value="Low">Low (Factual & Direct)</option>
                     <option value="Medium">Medium (Balanced)</option>
-                    <option value="High">High (Highly Creative & Engaging)</option>
+                    <option value="High">High (Engaging & Imaginative)</option>
                   </select>
                 </div>
               </div>
             </div>
           )}
 
-          {/* PANEL 7: INTEGRATIONS */}
-          {activeCategory === "Integrations" && (
+          {/* PANEL 4: NOTIFICATIONS */}
+          {activeCategory === "Notifications" && (
             <div className="space-y-4">
               <div>
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Connected Third-Party Integrations</h3>
-                <p className="text-[11px] text-zinc-400">Sync with cloud storage, design tools, and messaging channels.</p>
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  Notification Alerts
+                </h3>
+                <p className="text-[11px] text-zinc-400">
+                  Control system alerts when posts are published, scheduled, or fail.
+                </p>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-3">
                 {[
-                  { name: "Canva", desc: "Design graphics directly in Content Studio", status: "Connected" },
-                  { name: "Google Drive", desc: "Import images & videos from Drive", status: "Connected" },
-                  { name: "Slack", desc: "Receive approval alerts in Slack", status: "Connected" },
-                  { name: "Dropbox", desc: "Sync media assets with Dropbox", status: "Not Connected" }
-                ].map((ig) => (
-                  <div key={ig.name} className="rounded-xl border border-zinc-200 p-4 space-y-2 dark:border-zinc-800">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-zinc-900 dark:text-zinc-100">{ig.name}</span>
-                      <span className={`text-[10px] font-bold ${ig.status === "Connected" ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-400"}`}>{ig.status}</span>
-                    </div>
-                    <div className="text-[11px] text-zinc-400">{ig.desc}</div>
+                  { key: "postPublishedInApp", label: "Post Published Notification" },
+                  { key: "postScheduledInApp", label: "Post Scheduled Alert" },
+                  { key: "postFailedEmail", label: "Publication Failure Alert" },
+                  { key: "performanceReportsEmail", label: "Weekly Performance Digest" }
+                ].map((n) => (
+                  <div key={n.key} className="flex items-center justify-between border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
+                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">{n.label}</span>
+                    <input
+                      type="checkbox"
+                      checked={(localSettings.notifications as any)[n.key]}
+                      onChange={(e) => handleFieldChange("notifications", n.key, e.target.checked)}
+                      className="accent-zinc-900 dark:accent-zinc-100 h-4 w-4"
+                    />
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* PANEL 5: GENERAL WORKSPACE */}
+          {activeCategory === "General" && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  General Workspace Settings
+                </h3>
+                <p className="text-[11px] text-zinc-400">
+                  Configure default view preferences for Content Studio.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                    Workspace Name
+                  </label>
+                  <input
+                    type="text"
+                    value={localSettings.general.workspaceName}
+                    onChange={(e) => handleFieldChange("general", "workspaceName", e.target.value)}
+                    className="input-clean"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                    Default Landing View
+                  </label>
+                  <select
+                    value={localSettings.general.defaultLandingPage}
+                    onChange={(e) => handleFieldChange("general", "defaultLandingPage", e.target.value)}
+                    className="input-clean"
+                  >
+                    <option>Content Calendar</option>
+                    <option>Content Library</option>
+                    <option>Templates</option>
+                    <option>Media Library</option>
+                    <option>Hashtags</option>
+                  </select>
+                </div>
               </div>
             </div>
           )}

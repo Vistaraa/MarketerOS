@@ -69,7 +69,7 @@ export function TemplatesPage() {
     return templates
       .filter((tpl) => {
         if (activeCategory === "Brand Templates" && !tpl.isBrand) return false;
-        if (activeCategory === "My Templates" && tpl.author.name !== "Rohan Mehta") return false;
+        if (activeCategory === "My Templates" && tpl.isBrand) return false;
         if (activeCategory !== "All" && activeCategory !== "Brand Templates" && activeCategory !== "My Templates") {
           if (tpl.category !== activeCategory) return false;
         }
@@ -195,14 +195,14 @@ export function TemplatesPage() {
       </div>
 
       {/* Toolbar: Search & Filters */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200/90 bg-white p-3 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 rounded-xl border border-zinc-200/90 bg-white p-3 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60">
         <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search templates by name or category..." />
 
-        <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+        <div className="flex items-center gap-2 text-xs font-medium shrink-0 overflow-x-auto">
           <select
             value={selectedPlatform}
             onChange={(e) => setSelectedPlatform(e.target.value)}
-            className="input-clean min-w-[130px]"
+            className="input-clean !w-auto min-w-[130px] shrink-0"
           >
             <option value="all">All Platforms</option>
             <option value="instagram">Instagram</option>
@@ -214,7 +214,7 @@ export function TemplatesPage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="input-clean min-w-[140px]"
+            className="input-clean !w-auto min-w-[140px] shrink-0"
           >
             <option value="most_used">Sort by: Most Used</option>
             <option value="newest">Sort by: Recently Created</option>

@@ -103,8 +103,8 @@ export function ContentLibraryPage() {
           const matchesCaption = item.caption.toLowerCase().includes(q);
           const matchesHashtags = item.hashtags.some((h) => h.toLowerCase().includes(q));
           const matchesCampaign = item.campaign?.toLowerCase().includes(q);
-          const matchesAuthor = item.author.name.toLowerCase().includes(q);
-          return matchesTitle || matchesCaption || matchesHashtags || matchesCampaign || matchesAuthor;
+          const matchesAuthor = Boolean(item.author?.name && item.author.name.toLowerCase().includes(q));
+          return matchesTitle || matchesCaption || matchesHashtags || Boolean(matchesCampaign) || matchesAuthor;
         }
 
         return true;
@@ -190,15 +190,15 @@ export function ContentLibraryPage() {
       </div>
 
       {/* Search Bar & Filters Control */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200/90 bg-white p-3 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 rounded-xl border border-zinc-200/90 bg-white p-3 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60">
         <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search content by title, caption, hashtag, author..." />
 
-        <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+        <div className="flex items-center gap-2 text-xs font-medium shrink-0 overflow-x-auto">
           {/* Sort By Dropdown */}
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="input-clean min-w-[140px]"
+            className="input-clean !w-auto min-w-[135px] shrink-0"
           >
             <option value="newest">Sort by: Newest</option>
             <option value="oldest">Sort by: Oldest</option>
@@ -210,7 +210,7 @@ export function ContentLibraryPage() {
           <select
             value={selectedPlatform}
             onChange={(e) => setSelectedPlatform(e.target.value)}
-            className="input-clean min-w-[130px]"
+            className="input-clean !w-auto min-w-[125px] shrink-0"
           >
             <option value="all">All Platforms</option>
             <option value="instagram">Instagram</option>
@@ -224,7 +224,7 @@ export function ContentLibraryPage() {
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
-            className="input-clean min-w-[130px]"
+            className="input-clean !w-auto min-w-[120px] shrink-0"
           >
             <option value="all">All Formats</option>
             <option value="Post">Standard Post</option>

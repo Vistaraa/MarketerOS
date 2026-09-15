@@ -24,7 +24,10 @@ const platformMap: Record<string, Platform> = {
   "WhatsApp Business": Platform.WHATSAPP,
   LinkedIn: Platform.LINKEDIN,
   TikTok: Platform.TIKTOK,
-  Shopify: Platform.SHOPIFY
+  Shopify: Platform.SHOPIFY,
+  X: Platform.X,
+  Twitter: Platform.X,
+  "X (Twitter)": Platform.X
 };
 
 const platformName: Partial<Record<Platform, Campaign["platform"]>> = {
@@ -269,7 +272,7 @@ export async function listPersistedSocialPosts(workspaceId: string, query = "") 
 
 export async function listPersistedContent(workspaceId: string, query = "") {
   const rows = await prisma.content.findMany({ where: { workspaceId, ...(query ? { title: { contains: query, mode: "insensitive" } } : {}) }, include: { client: true, createdBy: true }, orderBy: { updatedAt: "desc" } });
-  return rows.map((row) => ({ id: row.id, title: row.title, type: row.type, body: row.body, status: row.status, tone: row.tone, targetAudience: row.targetAudience, platform: row.platform, keywords: row.keywords, cta: row.cta, scheduledAt: row.scheduledAt, publishedAt: row.publishedAt, aiGenerated: row.aiGenerated, client: row.client ? { id: row.client.id, name: row.client.name } : null, createdBy: { id: row.createdBy.id, name: `${row.createdBy.firstName} ${row.createdBy.lastName}` }, createdAt: row.createdAt, updatedAt: row.updatedAt }));
+  return rows.map((row) => ({ id: row.id, title: row.title, type: row.type, body: row.body, status: row.status, tone: row.tone, targetAudience: row.targetAudience, platform: row.platform, keywords: row.keywords, cta: row.cta, scheduledAt: row.scheduledAt, publishedAt: row.publishedAt, aiGenerated: row.aiGenerated, metadata: row.metadata, client: row.client ? { id: row.client.id, name: row.client.name } : null, createdBy: { id: row.createdBy.id, name: `${row.createdBy.firstName} ${row.createdBy.lastName}` }, createdAt: row.createdAt, updatedAt: row.updatedAt }));
 }
 
 export async function listPersistedInsights(workspaceId: string) {
@@ -499,7 +502,7 @@ export async function getPersistedContentItem(workspaceId: string, id: string) {
   });
 }
 
-export async function updatePersistedContentItem(workspaceId: string, id: string, data: { title?: string; body?: string; status?: string; type?: string; platform?: string; clientId?: string }) {
+export async function updatePersistedContentItem(workspaceId: string, id: string, data: { title?: string; body?: string; status?: string; type?: string; platform?: string; clientId?: string; scheduledAt?: string | Date | null; publishedAt?: string | Date | null; metadata?: Record<string, unknown> }) {
   const updateData: Record<string, unknown> = {};
   if (data.title !== undefined) updateData.title = data.title;
   if (data.body !== undefined) updateData.body = data.body;
@@ -507,6 +510,9 @@ export async function updatePersistedContentItem(workspaceId: string, id: string
   if (data.type !== undefined) updateData.type = data.type as never;
   if (data.platform !== undefined) updateData.platform = data.platform.toUpperCase().replace(/\s+/g, "_") as never;
   if (data.clientId !== undefined) updateData.clientId = data.clientId || null;
+  if (data.scheduledAt !== undefined) updateData.scheduledAt = data.scheduledAt ? new Date(data.scheduledAt) : null;
+  if (data.publishedAt !== undefined) updateData.publishedAt = data.publishedAt ? new Date(data.publishedAt) : null;
+  if (data.metadata !== undefined) updateData.metadata = data.metadata as never;
 
   return prisma.content.updateMany({
     where: { id, workspaceId },
@@ -516,6 +522,117 @@ export async function updatePersistedContentItem(workspaceId: string, id: string
 
 export async function deletePersistedContentItem(workspaceId: string, id: string) {
   return prisma.content.deleteMany({ where: { id, workspaceId } });
+}
+
+export async function listPersistedSocialAccountsMerged(workspaceId: string) {
+  const [accounts, integrations] = await Promise.all([
+    prisma.socialAccount.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: "desc" }
+    }),
+    prisma.integration.findMany({
+      where: {
+        workspaceId,
+        platform: { in: [Platform.INSTAGRAM, Platform.FACEBOOK, Platform.LINKEDIN, Platform.TIKTOK, Platform.X, Platform.YOUTUBE] },
+        status: "CONNECTED"
+      },
+      orderBy: { createdAt: "desc" }
+    })
+  ]);
+
+  const merged = [...accounts];
+  for (const intg of integrations) {
+    const existing = merged.find((acc) => acc.platform === intg.platform && (acc.accountId === intg.accountId || acc.username === intg.accountName));
+    if (!existing) {
+      merged.push({
+        id: `intg-${intg.id}`,
+        workspaceId: intg.workspaceId,
+        clientId: intg.clientId,
+        platform: intg.platform,
+        accountId: intg.accountId,
+        username: intg.accountName || `@${intg.platform.toLowerCase()}`,
+        displayName: intg.accountName || `${intg.platform} Account`,
+        avatarUrl: null,
+        profileUrl: null,
+        accessTokenEncrypted: intg.accessTokenEncrypted || intg.apiKeyEncrypted,
+        refreshTokenEncrypted: intg.refreshTokenEncrypted,
+        tokenExpiresAt: intg.tokenExpiresAt,
+        followerCount: 0,
+        isActive: intg.status === "CONNECTED",
+        metadata: intg.metadata,
+        createdAt: intg.createdAt,
+        updatedAt: intg.updatedAt
+      });
+    }
+  }
+  return merged;
+}
+
+export async function createOrUpdatePersistedSocialAccount(input: {
+  workspaceId: string;
+  platform: string;
+  accountId: string;
+  apiKey: string;
+  accountName?: string;
+  username?: string;
+  verifiedName?: string;
+}) {
+  const pKey = platformMap[input.platform] || input.platform.toUpperCase().replace(/\s+/g, "_");
+  const platformEnum = (Platform as any)[pKey] || Platform.INSTAGRAM;
+  const username = input.username || input.accountName || input.verifiedName || input.accountId;
+  const displayName = input.verifiedName || input.accountName || username;
+  const encToken = encryptSecret(input.apiKey);
+
+  const account = await prisma.socialAccount.upsert({
+    where: {
+      workspaceId_platform_username: {
+        workspaceId: input.workspaceId,
+        platform: platformEnum,
+        username
+      }
+    },
+    create: {
+      workspaceId: input.workspaceId,
+      platform: platformEnum,
+      accountId: input.accountId,
+      username,
+      displayName,
+      accessTokenEncrypted: encToken,
+      isActive: true,
+      metadata: { lastVerifiedAt: new Date().toISOString() }
+    },
+    update: {
+      accountId: input.accountId,
+      displayName,
+      accessTokenEncrypted: encToken,
+      isActive: true,
+      updatedAt: new Date()
+    }
+  });
+
+  await connectPersistedIntegrationCredentials({
+    workspaceId: input.workspaceId,
+    platform: input.platform,
+    accountName: displayName,
+    accountId: input.accountId,
+    apiKey: input.apiKey,
+    verifiedName: displayName
+  });
+
+  return account;
+}
+
+export async function disconnectPersistedSocialAccount(workspaceId: string, id: string) {
+  if (id.startsWith("intg-")) {
+    const intgId = id.replace("intg-", "");
+    return prisma.integration.updateMany({
+      where: { id: intgId, workspaceId },
+      data: { status: "DISCONNECTED" }
+    });
+  }
+  return prisma.socialAccount.deleteMany({
+    where: { id, workspaceId }
+  });
 }
 
 export async function listPersistedTeam(workspaceId: string) {

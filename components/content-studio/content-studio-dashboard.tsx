@@ -9,6 +9,7 @@ import { MediaLibraryPage } from "./subpages/media-library-page";
 import { HashtagsPage } from "./subpages/hashtags-page";
 import { SettingsPage } from "./subpages/settings-page";
 import { ContentEditorModal } from "./components/content-editor-modal";
+import { SocialConnectModal } from "./components/social-connect-modal";
 import { ToastContainer } from "./components/common-ui";
 
 // Re-export Platform Icons for backwards compatibility
@@ -84,7 +85,14 @@ export function ContentStudioDashboard({ initialTab = "Content Calendar" }: { in
 }
 
 function ContentStudioInner({ initialTab }: { initialTab: string }) {
-  const { activeTab, setActiveTab } = useContentStudio();
+  const {
+    activeTab,
+    setActiveTab,
+    isConnectModalOpen,
+    closeConnectModal,
+    connectModalDefaultPlatform,
+    refreshSocialAccounts
+  } = useContentStudio();
 
   React.useEffect(() => {
     if (initialTab && initialTab !== activeTab) {
@@ -96,6 +104,12 @@ function ContentStudioInner({ initialTab }: { initialTab: string }) {
     <div className="w-full space-y-5 text-zinc-900 dark:text-zinc-100 font-sans">
       <SubPageRenderer />
       <ContentEditorModal />
+      <SocialConnectModal
+        open={isConnectModalOpen}
+        onClose={closeConnectModal}
+        onSuccess={refreshSocialAccounts}
+        defaultPlatform={connectModalDefaultPlatform}
+      />
       <ToastContainer />
     </div>
   );

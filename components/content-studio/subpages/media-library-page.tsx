@@ -59,12 +59,12 @@ export function MediaLibraryPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [folders, setFolders] = useState([
-    { id: "fld-1", name: "Campaigns", count: 24 },
-    { id: "fld-2", name: "Social Posts", count: 58 },
-    { id: "fld-3", name: "Product Images", count: 42 },
-    { id: "fld-4", name: "Brand Assets", count: 18 },
-    { id: "fld-5", name: "Videos", count: 12 },
-    { id: "fld-6", name: "Logos", count: 8 }
+    { id: "fld-1", name: "Campaigns" },
+    { id: "fld-2", name: "Social Posts" },
+    { id: "fld-3", name: "Product Images" },
+    { id: "fld-4", name: "Brand Assets" },
+    { id: "fld-5", name: "Videos" },
+    { id: "fld-6", name: "Logos" }
   ]);
   const [newFolderName, setNewFolderName] = useState("");
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
@@ -127,7 +127,7 @@ export function MediaLibraryPage() {
   // Folder Creation
   const handleCreateFolder = () => {
     if (!newFolderName.trim()) return;
-    const newFld = { id: `fld-${Date.now()}`, name: newFolderName.trim(), count: 0 };
+    const newFld = { id: `fld-${Date.now()}`, name: newFolderName.trim() };
     setFolders([...folders, newFld]);
     setNewFolderName("");
     setShowCreateFolderModal(false);
@@ -184,18 +184,21 @@ export function MediaLibraryPage() {
       {/* Summary KPI Bar */}
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-5">
         <KpiCard title="Total Assets" value={storageMetrics.total} subtitle="In library" icon={ImageIcon} />
-        <KpiCard title="Images" value={storageMetrics.images} subtitle="824 optimized" icon={ImageIcon} />
-        <KpiCard title="Videos" value={storageMetrics.videos} subtitle="286 MP4/Reels" icon={Film} />
-        <KpiCard title="Documents" value={storageMetrics.documents} subtitle="92 Brand PDFs" icon={FileText} />
+        <KpiCard title="Images" value={storageMetrics.images} subtitle={`${storageMetrics.images} assets`} icon={ImageIcon} />
+        <KpiCard title="Videos" value={storageMetrics.videos} subtitle={`${storageMetrics.videos} assets`} icon={Film} />
+        <KpiCard title="Documents" value={storageMetrics.documents} subtitle={`${storageMetrics.documents} assets`} icon={FileText} />
 
         <div className="rounded-xl border border-zinc-200/90 bg-white p-4 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60">
           <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
             <span>Storage Used</span>
             <HardDrive size={14} className="text-zinc-700 dark:text-zinc-300" />
           </div>
-          <div className="mt-2 text-xl font-bold text-zinc-900 dark:text-zinc-100">6.4 GB / 20 GB</div>
+          <div className="mt-2 text-xl font-bold text-zinc-900 dark:text-zinc-100">{storageMetrics.usedMb} MB</div>
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-            <div className="h-full rounded-full bg-zinc-900 dark:bg-zinc-100 w-[32%]" />
+            <div
+              className="h-full rounded-full bg-zinc-900 dark:bg-zinc-100"
+              style={{ width: `${Math.min(100, Math.max(5, (parseFloat(storageMetrics.usedMb) / 100) * 100))}%` }}
+            />
           </div>
         </div>
       </div>
@@ -262,7 +265,9 @@ export function MediaLibraryPage() {
                     <Folder size={14} className="text-zinc-400" />
                     <span>{fld.name}</span>
                   </div>
-                  <span className="text-[10px] text-zinc-400 font-mono">{fld.count}</span>
+                  <span className="text-[10px] text-zinc-400 font-mono">
+                    {mediaAssets.filter((m) => m.folderId === fld.id).length}
+                  </span>
                 </button>
               ))}
             </div>

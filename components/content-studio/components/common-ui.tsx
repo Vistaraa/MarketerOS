@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Bell,
   Calendar as CalendarIcon,
   Check,
   ChevronDown,
@@ -43,6 +42,12 @@ export function PlatformIcon({ platform, className = "w-4 h-4" }: { platform: Pl
       return <TiktokIcon className={className} />;
     case "twitter":
       return <TwitterXIcon className={className} />;
+    case "youtube":
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+        </svg>
+      );
     default:
       return <InstagramIcon className={className} />;
   }
@@ -54,7 +59,8 @@ export function PlatformBadge({ platform }: { platform: Platform }) {
     facebook: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-900",
     linkedin: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-900",
     tiktok: "bg-zinc-100 text-zinc-800 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700",
-    twitter: "bg-zinc-100 text-zinc-800 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700"
+    twitter: "bg-zinc-100 text-zinc-800 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700",
+    youtube: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-900"
   };
 
   const labels: Record<Platform, string> = {
@@ -62,7 +68,8 @@ export function PlatformBadge({ platform }: { platform: Platform }) {
     facebook: "Facebook",
     linkedin: "LinkedIn",
     tiktok: "TikTok",
-    twitter: "X (Twitter)"
+    twitter: "X (Twitter)",
+    youtube: "YouTube"
   };
 
   return (
@@ -156,14 +163,16 @@ export function KpiCard({
 export function SearchBar({
   value,
   onChange,
-  placeholder = "Search..."
+  placeholder = "Search...",
+  className = ""
 }: {
   value: string;
   onChange: (val: string) => void;
   placeholder?: string;
+  className?: string;
 }) {
   return (
-    <div className="relative flex-1 min-w-[200px]">
+    <div className={`relative flex-1 min-w-[200px] ${className}`}>
       <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
       <input
         type="text"
@@ -361,25 +370,6 @@ export function SubPageHeader({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          {/* Notifications */}
-          <button className="relative grid h-8 w-8 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-600 shadow-2xs hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
-            <Bell size={14} />
-            <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-rose-500 text-[9px] font-bold text-white">
-              3
-            </span>
-          </button>
-
-          {/* User profile */}
-          <div className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white p-1 pl-2 shadow-2xs dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="h-6 w-6 overflow-hidden rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-              RM
-            </div>
-            <div className="hidden sm:block text-left pr-1">
-              <div className="text-[11px] font-semibold leading-tight text-zinc-900 dark:text-zinc-100">Rohan Mehta</div>
-              <div className="text-[9px] text-zinc-400 leading-tight">Agency Admin</div>
-            </div>
-          </div>
-
           {secondaryActionLabel && onSecondaryAction && (
             <button
               onClick={onSecondaryAction}

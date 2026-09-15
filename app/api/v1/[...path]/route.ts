@@ -13,7 +13,7 @@ import { validateCredentials } from "@/lib/integrations/validate";
 import { validateYouTubeApiKey, validateYouTubeChannel, fetchChannelInfo, fetchRecentVideos, fetchAllYouTubeAnalytics } from "@/lib/youtube";
 import { paged, parseListQuery } from "@/lib/api-contracts";
 import { buildPersistedOverview, parseOverviewQuery } from "@/lib/overview-service";
-import { archivePersistedCampaign, connectPersistedIntegrationCredentials, createPersistedCampaign, createPersistedLead, disconnectPersistedIntegration, getPersistedCampaign, getPersistedIntegration, getPersistedLead, listPersistedAutomations, listPersistedCampaigns, listPersistedClients, listPersistedContent, listPersistedInsights, listPersistedIntegrations, listPersistedLeads, listPersistedNotifications, listPersistedReports, listPersistedSocialPosts, listPersistedTeam, searchPersisted, updatePersistedCampaignStatus } from "@/lib/repositories";
+import { archivePersistedCampaign, connectPersistedIntegrationCredentials, createOrUpdatePersistedSocialAccount, createPersistedCampaign, createPersistedLead, disconnectPersistedIntegration, disconnectPersistedSocialAccount, getPersistedCampaign, getPersistedIntegration, getPersistedLead, listPersistedAutomations, listPersistedCampaigns, listPersistedClients, listPersistedContent, listPersistedInsights, listPersistedIntegrations, listPersistedLeads, listPersistedNotifications, listPersistedReports, listPersistedSocialAccountsMerged, listPersistedSocialPosts, listPersistedTeam, searchPersisted, updatePersistedCampaignStatus } from "@/lib/repositories";
 
 export const runtime = "nodejs";
 
@@ -46,7 +46,8 @@ const leadInput = z.object({
   source: z.string().optional()
 });
 const aiInput = z.object({ prompt: z.string().min(3).max(20000), kind: z.string().min(2).max(80).default("content") });
-const contentInput = z.object({ title: z.string().min(1), type: z.string().default("SOCIAL_POST"), body: z.string().optional(), platform: z.string().optional(), clientId: z.string().optional() });
+const contentInput = z.object({ title: z.string().min(1), type: z.string().default("SOCIAL_POST"), body: z.string().optional(), platform: z.string().optional(), clientId: z.string().optional(), status: z.string().optional(), scheduledAt: z.string().optional().nullable(), publishedAt: z.string().optional().nullable(), keywords: z.array(z.string()).optional(), metadata: z.record(z.unknown()).optional() });
+const socialAccountConnectInput = z.object({ platform: z.string().min(1), accountId: z.string().min(1), apiKey: z.string().min(1, "Access token or API key is required."), accountName: z.string().optional(), username: z.string().optional() });
 const socialPostInput = z.object({ socialAccountId: z.string().min(1), title: z.string().optional(), caption: z.string().optional(), contentType: z.string().default("SOCIAL_POST"), scheduledAt: z.string().datetime().optional() });
 const reportInput = z.object({ name: z.string().min(1), clientId: z.string().optional(), format: z.string().default("PDF"), configuration: z.record(z.unknown()).optional() });
 const automationInput = z.object({ name: z.string().min(1), description: z.string().optional(), trigger: z.string().min(1), action: z.string().min(1), campaignId: z.string().optional(), triggerConfig: z.record(z.unknown()).optional(), actionConfig: z.record(z.unknown()).optional(), isActive: z.boolean().optional() });
@@ -133,7 +134,7 @@ export async function GET(request: Request, { params }: { params: { path: string
   if (path.startsWith("integrations/")) { const found = await getPersistedIntegration(auth.session.workspaceId, path.split("/")[1]); return found ? ok(found) : error("Integration not found.", 404); }
   if (path === "social/posts") return ok({ items: await listPersistedSocialPosts(auth.session.workspaceId, query) });
   if (path === "social/accounts") {
-    const accounts = await prisma.socialAccount.findMany({ where: { workspaceId: auth.session.workspaceId }, orderBy: { createdAt: "desc" } });
+    const accounts = await listPersistedSocialAccountsMerged(auth.session.workspaceId);
     return ok({ items: accounts });
   }
   if (path.startsWith("social/accounts/")) {
@@ -226,7 +227,7 @@ export async function GET(request: Request, { params }: { params: { path: string
 
 export async function POST(request: Request, { params }: { params: { path: string[] } }) {
   const path = params.path.join("/");
-  const permission = path === "campaigns" || path === "leads" ? "campaign.edit" : path.startsWith("notifications") || path === "ai/insights/generate" ? "analytics.view" : path === "ai/generate" || path === "content" ? "content.edit" : path === "social/posts" ? "social.edit" : path === "reports" ? "report.edit" : path === "automation" ? "automation.manage" : path === "clients" ? "client.edit" : path.startsWith("billing/") ? "billing.manage" : "settings.manage";
+  const permission = path === "campaigns" || path === "leads" ? "campaign.edit" : path.startsWith("notifications") || path === "ai/insights/generate" ? "analytics.view" : path === "ai/generate" || path === "content" ? "content.edit" : path === "social/posts" || path === "social/accounts" ? "social.edit" : path === "reports" ? "report.edit" : path === "automation" ? "automation.manage" : path === "clients" ? "client.edit" : path.startsWith("billing/") ? "billing.manage" : "settings.manage";
   const auth = await context(permission);
   if (auth.error) return auth.error;
   const body = await request.json().catch(() => null);
@@ -300,8 +301,54 @@ export async function POST(request: Request, { params }: { params: { path: strin
     const result = await generatePersistedApiKey(auth.session.workspaceId, auth.session.userId, parsed.data.name);
     return ok(result, undefined, { status: 201 });
   }
+  if (path === "social/accounts") {
+    const auth = await context("settings.manage");
+    if (auth.error) return auth.error;
+    const parsed = socialAccountConnectInput.safeParse(body);
+    if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid social account credentials.");
+    const validation = await validateCredentials(parsed.data.platform, {
+      accountId: parsed.data.accountId,
+      apiKey: parsed.data.apiKey,
+      accountName: parsed.data.accountName
+    });
+    if (!validation.valid) {
+      return error(validation.error || "Invalid credentials for this platform.", 422, "VALIDATION_FAILED");
+    }
+    const createdAccount = await createOrUpdatePersistedSocialAccount({
+      workspaceId: auth.session.workspaceId,
+      platform: parsed.data.platform,
+      accountId: parsed.data.accountId,
+      apiKey: parsed.data.apiKey,
+      accountName: parsed.data.accountName,
+      username: parsed.data.username,
+      verifiedName: validation.verifiedName
+    });
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CONNECT", module: "social", entityType: "SocialAccount", entityId: createdAccount.id, afterData: createdAccount });
+    return ok({ success: true, account: createdAccount, message: `Connected ${validation.verifiedName || parsed.data.platform} successfully!` }, undefined, { status: 201 });
+  }
   if (path === "content") {
-    const auth = await context("content.edit"); if (auth.error) return auth.error; const parsed = contentInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid content."); const created = await prisma.content.create({ data: { workspaceId: auth.session.workspaceId, createdById: auth.session.userId, title: parsed.data.title || "Untitled Content", type: (parsed.data.type || "SOCIAL_POST") as never, body: parsed.data.body || "", platform: parsed.data.platform ? parsed.data.platform.replaceAll(" ", "_").toUpperCase() as never : undefined, clientId: parsed.data.clientId } }); await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CREATE", module: "content", entityType: "Content", entityId: created.id, afterData: created }); return ok(created, undefined, { status: 201 });
+    const auth = await context("content.edit");
+    if (auth.error) return auth.error;
+    const parsed = contentInput.safeParse(body);
+    if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid content.");
+    const created = await prisma.content.create({
+      data: {
+        workspaceId: auth.session.workspaceId,
+        createdById: auth.session.userId,
+        title: parsed.data.title || "Untitled Content",
+        type: (parsed.data.type || "SOCIAL_POST") as never,
+        body: parsed.data.body || "",
+        platform: parsed.data.platform ? (parsed.data.platform.replaceAll(" ", "_").toUpperCase() as never) : undefined,
+        clientId: parsed.data.clientId,
+        status: (parsed.data.status ? parsed.data.status.toUpperCase().replace(/\s+/g, "_") : "DRAFT") as never,
+        scheduledAt: parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : null,
+        publishedAt: parsed.data.publishedAt ? new Date(parsed.data.publishedAt) : null,
+        keywords: parsed.data.keywords || [],
+        metadata: (parsed.data.metadata || {}) as never
+      }
+    });
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CREATE", module: "content", entityType: "Content", entityId: created.id, afterData: created });
+    return ok(created, undefined, { status: 201 });
   }
   if (path === "clients") {
     const auth = await context("client.edit"); if (auth.error) return auth.error; const parsed = clientInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid client."); const slug = `${parsed.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`; const created = await prisma.client.create({ data: { workspaceId: auth.session.workspaceId, name: parsed.data.name, slug, industry: parsed.data.industry, website: parsed.data.website || undefined, contactName: parsed.data.contactName, contactEmail: parsed.data.contactEmail, contactPhone: parsed.data.contactPhone, currency: parsed.data.currency || "USD", timezone: parsed.data.timezone || "UTC", monthlyBudget: parsed.data.monthlyBudget || 0, status: (parsed.data.status?.toUpperCase() || "ACTIVE") as never } }); return ok(created, undefined, { status: 201 });
@@ -727,6 +774,14 @@ export async function DELETE(request: Request, { params }: { params: { path: str
   const entity = parts[0];
   const id = parts[1];
 
+  if ((entity === "social" && parts[1] === "accounts") || entity === "social-accounts") {
+    const accountId = entity === "social-accounts" ? parts[1] : parts[2];
+    if (!accountId) return error("Account ID is required.", 400);
+    const { disconnectPersistedSocialAccount } = await import("@/lib/repositories");
+    await disconnectPersistedSocialAccount(auth.session.workspaceId, accountId);
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "DISCONNECT", module: "social", entityType: "SocialAccount", entityId: accountId });
+    return ok({ disconnected: accountId });
+  }
   if (entity === "clients") {
     const { deletePersistedClient } = await import("@/lib/repositories");
     const result = await deletePersistedClient(auth.session.workspaceId, id);
