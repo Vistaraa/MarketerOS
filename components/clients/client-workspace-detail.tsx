@@ -43,6 +43,10 @@ interface ClientDetailPayload {
   contactPhone?: string | null;
   campaigns?: any[];
   integrations?: any[];
+  leads?: any[];
+  content?: any[];
+  socialAccounts?: any[];
+  reports?: any[];
   leadsCount?: number;
   totalSpend?: number;
 }

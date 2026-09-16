@@ -847,7 +847,7 @@ export function LiveBillingPage() {
                   Razorpay Payment Gateway & Channels
                 </h3>
                 <p className="text-xs text-zinc-500 mt-0.5">
-                  All workspace transactions are secured through Razorpay's PCI-DSS Level 1 compliant gateway.
+                  All workspace transactions are secured through Razorpay&apos;s PCI-DSS Level 1 compliant gateway.
                 </p>
               </div>
 
@@ -958,7 +958,7 @@ export function LiveBillingPage() {
                   </div>
                   <p className="text-zinc-500">
                     MarketerOS does not store raw credit card numbers or CVVs on our servers. All card and UPI payments are
-                    tokenized directly through Razorpay's certified vault in compliance with RBI regulations.
+                    tokenized directly through Razorpay&apos;s certified vault in compliance with RBI regulations.
                   </p>
                 </div>
               </div>
@@ -1635,7 +1635,7 @@ export function LiveBillingPage() {
               <div className="space-y-3 text-xs text-zinc-600 dark:text-zinc-300">
                 <p>
                   To enable the official Razorpay Checkout popup modal (with Cards, UPI, Netbanking, QR codes), add your
-                  free test keys to your project's <code className="font-mono bg-zinc-100 px-1 py-0.5 rounded dark:bg-zinc-800">.env</code> file:
+                  free test keys to your project&apos;s <code className="font-mono bg-zinc-100 px-1 py-0.5 rounded dark:bg-zinc-800">.env</code> file:
                 </p>
 
                 <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950/80 space-y-2">
@@ -1678,7 +1678,7 @@ RAZORPAY_KEY_SECRET="YourSecretKeyHere"`}
                     Test Mode Simulator Option:
                   </div>
                   <p className="text-xs text-sky-800 dark:text-sky-300">
-                    Don't have keys right now? You can test the checkout flow, subscription update, and invoice generation
+                    Don&apos;t have keys right now? You can test the checkout flow, subscription update, and invoice generation
                     using the built-in test sandbox:
                   </p>
                   <button

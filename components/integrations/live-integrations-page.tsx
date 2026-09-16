@@ -68,6 +68,7 @@ interface PlatformConfig {
   secondaryIdLabel?: string;
   secondaryIdPlaceholder?: string;
   secondaryIdHelp?: string;
+  providerKey?: string;
   prerequisites: string[];
   guideSteps: StepGuide[];
 }
@@ -421,19 +422,12 @@ export function LiveIntegrationsPage() {
       setGoogleDynamicModalOpen(true);
       return;
     }
-    if (platform.id === "YouTube" || platform.name.toLowerCase().includes("youtube")) {
-      setGoogleDynamicPlatform("YOUTUBE");
-      setGoogleDynamicInitialId(existing?.account || "");
-      setGoogleDynamicInitialName(existing?.account ? `YouTube (${existing.account})` : "My YouTube Channel");
-      setGoogleDynamicModalOpen(true);
-      return;
-    }
     if (platform.id === "Firebase" || platform.name.toLowerCase().includes("admob")) {
       setAdMobConnectOpen(true);
       return;
     }
     if (platform.id === "Meta Ads" || platform.name.toLowerCase().includes("meta")) {
-      setMetaAdsConnectOpen(true);
+      setMetaConnectOpen(true);
       return;
     }
     if (platform.id === "LinkedIn" || platform.name.toLowerCase().includes("linkedin")) {
@@ -464,10 +458,8 @@ export function LiveIntegrationsPage() {
     setGenericGuideModalOpen(true);
   };
 
-  const handleOpenLiveDashboard = (platformId: string, accountName?: string) => {
-    setLiveDashPlatformId(platformId);
-    setLiveDashAccountName(accountName || platformId);
-    setLiveDashOpen(true);
+  const handleOpenLiveDashboard = () => {
+    setPageMode("live_dashboard");
   };
 
   const handleSaveGenericIntegration = async (e: React.FormEvent) => {
