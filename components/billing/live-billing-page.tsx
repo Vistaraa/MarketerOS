@@ -1,37 +1,43 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   CreditCard,
   Check,
-  Zap,
-  TrendingUp,
-  FileText,
-  Clock,
   Sparkles,
   ShieldCheck,
   AlertTriangle,
-  ArrowUpRight,
-  Download,
-  Plus,
-  Trash2,
-  Lock,
+  Printer,
   ChevronRight,
   Info,
-  Calendar,
   X,
   CheckCircle2,
   RefreshCw,
-  Building,
-  Mail
+  Receipt,
+  Lock,
+  Smartphone,
+  Landmark,
+  Wallet,
+  Key,
+  Copy,
+  ExternalLink
 } from "lucide-react";
-import { AppShell, Card, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
+import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
 import { CustomDialog } from "@/components/ui/custom-dialog";
 import type { ApiResponse } from "@/lib/api-contracts";
-import type { BillingOverviewPayload, ResourceUsageItem } from "@/lib/billing-service";
+import type { BillingOverviewPayload } from "@/lib/billing-service";
+import { CREDIT_PACKS } from "@/lib/razorpay";
 import { cn, money } from "@/lib/utils";
 
-type ActiveTab = "overview" | "plan" | "pricing" | "invoices" | "payment-methods" | "history" | "credits" | "settings";
+type ActiveTab =
+  | "overview"
+  | "plan"
+  | "pricing"
+  | "invoices"
+  | "payment-methods"
+  | "history"
+  | "credits"
+  | "settings";
 
 export function LiveBillingPage() {
   const [data, setData] = useState<BillingOverviewPayload | null>(null);
@@ -41,6 +47,16 @@ export function LiveBillingPage() {
   const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
   const [busy, setBusy] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Modals & Drawers
+  const [selectedPlanToUpgrade, setSelectedPlanToUpgrade] = useState<any | null>(null);
+  const [isBuyCreditsModalOpen, setIsBuyCreditsModalOpen] = useState(false);
+  const [selectedCreditPack, setSelectedCreditPack] = useState<typeof CREDIT_PACKS[number]>(CREDIT_PACKS[1]);
+  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
+  const [invoiceSearchQuery, setInvoiceSearchQuery] = useState("");
+  const [isSetupGuideOpen, setIsSetupGuideOpen] = useState(false);
+  const [pendingSimulatedCheckout, setPendingSimulatedCheckout] = useState<any | null>(null);
+
   const [dialogConfig, setDialogConfig] = useState<{
     isOpen: boolean;
     title?: string;
@@ -52,22 +68,33 @@ export function LiveBillingPage() {
     onConfirm?: () => void;
   }>({ isOpen: false, message: "" });
 
-  // Upgrade Modal State
-  const [selectedPlanToUpgrade, setSelectedPlanToUpgrade] = useState<any | null>(null);
-  // Invoice Drawer State
-  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
-  // Add Payment Method Modal
-  const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
-
-  // Billing Contact Form State
+  // Contact Form State
   const [contactForm, setContactForm] = useState({
     companyName: "",
     billingEmail: "",
-    taxId: "US987654321",
-    address: "100 Marketing Way, Suite 400, San Francisco, CA 94105",
-    country: "United States",
+    taxId: "",
+    address: "",
+    country: "",
     currency: "USD"
   });
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  // Load Razorpay Checkout Script
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!document.getElementById("razorpay-checkout-js")) {
+      const script = document.createElement("script");
+      script.id = "razorpay-checkout-js";
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  const triggerToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4500);
+  };
 
   const loadBilling = () => {
     setLoading(true);
@@ -80,12 +107,18 @@ export function LiveBillingPage() {
       })
       .then((payload) => {
         setData(payload);
+        if (payload.subscription?.interval) {
+          setBillingInterval(payload.subscription.interval.toLowerCase() as "monthly" | "yearly");
+        }
         if (payload.billingContact) {
-          setContactForm((prev) => ({
-            ...prev,
-            companyName: payload.billingContact.companyName || prev.companyName,
-            billingEmail: payload.billingContact.billingEmail || prev.billingEmail
-          }));
+          setContactForm({
+            companyName: payload.billingContact.companyName || "",
+            billingEmail: payload.billingContact.billingEmail || "",
+            taxId: payload.billingContact.taxId || "",
+            address: payload.billingContact.address || "",
+            country: payload.billingContact.country || "",
+            currency: payload.billingContact.currency || "USD"
+          });
         }
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load billing data."))
@@ -96,39 +129,37 @@ export function LiveBillingPage() {
     loadBilling();
   }, []);
 
-  const triggerToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
-  };
-
-  const handlePlanChange = async (planSlug: string) => {
-    setBusy(true);
+  // Save Billing Settings
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingSettings(true);
     setError(null);
     try {
-      const res = await fetch("/api/v1/billing/checkout", {
+      const res = await fetch("/api/v1/billing/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: planSlug, interval: billingInterval })
+        body: JSON.stringify(contactForm)
       });
       const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error?.message || "Plan update failed.");
-      triggerToast(`Plan successfully updated to ${planSlug.toUpperCase()}!`);
-      setSelectedPlanToUpgrade(null);
+      if (!res.ok) throw new Error(payload.error?.message || "Failed to save billing settings.");
+      triggerToast("Billing contact & tax settings successfully saved to database.");
       loadBilling();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to change subscription plan.");
+      setError(err instanceof Error ? err.message : "Failed to update billing settings.");
     } finally {
-      setBusy(false);
+      setIsSavingSettings(false);
     }
   };
 
-  const handleCancelSubscription = async () => {
+  // Cancel Subscription
+  const handleCancelSubscription = () => {
     setDialogConfig({
       isOpen: true,
       title: "Cancel Subscription",
-      message: "Are you sure you want to cancel your subscription? Your workspace features will remain active until the end of the billing period.",
+      message:
+        "Are you sure you want to cancel your subscription? Your workspace will remain active until the current period ends.",
       type: "confirm",
-      confirmText: "Cancel Subscription",
+      confirmText: "Yes, Cancel at Period End",
       confirmTone: "danger",
       onConfirm: async () => {
         setBusy(true);
@@ -136,7 +167,7 @@ export function LiveBillingPage() {
           const res = await fetch("/api/v1/billing/cancel", { method: "POST" });
           const payload = await res.json();
           if (!res.ok) throw new Error(payload.error?.message || "Failed to cancel subscription.");
-          triggerToast("Subscription set to cancel at period end.");
+          triggerToast("Subscription cancellation scheduled for period end.");
           loadBilling();
         } catch (err) {
           setError(err instanceof Error ? err.message : "Failed to cancel subscription.");
@@ -147,11 +178,148 @@ export function LiveBillingPage() {
     });
   };
 
+  // Verify and Finalize Payment
+  const verifyAndFinalizePayment = async (verifyPayload: {
+    orderId: string;
+    paymentId: string;
+    signature: string;
+    type: "subscription" | "credits";
+    planSlug?: string;
+    interval?: "monthly" | "yearly";
+    packId?: string;
+  }) => {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/v1/billing/razorpay/verify-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(verifyPayload)
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error?.message || "Payment verification failed.");
+
+      if (verifyPayload.type === "subscription") {
+        triggerToast(`Payment successful! Plan upgraded to ${verifyPayload.planSlug?.toUpperCase()}.`);
+        setSelectedPlanToUpgrade(null);
+      } else {
+        triggerToast("Payment successful! Extra AI Generation Credits added to workspace.");
+        setIsBuyCreditsModalOpen(false);
+      }
+      setIsSetupGuideOpen(false);
+      setPendingSimulatedCheckout(null);
+      loadBilling();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Payment verification failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Launch Razorpay Checkout
+  const launchRazorpayCheckout = async (options: {
+    type: "subscription" | "credits";
+    planSlug?: string;
+    interval?: "monthly" | "yearly";
+    packId?: string;
+    title: string;
+    description: string;
+    amount: number;
+  }) => {
+    setBusy(true);
+    setError(null);
+    try {
+      // 1. Create order on server
+      const orderRes = await fetch("/api/v1/billing/razorpay/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: options.type,
+          planSlug: options.planSlug,
+          interval: options.interval || billingInterval,
+          packId: options.packId
+        })
+      });
+      const orderData = await orderRes.json();
+      if (!orderRes.ok) throw new Error(orderData.error?.message || "Could not create Razorpay order.");
+
+      const order = orderData.data;
+
+      // 2. If keys are configured in .env and Razorpay checkout.js is available
+      if (order.isConfigured && typeof window !== "undefined" && (window as any).Razorpay) {
+        const rzpOptions = {
+          key: order.keyId,
+          amount: order.amount,
+          currency: order.currency,
+          name: "MarketerOS",
+          description: options.description,
+          order_id: order.id,
+          prefill: {
+            name: data?.billingContact.companyName || "",
+            email: data?.billingContact.billingEmail || ""
+          },
+          theme: {
+            color: "#18181b"
+          },
+          handler: async function (response: any) {
+            await verifyAndFinalizePayment({
+              orderId: response.razorpay_order_id || order.id,
+              paymentId: response.razorpay_payment_id || `pay_${Date.now()}`,
+              signature: response.razorpay_signature || `sig_${Date.now()}`,
+              type: options.type,
+              planSlug: options.planSlug,
+              interval: options.interval || billingInterval,
+              packId: options.packId
+            });
+          },
+          modal: {
+            ondismiss: function () {
+              setBusy(false);
+            }
+          }
+        };
+
+        const rzp = new (window as any).Razorpay(rzpOptions);
+        rzp.on("payment.failed", function (response: any) {
+          setError(response.error?.description || "Payment failed or was cancelled.");
+          setBusy(false);
+        });
+        rzp.open();
+      } else {
+        // If keys are not yet configured in .env, open the Setup Guide modal with simulated option
+        setPendingSimulatedCheckout({
+          orderId: order.id,
+          type: options.type,
+          planSlug: options.planSlug,
+          interval: options.interval || billingInterval,
+          packId: options.packId
+        });
+        setIsSetupGuideOpen(true);
+        setBusy(false);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Checkout initialization failed.");
+      setBusy(false);
+    }
+  };
+
+  // Filtered invoices
+  const filteredInvoices = useMemo(() => {
+    if (!data?.invoices) return [];
+    if (!invoiceSearchQuery.trim()) return data.invoices;
+    const q = invoiceSearchQuery.toLowerCase();
+    return data.invoices.filter(
+      (inv) =>
+        inv.invoiceNumber.toLowerCase().includes(q) ||
+        (inv.razorpayPaymentId && inv.razorpayPaymentId.toLowerCase().includes(q))
+    );
+  }, [data?.invoices, invoiceSearchQuery]);
+
   if (loading) {
     return (
       <AppShell title="Billing">
-        <div className="flex h-64 items-center justify-center text-xs text-zinc-500">
-          <RefreshCw size={18} className="animate-spin mr-2 text-zinc-400" /> Loading workspace billing & subscriptions...
+        <div className="flex h-64 flex-col items-center justify-center gap-3 text-xs text-zinc-500">
+          <RefreshCw size={20} className="animate-spin text-zinc-400" />
+          <span>Synchronizing live billing engine & subscriptions...</span>
         </div>
       </AppShell>
     );
@@ -163,14 +331,20 @@ export function LiveBillingPage() {
         {/* Page Heading */}
         <PageHeading
           title="Billing & Subscription Engine"
-          description="Manage workspace plans, usage limits, invoices, credit allocations, and payment settings."
+          description="Manage workspace subscription tier, team quotas, live usage meters, itemized tax invoices, and payment methods."
           action={
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsBuyCreditsModalOpen(true)}
+                className="btn-secondary flex items-center gap-1.5"
+              >
+                <Sparkles size={13} className="text-amber-500" /> Buy AI Credits
+              </button>
               <button
                 onClick={() => setActiveTab("pricing")}
                 className="btn-primary flex items-center gap-1.5"
               >
-                <Sparkles size={13} /> Upgrade Plan
+                <ShieldCheck size={13} /> Upgrade Plan
               </button>
             </div>
           }
@@ -178,30 +352,32 @@ export function LiveBillingPage() {
 
         {/* Toast Alert */}
         {toastMessage && (
-          <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 p-3.5 text-xs text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300 animate-in fade-in">
-            <CheckCircle2 size={15} className="text-emerald-600" />
-            <span>{toastMessage}</span>
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/90 p-3.5 text-xs text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 animate-in fade-in">
+            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            <span className="font-semibold">{toastMessage}</span>
           </div>
         )}
 
         {/* Error Alert */}
         {error && (
-          <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50/80 p-3.5 text-xs text-rose-800 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300">
+          <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50/90 p-3.5 text-xs text-rose-800 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-300">
             <div className="flex items-center gap-2">
-              <AlertTriangle size={15} className="text-rose-600" />
+              <AlertTriangle size={16} className="text-rose-600 shrink-0" />
               <span>{error}</span>
             </div>
-            <button onClick={() => setError(null)} className="text-rose-500 hover:underline">Dismiss</button>
+            <button onClick={() => setError(null)} className="text-rose-500 hover:underline">
+              Dismiss
+            </button>
           </div>
         )}
 
-        {/* Navigation Sub-Tabs */}
+        {/* Navigation Tabs */}
         <div className="flex border-b border-zinc-200/80 overflow-x-auto dark:border-zinc-800 text-xs font-semibold">
           {[
             { id: "overview", label: "Overview" },
             { id: "plan", label: "Current Plan & Limits" },
             { id: "pricing", label: "Pricing & Plans" },
-            { id: "invoices", label: "Invoices & Receipts" },
+            { id: "invoices", label: `Invoices & Receipts (${data?.invoices.length || 0})` },
             { id: "payment-methods", label: "Payment Methods" },
             { id: "history", label: "Billing History" },
             { id: "credits", label: "AI Credits" },
@@ -224,37 +400,58 @@ export function LiveBillingPage() {
         {/* TAB 1: OVERVIEW */}
         {activeTab === "overview" && data && (
           <div className="space-y-6">
-            {/* Subscription Status Card */}
             <div className="rounded-xl border border-zinc-200/90 bg-white p-6 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="grid h-12 w-12 place-items-center rounded-xl bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100">
+                <div className="grid h-12 w-12 place-items-center rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">
                   <CreditCard size={22} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">{data.kpis.currentPlanName}</h3>
-                    <StatusBadge status={data.subscription?.status === "ACTIVE" ? "Connected" : "Paused"} />
+                    <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                      {data.kpis.currentPlanName} Plan
+                    </h3>
+                    <StatusBadge
+                      status={
+                        data.subscription?.cancelAtPeriodEnd
+                          ? "Pending"
+                          : data.subscription?.status === "ACTIVE"
+                          ? "Active"
+                          : "Paused"
+                      }
+                    />
+                    {data.subscription?.cancelAtPeriodEnd && (
+                      <span className="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                        Cancelling at period end
+                      </span>
+                    )}
                   </div>
                   <p className="mt-0.5 text-xs text-zinc-500">
-                    Billed {data.kpis.billingCycle.toLowerCase()} · Next billing date: <span className="font-semibold text-zinc-800 dark:text-zinc-200">{data.kpis.nextBillingDate}</span>
+                    Billed {data.kpis.billingCycle.toLowerCase()} · Next renewal:{" "}
+                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                      {data.kpis.nextBillingDate}
+                    </span>
+                    {data.subscription?.razorpayPaymentId && (
+                      <span className="ml-2 font-mono text-[10px] text-zinc-400">
+                        (Ref: {data.subscription.razorpayPaymentId})
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setActiveTab("pricing")}
-                  className="btn-primary py-2 px-4"
-                >
+                <button onClick={() => setActiveTab("pricing")} className="btn-primary py-2 px-4">
                   Change Plan
                 </button>
-                <button
-                  onClick={handleCancelSubscription}
-                  disabled={busy}
-                  className="btn-secondary py-2 px-3 text-rose-600 dark:text-rose-400"
-                >
-                  Cancel Subscription
-                </button>
+                {!data.subscription?.cancelAtPeriodEnd && (
+                  <button
+                    onClick={handleCancelSubscription}
+                    disabled={busy}
+                    className="btn-secondary py-2 px-3 text-rose-600 dark:text-rose-400"
+                  >
+                    Cancel Subscription
+                  </button>
+                )}
               </div>
             </div>
 
@@ -262,58 +459,98 @@ export function LiveBillingPage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-xl border border-zinc-200/90 bg-white p-4 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60">
                 <div className="text-[11px] font-semibold text-zinc-500">Monthly Cost</div>
-                <div className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{money(data.kpis.monthlyCost)}/mo</div>
-                <div className="mt-1 text-[11px] text-emerald-600 font-medium">Active Enterprise Plan</div>
+                <div className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+                  {money(data.kpis.monthlyCost)}
+                  <span className="text-xs font-normal text-zinc-400">/mo</span>
+                </div>
+                <div className="mt-1 text-[11px] text-emerald-600 font-medium">
+                  {data.kpis.billingCycle} billing active
+                </div>
               </div>
 
               <div className="rounded-xl border border-zinc-200/90 bg-white p-4 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60">
                 <div className="text-[11px] font-semibold text-zinc-500">Team Seats</div>
-                <div className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{data.kpis.usedSeats} / {data.kpis.totalSeats}</div>
-                <div className="mt-1 text-[11px] text-zinc-400 font-medium">{data.kpis.totalSeats - data.kpis.usedSeats} seats available</div>
-              </div>
-
-              <div className="rounded-xl border border-zinc-200/90 bg-white p-4 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60">
-                <div className="text-[11px] font-semibold text-zinc-500">AI Credits Used</div>
-                <div className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{data.kpis.aiCreditsUsed.toLocaleString()} / {data.kpis.aiCreditsLimit.toLocaleString()}</div>
-                <div className="mt-1 text-[11px] text-zinc-400 font-medium">{Math.round((data.kpis.aiCreditsUsed / data.kpis.aiCreditsLimit) * 100)}% consumed</div>
-              </div>
-
-              <div className="rounded-xl border border-zinc-200/90 bg-white p-4 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60">
-                <div className="text-[11px] font-semibold text-zinc-500">Payment Method</div>
-                <div className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                  <CreditCard size={18} className="text-zinc-700 dark:text-zinc-300" />
-                  <span>•••• 4242</span>
+                <div className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+                  {data.kpis.usedSeats} / {data.kpis.totalSeats}
                 </div>
-                <div className="mt-1 text-[11px] text-emerald-600 font-medium">Default Visa card</div>
+                <div className="mt-1 text-[11px] text-zinc-400 font-medium">
+                  {Math.max(0, data.kpis.totalSeats - data.kpis.usedSeats)} seats available
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-zinc-200/90 bg-white p-4 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60">
+                <div className="text-[11px] font-semibold text-zinc-500">Monthly AI Credits</div>
+                <div className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+                  {data.kpis.aiCreditsUsed.toLocaleString()} / {data.kpis.aiCreditsLimit.toLocaleString()}
+                </div>
+                <div className="mt-1 text-[11px] text-zinc-400 font-medium">
+                  {Math.round((data.kpis.aiCreditsUsed / (data.kpis.aiCreditsLimit || 1)) * 100)}% consumed
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-zinc-200/90 bg-white p-4 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60">
+                <div className="text-[11px] font-semibold text-zinc-500">Payment Channel</div>
+                <div className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                  <CreditCard size={18} className="text-zinc-700 dark:text-zinc-300 shrink-0" />
+                  <span className="text-sm font-bold">
+                    {data.paymentMethods.length > 0 ? data.paymentMethods[0].brand : "Razorpay Checkout"}
+                  </span>
+                </div>
+                <div className="mt-1 text-[11px] text-zinc-500 font-medium">
+                  {data.paymentMethods.length > 0
+                    ? `Ref ending in •••• ${data.paymentMethods[0].last4}`
+                    : "No payment methods saved yet"}
+                </div>
               </div>
             </div>
 
-            {/* Quick Resource Limits Preview Grid */}
+            {/* Resource Limits Preview */}
             <div className="rounded-xl border border-zinc-200/90 bg-white p-6 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">Resource Allocation & Usage Limits</h3>
-                <button onClick={() => setActiveTab("plan")} className="font-bold text-zinc-900 hover:underline flex items-center gap-1 dark:text-zinc-100">
+                <div>
+                  <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+                    Resource Allocation & Usage Limits
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Live telemetry vs current {data.kpis.currentPlanName} plan quotas.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveTab("plan")}
+                  className="font-bold text-zinc-900 hover:underline flex items-center gap-1 dark:text-zinc-100"
+                >
                   View Detailed Limits <ChevronRight size={13} />
                 </button>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {data.usage.slice(0, 6).map((item) => (
-                  <div key={item.key} className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-3.5 space-y-2 dark:border-zinc-800/80 dark:bg-zinc-900/60">
+                  <div
+                    key={item.key}
+                    className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-3.5 space-y-2 dark:border-zinc-800/80 dark:bg-zinc-900/60"
+                  >
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-zinc-800 dark:text-zinc-200">{item.name}</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                        item.status === "LIMIT_REACHED" ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400" :
-                        item.status === "WARNING" ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400" :
-                        "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
-                      }`}>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                          item.status === "LIMIT_REACHED"
+                            ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400"
+                            : item.status === "WARNING"
+                            ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+                            : "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                        }`}
+                      >
                         {item.used} / {item.limit}
                       </span>
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
                       <div
                         className={`h-full rounded-full transition-all ${
-                          item.percentage >= 90 ? "bg-rose-500" : item.percentage >= 75 ? "bg-amber-500" : "bg-zinc-900 dark:bg-zinc-100"
+                          item.percentage >= 90
+                            ? "bg-rose-500"
+                            : item.percentage >= 75
+                            ? "bg-amber-500"
+                            : "bg-zinc-900 dark:bg-zinc-100"
                         }`}
                         style={{ width: `${item.percentage}%` }}
                       />
@@ -331,17 +568,25 @@ export function LiveBillingPage() {
             <div className="rounded-xl border border-zinc-200/90 bg-white p-6 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 space-y-4">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800">
                 <div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Active Subscription</div>
-                  <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mt-0.5">{data.subscription?.plan.name}</h2>
-                  <p className="text-xs text-zinc-500 mt-0.5">{data.subscription?.plan.description || "Full enterprise operational tier."}</p>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                    Active Subscription Tier
+                  </div>
+                  <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mt-0.5">
+                    {data.subscription?.plan.name}
+                  </h2>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    {data.subscription?.plan.description || "Operational agency tier."}
+                  </p>
                 </div>
                 <div className="text-right">
-                  <div className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{money(data.subscription?.plan.monthlyPrice || 199)}/mo</div>
+                  <div className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+                    {money(data.subscription?.plan.monthlyPrice || 199)}/mo
+                  </div>
                   <span className="text-[11px] text-zinc-400">Renews on {data.kpis.nextBillingDate}</span>
                 </div>
               </div>
 
-              {/* Comprehensive Usage Meters Table */}
+              {/* Comprehensive Resource Limits Table */}
               <div className="space-y-3 pt-2">
                 <h3 className="font-bold text-zinc-900 dark:text-zinc-100">Live Resource Consumption vs Limits</h3>
                 <div className="divide-y divide-zinc-100 border border-zinc-200 rounded-xl overflow-hidden dark:divide-zinc-800 dark:border-zinc-800 bg-white dark:bg-zinc-900">
@@ -349,18 +594,26 @@ export function LiveBillingPage() {
                     <div key={item.key} className="p-4 flex flex-wrap items-center justify-between gap-4">
                       <div className="min-w-[200px]">
                         <div className="font-bold text-zinc-900 dark:text-zinc-100">{item.name}</div>
-                        <div className="text-[11px] text-zinc-400 mt-0.5">{item.remaining} {item.unit} remaining</div>
+                        <div className="text-[11px] text-zinc-400 mt-0.5">
+                          {item.remaining.toLocaleString()} {item.unit} remaining
+                        </div>
                       </div>
 
                       <div className="flex-1 min-w-[220px] space-y-1.5">
                         <div className="flex justify-between text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
-                          <span>{item.used} {item.unit} used</span>
+                          <span>
+                            {item.used.toLocaleString()} / {item.limit.toLocaleString()} {item.unit}
+                          </span>
                           <span>{item.percentage}%</span>
                         </div>
                         <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
                           <div
                             className={`h-full rounded-full transition-all ${
-                              item.percentage >= 90 ? "bg-rose-500" : item.percentage >= 75 ? "bg-amber-500" : "bg-zinc-900 dark:bg-zinc-100"
+                              item.percentage >= 90
+                                ? "bg-rose-500"
+                                : item.percentage >= 75
+                                ? "bg-amber-500"
+                                : "bg-zinc-900 dark:bg-zinc-100"
                             }`}
                             style={{ width: `${item.percentage}%` }}
                           />
@@ -368,11 +621,15 @@ export function LiveBillingPage() {
                       </div>
 
                       <div className="min-w-[120px] text-right">
-                        <span className={`inline-block rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
-                          item.status === "LIMIT_REACHED" ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400" :
-                          item.status === "WARNING" ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400" :
-                          "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
-                        }`}>
+                        <span
+                          className={`inline-block rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                            item.status === "LIMIT_REACHED"
+                              ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400"
+                              : item.status === "WARNING"
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+                              : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
+                          }`}
+                        >
                           {item.status.replace("_", " ")}
                         </span>
                       </div>
@@ -387,7 +644,7 @@ export function LiveBillingPage() {
         {/* TAB 3: PRICING & PLANS */}
         {activeTab === "pricing" && data && (
           <div className="space-y-6">
-            {/* Interval Selector Toggle */}
+            {/* Interval Toggle */}
             <div className="flex justify-center">
               <div className="flex items-center gap-1 rounded-xl border border-zinc-200 bg-white p-1 text-xs shadow-2xs dark:border-zinc-800 dark:bg-zinc-900">
                 <button
@@ -411,7 +668,9 @@ export function LiveBillingPage() {
                   )}
                 >
                   <span>Annual Billing</span>
-                  <span className="rounded bg-emerald-500 px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-white">Save 20%</span>
+                  <span className="rounded bg-emerald-500 px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-white">
+                    Save 20%
+                  </span>
                 </button>
               </div>
             </div>
@@ -434,7 +693,7 @@ export function LiveBillingPage() {
                   >
                     {isCurrent && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-zinc-900 px-3 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider dark:bg-zinc-100 dark:text-zinc-900">
-                        Current Plan
+                        Current Tier
                       </div>
                     )}
 
@@ -443,14 +702,23 @@ export function LiveBillingPage() {
                       <p className="mt-1 text-[11px] text-zinc-500 line-clamp-2">{plan.description}</p>
 
                       <div className="mt-4">
-                        <span className="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100">{money(price)}</span>
-                        <span className="text-xs text-zinc-400">/{billingInterval === "monthly" ? "mo" : "yr"}</span>
+                        <span className="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100">
+                          {money(price)}
+                        </span>
+                        <span className="text-xs text-zinc-400">
+                          /{billingInterval === "monthly" ? "mo" : "yr"}
+                        </span>
                       </div>
 
                       <div className="mt-5 space-y-2 border-t border-zinc-100 pt-4 text-xs dark:border-zinc-800">
-                        <div className="font-bold text-zinc-900 dark:text-zinc-100 text-[11px] uppercase tracking-wider">Includes:</div>
+                        <div className="font-bold text-zinc-900 dark:text-zinc-100 text-[11px] uppercase tracking-wider">
+                          Includes:
+                        </div>
                         {plan.features.map((feat, idx) => (
-                          <div key={idx} className="flex items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-300">
+                          <div
+                            key={idx}
+                            className="flex items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-300"
+                          >
                             <Check size={13} className="text-zinc-900 dark:text-zinc-100 shrink-0" />
                             <span>{feat}</span>
                           </div>
@@ -463,13 +731,20 @@ export function LiveBillingPage() {
                         onClick={() => setSelectedPlanToUpgrade(plan)}
                         disabled={busy || isCurrent}
                         className={cn(
-                          "w-full py-2 text-xs font-semibold rounded-lg shadow-2xs transition",
+                          "w-full py-2.5 text-xs font-semibold rounded-lg shadow-2xs transition flex items-center justify-center gap-1.5",
                           isCurrent
                             ? "border border-zinc-200 bg-zinc-100 text-zinc-400 cursor-default dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-500"
                             : "btn-primary"
                         )}
                       >
-                        {isCurrent ? "Active Tier" : `Switch to ${plan.name}`}
+                        {isCurrent ? (
+                          "Active Plan"
+                        ) : (
+                          <>
+                            <span>Switch to {plan.name}</span>
+                            <ChevronRight size={13} />
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -479,15 +754,30 @@ export function LiveBillingPage() {
           </div>
         )}
 
-        {/* TAB 4: INVOICES */}
+        {/* TAB 4: INVOICES & RECEIPTS */}
         {activeTab === "invoices" && data && (
           <div className="space-y-4">
             <div className="rounded-xl border border-zinc-200/90 bg-white shadow-2xs overflow-hidden dark:border-zinc-800 dark:bg-zinc-950/60">
-              <div className="flex items-center justify-between border-b border-zinc-100 p-5 dark:border-zinc-800">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-100 p-5 dark:border-zinc-800">
                 <div>
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">Invoices & Billing Receipts</h2>
-                  <p className="text-xs text-zinc-400 mt-0.5">Historical statements and proof of payment.</p>
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">
+                    Official Invoices & Tax Receipts
+                  </h2>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Downloadable receipts for corporate tax accounting & GST compliance.
+                  </p>
                 </div>
+                {data.invoices.length > 0 && (
+                  <div className="w-full sm:w-64">
+                    <input
+                      type="text"
+                      placeholder="Search invoice or payment ID..."
+                      value={invoiceSearchQuery}
+                      onChange={(e) => setInvoiceSearchQuery(e.target.value)}
+                      className="input-clean text-xs py-1.5"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="overflow-x-auto">
@@ -497,29 +787,50 @@ export function LiveBillingPage() {
                       <th className="p-3.5 pl-5">Invoice #</th>
                       <th className="p-3.5">Date</th>
                       <th className="p-3.5">Amount</th>
+                      <th className="p-3.5">Payment Ref</th>
                       <th className="p-3.5">Status</th>
                       <th className="p-3.5 pr-5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                    {data.invoices.map((inv) => (
+                    {filteredInvoices.map((inv) => (
                       <tr key={inv.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/40 transition">
-                        <td className="p-3.5 pl-5 font-bold text-zinc-900 dark:text-zinc-100">{inv.invoiceNumber}</td>
-                        <td className="p-3.5 text-zinc-500">{new Date(inv.invoiceDate).toLocaleDateString()}</td>
-                        <td className="p-3.5 font-semibold text-zinc-800 dark:text-zinc-200">{money(inv.amount)} {inv.currency}</td>
+                        <td className="p-3.5 pl-5 font-bold text-zinc-900 dark:text-zinc-100">
+                          {inv.invoiceNumber}
+                        </td>
+                        <td className="p-3.5 text-zinc-500">
+                          {new Date(inv.invoiceDate).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric"
+                          })}
+                        </td>
+                        <td className="p-3.5 font-semibold text-zinc-800 dark:text-zinc-200">
+                          {money(inv.amount)} {inv.currency}
+                        </td>
+                        <td className="p-3.5 font-mono text-[11px] text-zinc-500">
+                          {inv.razorpayPaymentId || "rzp_manual"}
+                        </td>
                         <td className="p-3.5">
                           <StatusBadge status={inv.status === "PAID" ? "Active" : "Draft"} />
                         </td>
                         <td className="p-3.5 pr-5 text-right space-x-2">
                           <button
                             onClick={() => setSelectedInvoice(inv)}
-                            className="btn-secondary py-1 px-2 text-[11px]"
+                            className="btn-secondary py-1 px-2.5 text-[11px] inline-flex items-center gap-1"
                           >
-                            View Receipt
+                            <Receipt size={12} /> View Receipt
                           </button>
                         </td>
                       </tr>
                     ))}
+                    {filteredInvoices.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="p-10 text-center text-zinc-400">
+                          No invoices found. When you upgrade a plan or purchase AI credits, your invoices will appear here.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -529,47 +840,127 @@ export function LiveBillingPage() {
 
         {/* TAB 5: PAYMENT METHODS */}
         {activeTab === "payment-methods" && data && (
-          <div className="space-y-4">
-            <div className="rounded-xl border border-zinc-200/90 bg-white p-6 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 space-y-4">
-              <div className="flex items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800">
-                <div>
-                  <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">Payment Methods</h3>
-                  <p className="text-xs text-zinc-500 mt-0.5">Manage credit cards and payment sources linked to your workspace subscription.</p>
-                </div>
-                <button onClick={() => setIsAddPaymentModalOpen(true)} className="btn-primary flex items-center gap-1">
-                  <Plus size={13} /> Add Payment Method
-                </button>
+          <div className="space-y-6">
+            <div className="rounded-xl border border-zinc-200/90 bg-white p-6 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 space-y-5">
+              <div className="border-b border-zinc-100 pb-4 dark:border-zinc-800">
+                <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+                  Razorpay Payment Gateway & Channels
+                </h3>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  All workspace transactions are secured through Razorpay's PCI-DSS Level 1 compliant gateway.
+                </p>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                {data.paymentMethods.map((pm) => (
-                  <div key={pm.id} className="rounded-xl border border-zinc-200 bg-white p-4 shadow-2xs space-y-3 dark:border-zinc-800 dark:bg-zinc-900 relative">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 font-bold text-zinc-900 dark:text-zinc-100">
-                        <CreditCard size={18} />
-                        <span>{pm.brand} ending in {pm.last4}</span>
-                      </div>
-                      {pm.isDefault && (
-                        <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                          Default Card
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-zinc-500">
-                      Expires {pm.expMonth}/{pm.expYear} · {pm.holderName || "Workspace Card"}
-                    </div>
-                    <div className="pt-2 border-t border-zinc-100 flex items-center justify-between text-xs dark:border-zinc-800">
-                      {!pm.isDefault ? (
-                        <button onClick={() => triggerToast("Set as default card.")} className="font-semibold text-zinc-900 hover:underline dark:text-zinc-100">
-                          Set Default
-                        </button>
-                      ) : <span className="text-zinc-400 text-[11px]">Primary billing card</span>}
-                      <button onClick={() => triggerToast("Payment method removed.")} className="text-rose-600 hover:underline">
-                        Remove
-                      </button>
+              {/* Gateway Status Box */}
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-900/50 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="text-emerald-600" size={18} />
+                    <span className="font-bold text-zinc-900 dark:text-zinc-100">
+                      Razorpay Gateway Status
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        data.gateway.isConfigured
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                          : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                      }`}
+                    >
+                      {data.gateway.isConfigured ? "Connected (Live Test Mode)" : "Setup Guide Required"}
+                    </span>
+                  </div>
+                  {!data.gateway.isConfigured && (
+                    <button
+                      onClick={() => setIsSetupGuideOpen(true)}
+                      className="btn-secondary py-1 px-2.5 text-[11px] flex items-center gap-1 font-semibold"
+                    >
+                      <Key size={12} /> Configure API Keys
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 pt-2">
+                  <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200/80 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950/60">
+                    <CreditCard size={18} className="text-zinc-700 dark:text-zinc-300" />
+                    <div>
+                      <div className="font-bold text-zinc-900 dark:text-zinc-100">Credit / Debit Cards</div>
+                      <div className="text-[10px] text-zinc-400">Visa, Mastercard, RuPay</div>
                     </div>
                   </div>
-                ))}
+
+                  <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200/80 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950/60">
+                    <Smartphone size={18} className="text-emerald-600" />
+                    <div>
+                      <div className="font-bold text-zinc-900 dark:text-zinc-100">Instant UPI</div>
+                      <div className="text-[10px] text-zinc-400">Google Pay, PhonePe, Paytm</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200/80 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950/60">
+                    <Landmark size={18} className="text-sky-600" />
+                    <div>
+                      <div className="font-bold text-zinc-900 dark:text-zinc-100">Netbanking</div>
+                      <div className="text-[10px] text-zinc-400">50+ Supported Banks</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200/80 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950/60">
+                    <Wallet size={18} className="text-amber-600" />
+                    <div>
+                      <div className="font-bold text-zinc-900 dark:text-zinc-100">Digital Wallets</div>
+                      <div className="text-[10px] text-zinc-400">Standard Wallets</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Verified Payment Methods on File */}
+              <div className="space-y-3">
+                <h4 className="font-bold text-zinc-900 dark:text-zinc-100 text-xs">
+                  Active Payment Methods on File
+                </h4>
+                {data.paymentMethods.length > 0 ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {data.paymentMethods.map((pm) => (
+                      <div
+                        key={pm.id}
+                        className="rounded-xl border border-zinc-200 bg-white p-4 shadow-2xs space-y-2 dark:border-zinc-800 dark:bg-zinc-900"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 font-bold text-zinc-900 dark:text-zinc-100">
+                            <CreditCard size={18} />
+                            <span>{pm.brand}</span>
+                          </div>
+                          <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                            Verified Gateway Token
+                          </span>
+                        </div>
+                        <div className="text-xs text-zinc-500 font-mono">
+                          Transaction Ref: •••• {pm.last4}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-zinc-200 p-6 text-center text-xs text-zinc-400 dark:border-zinc-800">
+                    No payment methods linked yet. When you complete your first plan upgrade or credits purchase via
+                    Razorpay, your verified transaction token will be saved here automatically.
+                  </div>
+                )}
+              </div>
+
+              {/* PCI-DSS Security Guarantee */}
+              <div className="rounded-xl border border-zinc-200/60 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/30 flex items-start gap-3">
+                <Lock size={16} className="text-zinc-500 mt-0.5 shrink-0" />
+                <div className="space-y-1 text-xs">
+                  <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    PCI-DSS Level 1 Security & Tokenization
+                  </div>
+                  <p className="text-zinc-500">
+                    MarketerOS does not store raw credit card numbers or CVVs on our servers. All card and UPI payments are
+                    tokenized directly through Razorpay's certified vault in compliance with RBI regulations.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -579,52 +970,108 @@ export function LiveBillingPage() {
         {activeTab === "history" && data && (
           <div className="space-y-4">
             <div className="rounded-xl border border-zinc-200/90 bg-white p-6 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 space-y-4">
-              <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm border-b border-zinc-100 pb-3 dark:border-zinc-800">Billing Event Log</h3>
+              <div className="border-b border-zinc-100 pb-3 dark:border-zinc-800 flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+                    Billing Audit & Event Log
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Activity record of plan upgrades, credits purchases, and settings changes.
+                  </p>
+                </div>
+                <button
+                  onClick={loadBilling}
+                  className="btn-secondary py-1 px-2.5 text-[11px] flex items-center gap-1"
+                >
+                  <RefreshCw size={12} /> Refresh Log
+                </button>
+              </div>
+
               <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
                 {data.billingHistory.map((evt) => (
                   <div key={evt.id} className="py-3 flex items-center justify-between">
                     <div>
-                      <div className="font-semibold text-zinc-900 dark:text-zinc-100">{evt.action}</div>
-                      <div className="text-[11px] text-zinc-400 mt-0.5">By {evt.actor} · {new Date(evt.timestamp).toLocaleString()}</div>
+                      <div className="font-semibold text-zinc-900 dark:text-zinc-100 capitalize">
+                        {evt.action}
+                      </div>
+                      <div className="text-[11px] text-zinc-400 mt-0.5">
+                        By {evt.actor} ·{" "}
+                        {new Date(evt.timestamp).toLocaleString("en-US", {
+                          dateStyle: "medium",
+                          timeStyle: "short"
+                        })}
+                      </div>
                     </div>
                     {evt.amount && (
                       <span className="font-bold text-zinc-900 dark:text-zinc-100">{money(evt.amount)}</span>
                     )}
                   </div>
                 ))}
+                {data.billingHistory.length === 0 && (
+                  <div className="py-8 text-center text-zinc-400">
+                    No billing activity recorded yet.
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* TAB 7: CREDITS */}
+        {/* TAB 7: AI CREDITS */}
         {activeTab === "credits" && data && (
           <div className="space-y-6">
-            <div className="rounded-xl border border-zinc-200/90 bg-white p-6 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 space-y-4">
-              <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
+            <div className="rounded-xl border border-zinc-200/90 bg-white p-6 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <div className="flex items-center gap-2">
-                  <Sparkles size={18} className="text-zinc-900 dark:text-zinc-100" />
-                  <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">AI Generation Credits</h3>
+                  <Sparkles size={20} className="text-amber-500" />
+                  <div>
+                    <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+                      AI Generation Credits Pool
+                    </h3>
+                    <p className="text-xs text-zinc-400">
+                      Fueling AI ad copy, visual automations, multi-channel insights, and report generation.
+                    </p>
+                  </div>
                 </div>
-                <button onClick={() => triggerToast("Purchased 5,000 bonus credits.")} className="btn-secondary py-1.5 px-3">
-                  + Buy Extra Credits
+                <button
+                  onClick={() => setIsBuyCreditsModalOpen(true)}
+                  className="btn-primary flex items-center gap-1.5"
+                >
+                  <Sparkles size={13} /> + Buy Extra Credits
                 </button>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-4">
                 <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
-                  <div className="text-[11px] font-semibold text-zinc-500">Monthly Included</div>
-                  <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">{data.credits.included.toLocaleString()}</div>
+                  <div className="text-[11px] font-semibold text-zinc-500">Plan Included (Monthly)</div>
+                  <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">
+                    {data.credits.included.toLocaleString()}
+                  </div>
+                  <div className="text-[10px] text-zinc-400 mt-1">Resets each billing cycle</div>
+                </div>
+
+                <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
+                  <div className="text-[11px] font-semibold text-zinc-500">Purchased Bonus Credits</div>
+                  <div className="text-2xl font-bold text-sky-600 dark:text-sky-400 mt-1">
+                    {data.credits.purchased.toLocaleString()}
+                  </div>
+                  <div className="text-[10px] text-zinc-400 mt-1">Never expires</div>
                 </div>
 
                 <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
                   <div className="text-[11px] font-semibold text-zinc-500">Consumed Credits</div>
-                  <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">{data.credits.consumed.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">
+                    {data.credits.consumed.toLocaleString()}
+                  </div>
+                  <div className="text-[10px] text-zinc-400 mt-1">1 credit per ~100 tokens</div>
                 </div>
 
                 <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
-                  <div className="text-[11px] font-semibold text-zinc-500">Remaining Balance</div>
-                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{data.credits.remaining.toLocaleString()}</div>
+                  <div className="text-[11px] font-semibold text-zinc-500">Remaining Available Balance</div>
+                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                    {data.credits.remaining.toLocaleString()}
+                  </div>
+                  <div className="text-[10px] text-emerald-600 mt-1">Ready for generation</div>
                 </div>
               </div>
             </div>
@@ -635,180 +1082,554 @@ export function LiveBillingPage() {
         {activeTab === "settings" && data && (
           <div className="space-y-6">
             <div className="rounded-xl border border-zinc-200/90 bg-white p-6 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 max-w-2xl space-y-4">
-              <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm border-b border-zinc-100 pb-3 dark:border-zinc-800">Billing Contact & Tax Details</h3>
-              <div className="space-y-3">
+              <div className="border-b border-zinc-100 pb-3 dark:border-zinc-800">
+                <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+                  Billing Contact & Corporate Tax Information
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  These details will be dynamically printed on all subsequent invoices and receipts.
+                </p>
+              </div>
+
+              <form onSubmit={handleSaveSettings} className="space-y-4">
                 <div>
-                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300">Company Name</label>
+                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300">
+                    Legal Company / Business Name
+                  </label>
                   <input
+                    type="text"
+                    required
                     value={contactForm.companyName}
                     onChange={(e) => setContactForm({ ...contactForm, companyName: e.target.value })}
                     className="input-clean mt-1"
+                    placeholder="Enter legal business name"
                   />
                 </div>
-                <div>
-                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300">Billing Email</label>
-                  <input
-                    value={contactForm.billingEmail}
-                    onChange={(e) => setContactForm({ ...contactForm, billingEmail: e.target.value })}
-                    className="input-clean mt-1 font-mono"
-                  />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-semibold text-zinc-700 dark:text-zinc-300">
+                      Billing Email Address
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={contactForm.billingEmail}
+                      onChange={(e) => setContactForm({ ...contactForm, billingEmail: e.target.value })}
+                      className="input-clean mt-1 font-mono"
+                      placeholder="finance@yourcompany.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-zinc-700 dark:text-zinc-300">
+                      Tax ID / VAT / GSTIN
+                    </label>
+                    <input
+                      type="text"
+                      value={contactForm.taxId}
+                      onChange={(e) => setContactForm({ ...contactForm, taxId: e.target.value })}
+                      className="input-clean mt-1 font-mono uppercase"
+                      placeholder="e.g. GSTIN27AAACW1234F1Z5 or VAT ID"
+                    />
+                  </div>
                 </div>
+
                 <div>
-                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300">Tax / VAT ID</label>
+                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300">
+                    Registered Billing Address
+                  </label>
                   <input
-                    value={contactForm.taxId}
-                    onChange={(e) => setContactForm({ ...contactForm, taxId: e.target.value })}
-                    className="input-clean mt-1 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300">Billing Address</label>
-                  <input
+                    type="text"
                     value={contactForm.address}
                     onChange={(e) => setContactForm({ ...contactForm, address: e.target.value })}
                     className="input-clean mt-1"
+                    placeholder="Street address, Suite, City, Postal code"
                   />
                 </div>
-                <div className="pt-2 flex justify-end">
-                  <button onClick={() => triggerToast("Billing settings updated.")} className="btn-primary">
-                    Save Billing Settings
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-semibold text-zinc-700 dark:text-zinc-300">
+                      Country / Jurisdiction
+                    </label>
+                    <input
+                      type="text"
+                      value={contactForm.country}
+                      onChange={(e) => setContactForm({ ...contactForm, country: e.target.value })}
+                      className="input-clean mt-1"
+                      placeholder="e.g. India or United States"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-zinc-700 dark:text-zinc-300">
+                      Billing Currency
+                    </label>
+                    <select
+                      value={contactForm.currency}
+                      onChange={(e) => setContactForm({ ...contactForm, currency: e.target.value })}
+                      className="input-clean mt-1 font-mono"
+                    >
+                      <option value="USD">USD ($)</option>
+                      <option value="INR">INR (₹)</option>
+                      <option value="EUR">EUR (€)</option>
+                      <option value="GBP">GBP (£)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={isSavingSettings}
+                    className="btn-primary flex items-center gap-1.5"
+                  >
+                    {isSavingSettings ? (
+                      <>
+                        <RefreshCw size={13} className="animate-spin" /> Saving...
+                      </>
+                    ) : (
+                      "Save Billing Settings"
+                    )}
                   </button>
                 </div>
-              </div>
+              </form>
             </div>
           </div>
         )}
 
-        {/* PLAN UPGRADE CONFIRMATION DRAWER */}
+        {/* PLAN UPGRADE MODAL */}
         {selectedPlanToUpgrade && (
-          <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs animate-in fade-in">
-            <div className="w-full max-w-md bg-white p-6 shadow-2xl dark:bg-zinc-900 overflow-y-auto space-y-5 animate-in slide-in-from-right">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in">
+            <div className="w-full max-w-md bg-white p-6 rounded-xl border border-zinc-200 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 space-y-5 animate-in zoom-in-95">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Confirm Plan Upgrade</h3>
-                <button onClick={() => setSelectedPlanToUpgrade(null)} className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  Upgrade to {selectedPlanToUpgrade.name}
+                </h3>
+                <button
+                  onClick={() => setSelectedPlanToUpgrade(null)}
+                  className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                >
                   <X size={16} />
                 </button>
               </div>
 
               <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950/60 space-y-2">
-                <div className="font-bold text-zinc-900 dark:text-zinc-100 text-base">{selectedPlanToUpgrade.name} Plan</div>
-                <div className="text-xl font-extrabold text-zinc-900 dark:text-zinc-100">
-                  {money(billingInterval === "monthly" ? selectedPlanToUpgrade.monthlyPrice : selectedPlanToUpgrade.yearlyPrice)}/{billingInterval === "monthly" ? "mo" : "yr"}
+                <div className="font-bold text-zinc-900 dark:text-zinc-100 text-base">
+                  {selectedPlanToUpgrade.name} Tier
+                </div>
+                <div className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-100">
+                  {money(
+                    billingInterval === "monthly"
+                      ? selectedPlanToUpgrade.monthlyPrice
+                      : selectedPlanToUpgrade.yearlyPrice
+                  )}
+                  <span className="text-xs font-normal text-zinc-400">
+                    /{billingInterval === "monthly" ? "mo" : "yr"}
+                  </span>
                 </div>
                 <p className="text-xs text-zinc-500">{selectedPlanToUpgrade.description}</p>
               </div>
 
               <div className="space-y-2 text-xs text-zinc-600 dark:text-zinc-400">
-                <div className="font-bold text-zinc-900 dark:text-zinc-100">Plan Impact Summary:</div>
+                <div className="font-bold text-zinc-900 dark:text-zinc-100">Plan Quota Summary:</div>
                 <div className="flex justify-between py-1 border-b border-zinc-100 dark:border-zinc-800">
                   <span>Team Seats</span>
-                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">{selectedPlanToUpgrade.maxMembers} seats</span>
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    {selectedPlanToUpgrade.maxMembers} seats
+                  </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-zinc-100 dark:border-zinc-800">
-                  <span>Monthly AI Credits</span>
-                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">{selectedPlanToUpgrade.monthlyAICredits.toLocaleString()} credits</span>
+                  <span>Monthly AI Generation Credits</span>
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    {selectedPlanToUpgrade.monthlyAICredits.toLocaleString()} credits
+                  </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-zinc-100 dark:border-zinc-800">
                   <span>Client Workspaces</span>
-                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">{selectedPlanToUpgrade.maxClients} clients</span>
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    {selectedPlanToUpgrade.maxClients} clients
+                  </span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                <button onClick={() => setSelectedPlanToUpgrade(null)} className="flex-1 btn-secondary">
+                <button
+                  onClick={() => setSelectedPlanToUpgrade(null)}
+                  className="flex-1 btn-secondary"
+                >
                   Cancel
                 </button>
                 <button
-                  onClick={() => handlePlanChange(selectedPlanToUpgrade.slug)}
+                  onClick={() =>
+                    launchRazorpayCheckout({
+                      type: "subscription",
+                      planSlug: selectedPlanToUpgrade.slug,
+                      interval: billingInterval,
+                      title: `Upgrade to ${selectedPlanToUpgrade.name}`,
+                      description: `${selectedPlanToUpgrade.name} Subscription (${billingInterval})`,
+                      amount:
+                        billingInterval === "monthly"
+                          ? selectedPlanToUpgrade.monthlyPrice
+                          : selectedPlanToUpgrade.yearlyPrice
+                    })
+                  }
                   disabled={busy}
-                  className="flex-1 btn-primary"
+                  className="flex-1 btn-primary flex items-center justify-center gap-1.5"
                 >
-                  {busy ? "Updating..." : "Confirm Upgrade"}
+                  {busy ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin" /> Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard size={13} /> Pay with Razorpay
+                    </>
+                  )}
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* INVOICE RECEIPT DRAWER */}
-        {selectedInvoice && (
-          <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs animate-in fade-in">
-            <div className="w-full max-w-md bg-white p-6 shadow-2xl dark:bg-zinc-900 overflow-y-auto space-y-5 animate-in slide-in-from-right">
+        {/* BUY AI CREDITS MODAL */}
+        {isBuyCreditsModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in">
+            <div className="w-full max-w-lg bg-white p-6 rounded-xl border border-zinc-200 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 space-y-5 animate-in zoom-in-95">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Invoice Receipt Details</h3>
-                <button onClick={() => setSelectedInvoice(null)} className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={18} className="text-amber-500" />
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    Purchase Extra AI Generation Credits
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setIsBuyCreditsModalOpen(false)}
+                  className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                >
                   <X size={16} />
                 </button>
               </div>
 
-              <div className="space-y-3">
-                <div className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{selectedInvoice.invoiceNumber}</div>
-                <div className="text-xs text-zinc-500">Billed to: <span className="font-semibold text-zinc-800 dark:text-zinc-200">{contactForm.companyName}</span></div>
-                <div className="text-xs text-zinc-500">Date: {new Date(selectedInvoice.invoiceDate).toLocaleDateString()}</div>
-                <div className="text-xs text-zinc-500">Status: <span className="font-bold text-emerald-600">{selectedInvoice.status}</span></div>
+              <p className="text-xs text-zinc-500">
+                Select an AI credit pack. Bonus credits never expire and are added directly to your generative quota.
+              </p>
 
-                <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950/60 space-y-2">
-                  <div className="flex justify-between font-bold text-zinc-900 dark:text-zinc-100">
-                    <span>Total Paid</span>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {CREDIT_PACKS.map((pack) => {
+                  const isSelected = selectedCreditPack.id === pack.id;
+                  return (
+                    <div
+                      key={pack.id}
+                      onClick={() => setSelectedCreditPack(pack)}
+                      className={cn(
+                        "cursor-pointer rounded-xl border p-4 text-center transition space-y-2",
+                        isSelected
+                          ? "border-zinc-900 bg-zinc-50 ring-2 ring-zinc-900 dark:border-zinc-100 dark:bg-zinc-800 dark:ring-zinc-100"
+                          : "border-zinc-200 bg-white hover:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950/60"
+                      )}
+                    >
+                      <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{pack.name}</div>
+                      <div className="text-lg font-extrabold text-zinc-900 dark:text-zinc-100">
+                        {pack.credits.toLocaleString()}
+                      </div>
+                      <div className="text-[11px] text-zinc-400">credits</div>
+                      <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 pt-1">
+                        ${pack.price}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="rounded-xl border border-zinc-100 bg-zinc-50/80 p-3 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950/60 flex items-center justify-between">
+                <span>Selected: <strong>{selectedCreditPack.name}</strong></span>
+                <span className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+                  Total: ${selectedCreditPack.price}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                <button onClick={() => setIsBuyCreditsModalOpen(false)} className="flex-1 btn-secondary">
+                  Cancel
+                </button>
+                <button
+                  onClick={() =>
+                    launchRazorpayCheckout({
+                      type: "credits",
+                      packId: selectedCreditPack.id,
+                      title: `Buy ${selectedCreditPack.name}`,
+                      description: `${selectedCreditPack.credits.toLocaleString()} Extra AI Credits`,
+                      amount: selectedCreditPack.price
+                    })
+                  }
+                  disabled={busy}
+                  className="flex-1 btn-primary flex items-center justify-center gap-1.5"
+                >
+                  {busy ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin" /> Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard size={13} /> Pay ${selectedCreditPack.price} with Razorpay
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ITEMIZED INVOICE RECEIPT DRAWER */}
+        {selectedInvoice && (
+          <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs animate-in fade-in">
+            <div className="w-full max-w-lg bg-white p-6 shadow-2xl dark:bg-zinc-900 overflow-y-auto space-y-6 animate-in slide-in-from-right">
+              <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
+                <div className="flex items-center gap-2">
+                  <Receipt size={18} className="text-zinc-700 dark:text-zinc-300" />
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    Official Tax Receipt
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setSelectedInvoice(null)}
+                  className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div id="printable-receipt" className="space-y-4">
+                <div className="flex justify-between items-start border-b border-zinc-100 pb-4 dark:border-zinc-800">
+                  <div>
+                    <h2 className="text-xl font-extrabold text-zinc-900 dark:text-zinc-100">
+                      {selectedInvoice.invoiceNumber}
+                    </h2>
+                    <div className="text-[11px] text-zinc-500 mt-1">
+                      Date:{" "}
+                      {new Date(selectedInvoice.invoiceDate).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric"
+                      })}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <StatusBadge status={selectedInvoice.status === "PAID" ? "Active" : "Draft"} />
+                    <div className="font-mono text-[10px] text-zinc-400 mt-1">
+                      {selectedInvoice.razorpayPaymentId || "PAY-REF-DIRECT"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <div className="font-bold text-zinc-400 text-[10px] uppercase tracking-wider">
+                      Billed To:
+                    </div>
+                    <div className="font-bold text-zinc-900 dark:text-zinc-100 mt-1">
+                      {contactForm.companyName || data?.billingContact.companyName || "Workspace Account"}
+                    </div>
+                    {(contactForm.billingEmail || data?.billingContact.billingEmail) && (
+                      <div className="text-zinc-500">
+                        {contactForm.billingEmail || data?.billingContact.billingEmail}
+                      </div>
+                    )}
+                    {(contactForm.address || data?.billingContact.address) && (
+                      <div className="text-zinc-500">
+                        {contactForm.address || data?.billingContact.address}
+                      </div>
+                    )}
+                    {(contactForm.taxId || data?.billingContact.taxId) && (
+                      <div className="font-mono text-zinc-600 dark:text-zinc-400 mt-1">
+                        Tax / GSTIN: {contactForm.taxId || data?.billingContact.taxId}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="text-right">
+                    <div className="font-bold text-zinc-400 text-[10px] uppercase tracking-wider">
+                      Provider:
+                    </div>
+                    <div className="font-bold text-zinc-900 dark:text-zinc-100 mt-1">MarketerOS Platform</div>
+                    <div className="text-zinc-500">billing@marketeros.com</div>
+                    <div className="text-zinc-500">
+                      {data?.gateway.isConfigured ? "Razorpay Gateway (Production/Test)" : "Razorpay Test Sandbox"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Line Items Table */}
+                <div className="rounded-xl border border-zinc-200 overflow-hidden dark:border-zinc-800">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-800/60 font-semibold">
+                        <th className="p-3 pl-4">Description</th>
+                        <th className="p-3 text-center">Qty</th>
+                        <th className="p-3 pr-4 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                      {selectedInvoice.items && selectedInvoice.items.length > 0 ? (
+                        selectedInvoice.items.map((item: any, idx: number) => (
+                          <tr key={idx}>
+                            <td className="p-3 pl-4 font-medium text-zinc-800 dark:text-zinc-200">
+                              {item.description}
+                            </td>
+                            <td className="p-3 text-center text-zinc-500">{item.quantity || 1}</td>
+                            <td className="p-3 pr-4 text-right font-semibold text-zinc-900 dark:text-zinc-100">
+                              {money(item.amount || selectedInvoice.amount)} {selectedInvoice.currency}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td className="p-3 pl-4 font-medium text-zinc-800 dark:text-zinc-200">
+                            Workspace Subscription Plan
+                          </td>
+                          <td className="p-3 text-center text-zinc-500">1</td>
+                          <td className="p-3 pr-4 text-right font-semibold text-zinc-900 dark:text-zinc-100">
+                            {money(selectedInvoice.amount)} {selectedInvoice.currency}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Totals */}
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950/60 space-y-2">
+                  <div className="flex justify-between text-xs text-zinc-500">
+                    <span>Subtotal</span>
+                    <span>{money(selectedInvoice.amount)} {selectedInvoice.currency}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-zinc-500">
+                    <span>Taxes & GST</span>
+                    <span>{selectedInvoice.currency === "INR" ? "₹0.00" : "$0.00"} Included</span>
+                  </div>
+                  <div className="flex justify-between font-extrabold text-sm text-zinc-900 dark:text-zinc-100 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                    <span>Total Amount Paid</span>
                     <span>{money(selectedInvoice.amount)} {selectedInvoice.currency}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-end">
-                <button onClick={() => setSelectedInvoice(null)} className="btn-secondary">
-                  Close
+              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+                <button
+                  onClick={() => window.print()}
+                  className="btn-secondary flex items-center gap-1.5"
+                >
+                  <Printer size={13} /> Print / Save PDF
+                </button>
+                <button onClick={() => setSelectedInvoice(null)} className="btn-primary">
+                  Close Receipt
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ADD PAYMENT METHOD MODAL */}
-        {isAddPaymentModalOpen && (
+        {/* RAZORPAY SETUP GUIDE MODAL */}
+        {isSetupGuideOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in">
-            <div className="w-full max-w-md bg-white p-6 rounded-xl border border-zinc-200 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
+            <div className="w-full max-w-lg bg-white p-6 rounded-xl border border-zinc-200 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 space-y-5 animate-in zoom-in-95">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Add Credit Card</h3>
-                <button onClick={() => setIsAddPaymentModalOpen(false)} className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                <div className="flex items-center gap-2">
+                  <Key size={18} className="text-sky-600" />
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    Razorpay Gateway Setup Guide
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setIsSetupGuideOpen(false)}
+                  className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                >
                   <X size={16} />
                 </button>
               </div>
 
-              <div className="space-y-3">
-                <div>
-                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300">Card Number</label>
-                  <input placeholder="•••• •••• •••• 4242" className="input-clean mt-1 font-mono" />
+              <div className="space-y-3 text-xs text-zinc-600 dark:text-zinc-300">
+                <p>
+                  To enable the official Razorpay Checkout popup modal (with Cards, UPI, Netbanking, QR codes), add your
+                  free test keys to your project's <code className="font-mono bg-zinc-100 px-1 py-0.5 rounded dark:bg-zinc-800">.env</code> file:
+                </p>
+
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950/80 space-y-2">
+                  <div className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center justify-between">
+                    <span>How to get free test keys (1 Minute):</span>
+                    <a
+                      href="https://dashboard.razorpay.com/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sky-600 hover:underline inline-flex items-center gap-1 text-[11px]"
+                    >
+                      Razorpay Dashboard <ExternalLink size={11} />
+                    </a>
+                  </div>
+                  <ol className="list-decimal pl-4 space-y-1 text-zinc-500">
+                    <li>Log in to Razorpay Dashboard (free sign up, no KYC needed for test mode).</li>
+                    <li>Toggle switch to <strong>Test Mode</strong> in the top header.</li>
+                    <li>Go to <strong>Settings → API Keys → Generate Key</strong>.</li>
+                    <li>Copy your <strong>Key ID</strong> and <strong>Key Secret</strong>.</li>
+                  </ol>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-semibold text-zinc-700 dark:text-zinc-300">Expiry Date</label>
-                    <input placeholder="MM / YY" className="input-clean mt-1 font-mono" />
+
+                <div className="space-y-1">
+                  <div className="font-semibold text-zinc-700 dark:text-zinc-300">
+                    Add to your <code className="font-mono">.env</code>:
                   </div>
-                  <div>
-                    <label className="block font-semibold text-zinc-700 dark:text-zinc-300">CVC</label>
-                    <input placeholder="123" className="input-clean mt-1 font-mono" />
-                  </div>
+                  <pre className="p-3 rounded-lg bg-zinc-900 text-zinc-100 font-mono text-[11px] overflow-x-auto select-all">
+{`RAZORPAY_KEY_ID="rzp_test_YourKeyIdHere"
+RAZORPAY_KEY_SECRET="YourSecretKeyHere"`}
+                  </pre>
+                  <p className="text-[10px] text-zinc-400">
+                    After updating <code className="font-mono">.env</code>, restart your server with <code className="font-mono">npm run dev</code>.
+                  </p>
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-end gap-2">
-                <button onClick={() => setIsAddPaymentModalOpen(false)} className="btn-secondary">
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    setIsAddPaymentModalOpen(false);
-                    triggerToast("New card linked successfully.");
-                  }}
-                  className="btn-primary"
-                >
-                  Save Card
-                </button>
-              </div>
+              {pendingSimulatedCheckout ? (
+                <div className="rounded-xl border border-sky-200 bg-sky-50/80 p-3.5 space-y-2 dark:border-sky-900 dark:bg-sky-950/40">
+                  <div className="font-bold text-sky-900 dark:text-sky-200 text-xs">
+                    Test Mode Simulator Option:
+                  </div>
+                  <p className="text-xs text-sky-800 dark:text-sky-300">
+                    Don't have keys right now? You can test the checkout flow, subscription update, and invoice generation
+                    using the built-in test sandbox:
+                  </p>
+                  <button
+                    onClick={() =>
+                      verifyAndFinalizePayment({
+                        orderId: pendingSimulatedCheckout.orderId,
+                        paymentId: `pay_test_${Math.random().toString(36).substring(2, 9)}`,
+                        signature: `sim_sig_${pendingSimulatedCheckout.orderId}`,
+                        type: pendingSimulatedCheckout.type,
+                        planSlug: pendingSimulatedCheckout.planSlug,
+                        interval: pendingSimulatedCheckout.interval,
+                        packId: pendingSimulatedCheckout.packId
+                      })
+                    }
+                    disabled={busy}
+                    className="w-full btn-primary py-2 text-xs flex items-center justify-center gap-1.5"
+                  >
+                    {busy ? <RefreshCw size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
+                    Complete Test Checkout in Sandbox
+                  </button>
+                </div>
+              ) : (
+                <div className="pt-2 flex justify-end">
+                  <button onClick={() => setIsSetupGuideOpen(false)} className="btn-secondary">
+                    Got it
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
+
+        {/* REUSABLE CONFIRMATION DIALOG */}
         <CustomDialog
           isOpen={dialogConfig.isOpen}
           title={dialogConfig.title}

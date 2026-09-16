@@ -211,6 +211,15 @@ export async function GET(request: Request, { params }: { params: { path: string
     const data = await getPersistedBillingOverview(auth.session.workspaceId);
     return ok(data);
   }
+  if (path.startsWith("billing/invoices/")) {
+    const invoiceId = path.split("/")[2];
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, workspaceId: auth.session.workspaceId },
+      include: { workspace: { include: { owner: true } } }
+    });
+    if (!invoice) return error("Invoice not found.", 404);
+    return ok(invoice);
+  }
   if (path === "team") return ok({ items: await listPersistedTeam(auth.session.workspaceId), filters: listQuery });
   if (path === "settings") {
     const { getPersistedSettings } = await import("@/lib/settings-service");
@@ -259,20 +268,131 @@ export async function POST(request: Request, { params }: { params: { path: strin
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid insight context.");
     try { return ok(await generateInsight({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, context: parsed.data.context }), undefined, { status: 201 }); } catch (cause) { return error(cause instanceof Error ? cause.message : "AI insight generation failed.", 503, "PROVIDER_NOT_CONFIGURED"); }
   }
+  if (path === "billing/razorpay/create-order") {
+    const auth = await context("billing.manage");
+    if (auth.error) return auth.error;
+    const parsed = z.object({
+      type: z.enum(["subscription", "credits"]),
+      planSlug: z.string().optional(),
+      interval: z.enum(["monthly", "yearly"]).default("monthly"),
+      packId: z.string().optional()
+    }).safeParse(body);
+    if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid order parameters.");
+
+    const { createRazorpayOrder, CREDIT_PACKS } = await import("@/lib/razorpay");
+    const { DEFAULT_PLANS } = await import("@/lib/billing-service");
+
+    let amount = 0;
+    let receipt = `rcpt_${Date.now()}`;
+    const notes: Record<string, string> = {
+      workspaceId: auth.session.workspaceId,
+      userId: auth.session.userId,
+      type: parsed.data.type
+    };
+
+    if (parsed.data.type === "subscription") {
+      const plan = DEFAULT_PLANS.find((p) => p.slug === parsed.data.planSlug) || DEFAULT_PLANS[1];
+      amount = parsed.data.interval === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
+      notes.planSlug = plan.slug;
+      notes.interval = parsed.data.interval;
+      receipt = `rcpt_sub_${plan.slug}_${Date.now()}`;
+    } else {
+      const pack = CREDIT_PACKS.find((p) => p.id === parsed.data.packId) || CREDIT_PACKS[0];
+      amount = pack.price;
+      notes.packId = pack.id;
+      receipt = `rcpt_cred_${pack.id}_${Date.now()}`;
+    }
+
+    const ws = await prisma.workspace.findUnique({
+      where: { id: auth.session.workspaceId },
+      select: { currency: true }
+    });
+    const currency = ws?.currency || "USD";
+
+    try {
+      const order = await createRazorpayOrder({
+        amount,
+        currency,
+        receipt,
+        notes
+      });
+      return ok(order);
+    } catch (err) {
+      return error(err instanceof Error ? err.message : "Failed to create Razorpay order.", 500, "ORDER_CREATION_FAILED");
+    }
+  }
+  if (path === "billing/razorpay/verify-payment") {
+    const auth = await context("billing.manage");
+    if (auth.error) return auth.error;
+    const parsed = z.object({
+      orderId: z.string().min(1),
+      paymentId: z.string().min(1),
+      signature: z.string().min(1),
+      type: z.enum(["subscription", "credits"]),
+      planSlug: z.string().optional(),
+      interval: z.enum(["monthly", "yearly"]).optional(),
+      packId: z.string().optional()
+    }).safeParse(body);
+    if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid verification payload.");
+
+    const { verifyRazorpayPaymentSignature } = await import("@/lib/razorpay");
+    const isValid = verifyRazorpayPaymentSignature(parsed.data.orderId, parsed.data.paymentId, parsed.data.signature);
+    if (!isValid) {
+      return error("Razorpay payment signature verification failed.", 400, "INVALID_SIGNATURE");
+    }
+
+    try {
+      const { processSuccessfulPayment } = await import("@/lib/billing-service");
+      const result = await processSuccessfulPayment({
+        workspaceId: auth.session.workspaceId,
+        userId: auth.session.userId,
+        type: parsed.data.type,
+        planSlug: parsed.data.planSlug,
+        interval: parsed.data.interval,
+        packId: parsed.data.packId,
+        razorpayOrderId: parsed.data.orderId,
+        razorpayPaymentId: parsed.data.paymentId,
+        razorpaySignature: parsed.data.signature
+      });
+
+      return ok({ success: true, ...result, message: "Payment verified and processed successfully." });
+    } catch (cause) {
+      return error(cause instanceof Error ? cause.message : "Payment processing failed.", 500, "BILLING_PROCESSING_FAILED");
+    }
+  }
+  if (path === "billing/settings") {
+    const auth = await context("billing.manage");
+    if (auth.error) return auth.error;
+    const parsed = z.object({
+      companyName: z.string().optional(),
+      billingEmail: z.string().email().optional().or(z.literal("")),
+      taxId: z.string().optional(),
+      address: z.string().optional(),
+      country: z.string().optional(),
+      currency: z.string().optional()
+    }).safeParse(body);
+    if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid billing settings payload.");
+
+    const { updatePersistedBillingContact } = await import("@/lib/billing-service");
+    const updated = await updatePersistedBillingContact(auth.session.workspaceId, auth.session.userId, parsed.data);
+    return ok({ success: true, workspace: updated, message: "Billing settings updated successfully." });
+  }
   if (path === "billing/checkout") {
     const auth = await context("billing.manage");
     if (auth.error) return auth.error;
-    const parsed = z.object({ planId: z.string().min(1), interval: z.enum(["monthly", "yearly"]) }).safeParse(body);
+    const parsed = z.object({ planId: z.string().min(1), interval: z.enum(["monthly", "yearly"]).default("monthly") }).safeParse(body);
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid billing checkout request.");
     try {
-      const { updatePersistedSubscriptionPlan } = await import("@/lib/billing-service");
-      const updated = await updatePersistedSubscriptionPlan(
-        auth.session.workspaceId,
-        auth.session.userId,
-        parsed.data.planId,
-        parsed.data.interval
-      );
-      return ok({ success: true, subscription: updated, message: `Successfully updated plan to ${parsed.data.planId.toUpperCase()}.` });
+      const { processSuccessfulPayment } = await import("@/lib/billing-service");
+      const result = await processSuccessfulPayment({
+        workspaceId: auth.session.workspaceId,
+        userId: auth.session.userId,
+        type: "subscription",
+        planSlug: parsed.data.planId,
+        interval: parsed.data.interval,
+        razorpayPaymentId: `pay_direct_${Date.now()}`
+      });
+      return ok({ success: true, ...result, message: `Successfully updated plan to ${parsed.data.planId.toUpperCase()}.` });
     } catch (cause) {
       return error(cause instanceof Error ? cause.message : "Unable to update subscription plan.", 500, "BILLING_UPDATE_FAILED");
     }
@@ -285,12 +405,9 @@ export async function POST(request: Request, { params }: { params: { path: strin
   if (path === "billing/cancel") {
     const auth = await context("billing.manage");
     if (auth.error) return auth.error;
-    await prisma.subscription.updateMany({
-      where: { workspaceId: auth.session.workspaceId },
-      data: { cancelAtPeriodEnd: true, status: "CANCELLED" }
-    });
-    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CANCEL_SUBSCRIPTION", module: "billing", entityType: "Subscription", entityId: auth.session.workspaceId });
-    return ok({ cancelAtPeriodEnd: true, message: "Subscription cancelled." });
+    const { cancelPersistedSubscription } = await import("@/lib/billing-service");
+    await cancelPersistedSubscription(auth.session.workspaceId, auth.session.userId);
+    return ok({ cancelAtPeriodEnd: true, message: "Subscription cancelled successfully." });
   }
   if (path === "settings/api-keys") {
     const auth = await context("settings.manage");

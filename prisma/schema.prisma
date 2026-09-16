@@ -330,6 +330,10 @@ model Workspace {
   timeFormat       String                @default("h:mm a")
   language         String                @default("en")
   theme            String                @default("light")
+  taxId            String?
+  billingAddress   String?
+  billingEmail     String?
+  bonusAICredits   Int?                  @default(0)
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
   owner            User                  @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
@@ -878,6 +882,8 @@ model Subscription {
   stripeSubscriptionId   String?
   externalCustomerId     String?
   externalSubscriptionId String?
+  razorpaySubscriptionId String?
+  razorpayPaymentId      String?
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
   workspace              Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -900,6 +906,10 @@ model Invoice {
   pdfUrl            String?
   stripeInvId       String?
   providerInvoiceId String?
+  items             Json?
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  razorpaySignature String?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   workspace         Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
