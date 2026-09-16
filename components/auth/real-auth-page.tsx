@@ -50,9 +50,15 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
-      const payload = (await response.json()) as ApiResponse<{ next?: string }>;
+      let payload: ApiResponse<{ next?: string }> | null = null;
+      try {
+        payload = (await response.json()) as ApiResponse<{ next?: string }>;
+      } catch {
+        // Fallback for non-JSON error pages
+      }
+
       if (!response.ok) {
-        throw new Error(payload.error?.message || "Unable to complete this request.");
+        throw new Error(payload?.error?.message || `Server error (${response.status}): Database tables may not be created yet or connection failed.`);
       }
 
       const target = returnTo || payload.data?.next || "/";
