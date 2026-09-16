@@ -106,6 +106,19 @@ export type BillingOverviewPayload = {
     remaining: number;
     resetDate: string;
   };
+  aiUsageHistory: Array<{
+    id: string;
+    feature: string;
+    route: string;
+    kind: string;
+    promptSnippet: string;
+    tokensTotal: number;
+    creditsUsed: number;
+    model: string;
+    status: string;
+    timestamp: string;
+    actor: string;
+  }>;
   billingContact: {
     companyName: string;
     billingEmail: string;
@@ -266,7 +279,7 @@ async function createInvoiceWithRetry(data: {
 }
 
 export async function getPersistedBillingOverview(workspaceId: string): Promise<BillingOverviewPayload> {
-  let [workspace, subscription, dbPlans, invoices, auditLogs] = await Promise.all([
+  let [workspace, subscription, dbPlans, invoices, auditLogs, aiRequests] = await Promise.all([
     prisma.workspace.findUnique({
       where: { id: workspaceId },
       include: {
@@ -296,6 +309,12 @@ export async function getPersistedBillingOverview(workspaceId: string): Promise<
     }),
     prisma.auditLog.findMany({
       where: { workspaceId, module: "billing" },
+      include: { user: true },
+      orderBy: { createdAt: "desc" },
+      take: 30
+    }),
+    prisma.aIRequest.findMany({
+      where: { workspaceId },
       include: { user: true },
       orderBy: { createdAt: "desc" },
       take: 30
@@ -513,6 +532,30 @@ export async function getPersistedBillingOverview(workspaceId: string): Promise<
     actor: log.user ? `${log.user.firstName} ${log.user.lastName}` : "Razorpay Engine"
   }));
 
+  const aiUsageHistory = aiRequests.map((req) => {
+    const creditsUsed = Math.max(1, Math.round((req.tokensTotal || 0) / 100));
+    const feature = req.feature || (req.kind === "insight" ? "AI Insights" : "Content Studio");
+    const route = feature === "AI Insights" || req.kind === "insight" ? "/ai-insights" : "/content-studio";
+    return {
+      id: req.id,
+      feature,
+      route,
+      kind: req.kind || "diagnostic",
+      promptSnippet: req.prompt ? req.prompt.slice(0, 80) + (req.prompt.length > 80 ? "…" : "") : "Marketing prompt",
+      tokensTotal: req.tokensTotal || 0,
+      creditsUsed,
+      model: req.model || "gemini-3.6-flash",
+      status: req.status || "complete",
+      timestamp: req.createdAt.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      }),
+      actor: req.user ? `${req.user.firstName} ${req.user.lastName}` : "Workspace Member"
+    };
+  });
+
   const resetDate = subscription.currentPeriodEnd.toISOString();
   const isYearly = subscription.interval === "YEARLY";
   const monthlyCost = isYearly
@@ -564,6 +607,7 @@ export async function getPersistedBillingOverview(workspaceId: string): Promise<
       remaining: Math.max(0, totalAICredits - aiCreditsUsed),
       resetDate
     },
+    aiUsageHistory,
     billingContact: {
       companyName: workspace.name || "",
       billingEmail: workspace.billingEmail || workspace.owner?.email || "",

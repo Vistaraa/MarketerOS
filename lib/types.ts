@@ -54,6 +54,8 @@ export type Insight = {
   confidence: number;
   tone: "purple" | "green" | "orange" | "blue";
   action: string;
+  status?: "NEW" | "REVIEWED" | "APPLIED" | "DISMISSED" | "New" | "Reviewed" | "Applied" | "Dismissed";
+  actionPayload?: Record<string, unknown> | null;
 };
 
 export type SocialPost = {

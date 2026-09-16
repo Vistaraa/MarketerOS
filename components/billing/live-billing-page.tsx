@@ -1074,6 +1074,88 @@ export function LiveBillingPage() {
                   <div className="text-[10px] text-emerald-600 mt-1">Ready for generation</div>
                 </div>
               </div>
+
+              {/* AI Credits Consumption by Route & Feature */}
+              <div className="space-y-3 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+                      AI Credits Consumption Log (By Feature & Route)
+                    </h3>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      Live audit of where AI credits were consumed across pages, features, and models.
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-mono text-zinc-400">
+                    {data.aiUsageHistory?.length || 0} Operations Recorded
+                  </span>
+                </div>
+
+                {(!data.aiUsageHistory || data.aiUsageHistory.length === 0) ? (
+                  <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/50 p-8 text-center text-xs text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/50">
+                    No AI credits consumed yet. Try running an AI Diagnostic on the{" "}
+                    <a href="/ai-insights" className="text-indigo-600 underline dark:text-indigo-400">
+                      AI Insights page
+                    </a>{" "}
+                    or generating copy in{" "}
+                    <a href="/content-studio" className="text-indigo-600 underline dark:text-indigo-400">
+                      Content Studio
+                    </a>
+                    .
+                  </div>
+                ) : (
+                  <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-zinc-50 text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                        <tr>
+                          <th className="px-4 py-3">Feature & Route</th>
+                          <th className="px-4 py-3">Prompt / Task</th>
+                          <th className="px-4 py-3">Model</th>
+                          <th className="px-4 py-3">Tokens Total</th>
+                          <th className="px-4 py-3">Credits Deducted</th>
+                          <th className="px-4 py-3 text-right">Timestamp</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 bg-white dark:bg-zinc-950">
+                        {data.aiUsageHistory.map((item) => (
+                          <tr key={item.id} className="hover:bg-zinc-50/70 dark:hover:bg-zinc-900/50 transition">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-1.5">
+                                <span className="rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-300">
+                                  {item.feature}
+                                </span>
+                                <a
+                                  href={item.route}
+                                  className="font-mono text-[10px] text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 underline"
+                                >
+                                  {item.route}
+                                </a>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 font-medium text-zinc-800 dark:text-zinc-200 max-w-[260px] truncate">
+                              {item.promptSnippet}
+                            </td>
+                            <td className="px-4 py-3 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+                              {item.model}
+                            </td>
+                            <td className="px-4 py-3 font-mono text-zinc-600 dark:text-zinc-300">
+                              {item.tokensTotal.toLocaleString()} tokens
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="font-bold text-rose-600 dark:text-rose-400">
+                                -{item.creditsUsed} {item.creditsUsed === 1 ? "credit" : "credits"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right text-zinc-400 text-[11px] whitespace-nowrap">
+                              {item.timestamp}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

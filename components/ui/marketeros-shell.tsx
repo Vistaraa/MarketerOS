@@ -10,6 +10,7 @@ import {
   ChevronRight,
   CircleHelp,
   Command,
+  CreditCard,
   FileBarChart,
   Globe2,
   HelpCircle,
@@ -45,6 +46,7 @@ import { cn } from "@/lib/utils";
 // Navigation Groups
 const mainNavItems = [
   { label: "Overview", href: "/", icon: LayoutDashboard },
+  { label: "AI Insights", href: "/ai-insights", icon: Sparkles, badge: "AI" },
   { label: "Campaigns", href: "/campaigns", icon: Target },
   { label: "Integrations", href: "/integrations", icon: Network },
   { label: "Leads", href: "/leads", icon: Users, badge: "New" },
@@ -60,8 +62,9 @@ const workspaceNavItems = [
 ] as const;
 
 const systemNavItems = [
-  { label: "Settings", href: "/settings", icon: Settings2 },
-  { label: "Billing", href: "/billing", icon: FileBarChart }
+  { label: "Notifications", href: "/notifications", icon: Bell },
+  { label: "Billing", href: "/billing", icon: CreditCard },
+  { label: "Settings", href: "/settings", icon: Settings2 }
 ] as const;
 
 function isRouteActive(pathname: string, href: string) {
@@ -79,14 +82,21 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   const allItems = useMemo(
     () => [
       { category: "Navigation", label: "Dashboard / Overview", href: "/", icon: LayoutDashboard },
+      { category: "Navigation", label: "AI Marketing Insights", href: "/ai-insights", icon: Sparkles },
       { category: "Navigation", label: "Campaigns Management", href: "/campaigns", icon: Target },
       { category: "Navigation", label: "Create New Campaign", href: "/campaigns/create", icon: Plus },
       { category: "Navigation", label: "Platform Integrations", href: "/integrations", icon: Network },
+      { category: "Navigation", label: "Content Studio", href: "/content-studio", icon: PenLine },
+      { category: "Navigation", label: "Marketing Automation", href: "/automation", icon: Zap },
       { category: "Navigation", label: "Leads Pipeline", href: "/leads", icon: Users },
+      { category: "Navigation", label: "Clients Directory", href: "/clients", icon: Users },
+      { category: "Navigation", label: "Team Members", href: "/team", icon: Shield },
       { category: "Navigation", label: "Analytics Overview", href: "/analytics", icon: FileBarChart },
       { category: "Navigation", label: "Marketing Reports", href: "/reports", icon: FileBarChart },
+      { category: "Navigation", label: "Billing & Plans", href: "/billing", icon: CreditCard },
+      { category: "Navigation", label: "System Notifications", href: "/notifications", icon: Bell },
       { category: "Navigation", label: "Workspace Settings", href: "/settings", icon: Settings2 },
-      { category: "Navigation", label: "Billing & Plans", href: "/billing", icon: FileBarChart },
+      { category: "Actions", label: "Generate AI Marketing Insight", href: "/ai-insights", icon: Sparkles },
       { category: "Actions", label: "Launch Multi-Channel Campaign", href: "/campaigns/create", icon: Rocket },
       { category: "Actions", label: "Connect Ad Accounts", href: "/integrations", icon: Network }
     ],

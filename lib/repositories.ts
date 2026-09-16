@@ -285,7 +285,9 @@ export async function listPersistedInsights(workspaceId: string) {
     impact: row.impact || "Review",
     confidence: row.score || 85,
     tone: row.type === "BUDGET" || row.type === "KEYWORD" ? "orange" : row.type === "AUDIENCE" ? "blue" : row.type === "CONTENT" ? "purple" : "green",
-    action: "View details"
+    action: "View details",
+    status: row.status as any,
+    actionPayload: (row.actionPayload as Record<string, unknown> | null) || null
   }));
 }
 

@@ -610,7 +610,9 @@ function AiInsightsPanel({
                 <div>
                   <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{ins.title}</div>
                   <div className="mt-0.5 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-                    {ins.description}
+                    {ins.description
+                      ? ins.description.replace(/(?:(?:\n|To improve|Recommendations|Next steps)[^:\n]*:?\s*)?1\.\s+[\s\S]*/i, "").replace(/\*\*([^*]+)\*\*/g, "$1").trim() || ins.description.replace(/\*\*([^*]+)\*\*/g, "$1")
+                      : ""}
                   </div>
                 </div>
               </div>
