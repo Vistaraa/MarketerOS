@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/audit";
+import { listPersistedTeam } from "@/lib/repositories";
 
 export type RolePermissionItem = {
   resource: string;
@@ -46,6 +47,17 @@ export type FullSettingsPayload = {
     phone?: string | null;
     role: string;
   };
+  teamMembers: Array<{
+    id: string;
+    name: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+    status: string;
+    lastLoginAt: string | null;
+    jobTitle: string;
+  }>;
   permissionsMatrix: Record<string, RolePermissionItem[]>;
   notificationPreferences: Array<{
     category: string;
@@ -86,7 +98,7 @@ export async function getPersistedSettings(
   userId: string,
   userRole: string
 ): Promise<FullSettingsPayload> {
-  const [workspace, user, auditLogs] = await Promise.all([
+  const [workspace, user, auditLogs, teamMembers] = await Promise.all([
     prisma.workspace.findUnique({ where: { id: workspaceId } }),
     prisma.user.findUnique({ where: { id: userId } }),
     prisma.auditLog.findMany({
@@ -94,7 +106,8 @@ export async function getPersistedSettings(
       include: { user: true },
       orderBy: { createdAt: "desc" },
       take: 30
-    })
+    }),
+    listPersistedTeam(workspaceId)
   ]);
 
   if (!workspace) throw new Error("Workspace not found.");
@@ -250,6 +263,7 @@ export async function getPersistedSettings(
       phone: user.phone || "+1 (555) 234-5678",
       role: userRole
     },
+    teamMembers,
     permissionsMatrix,
     notificationPreferences,
     securitySessions,

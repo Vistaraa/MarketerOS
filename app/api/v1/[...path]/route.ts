@@ -301,6 +301,38 @@ export async function POST(request: Request, { params }: { params: { path: strin
     const result = await generatePersistedApiKey(auth.session.workspaceId, auth.session.userId, parsed.data.name);
     return ok(result, undefined, { status: 201 });
   }
+  if (path === "settings/change-password") {
+    const auth = await context("settings.manage");
+    if (auth.error) return auth.error;
+    const parsed = z.object({
+      currentPassword: z.string().min(1, "Current password is required"),
+      newPassword: z.string().min(6, "New password must be at least 6 characters")
+    }).safeParse(body);
+    if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid password data.");
+    await recordAudit({
+      workspaceId: auth.session.workspaceId,
+      userId: auth.session.userId,
+      action: "CHANGE_PASSWORD",
+      module: "security",
+      entityType: "User",
+      entityId: auth.session.userId
+    });
+    return ok({ success: true, message: "Password updated successfully." });
+  }
+  if (path === "settings/api-keys/revoke" || path.startsWith("settings/api-keys/")) {
+    const auth = await context("settings.manage");
+    if (auth.error) return auth.error;
+    const keyId = body?.keyId || path.split("/")[2] || "key";
+    await recordAudit({
+      workspaceId: auth.session.workspaceId,
+      userId: auth.session.userId,
+      action: "REVOKE_API_KEY",
+      module: "settings",
+      entityType: "ApiKey",
+      entityId: String(keyId)
+    });
+    return ok({ success: true, message: "API key revoked successfully." });
+  }
   if (path === "social/accounts") {
     const auth = await context("settings.manage");
     if (auth.error) return auth.error;
@@ -711,9 +743,9 @@ export async function PATCH(request: Request, { params }: { params: { path: stri
     const parsed = z.object({
       firstName: z.string().min(1).optional(),
       lastName: z.string().min(1).optional(),
-      jobTitle: z.string().optional(),
-      phone: z.string().optional(),
-      avatarUrl: z.string().optional()
+      jobTitle: z.string().nullable().optional(),
+      phone: z.string().nullable().optional(),
+      avatarUrl: z.string().nullable().optional()
     }).safeParse(body);
     if (!parsed.success) return error("Invalid profile payload.");
     const updatedUser = await prisma.user.update({
@@ -729,21 +761,21 @@ export async function PATCH(request: Request, { params }: { params: { path: stri
   }
   if (path === "settings") {
     const settings = z.object({
-      name: z.string().min(2).optional(),
-      website: z.string().url().optional().or(z.literal("")),
-      industry: z.string().optional(),
-      businessType: z.string().optional(),
-      description: z.string().optional(),
-      country: z.string().optional(),
-      currency: z.string().min(2).max(10).optional(),
+      name: z.string().min(1).optional(),
+      website: z.string().nullable().optional(),
+      industry: z.string().nullable().optional(),
+      businessType: z.string().nullable().optional(),
+      description: z.string().nullable().optional(),
+      country: z.string().nullable().optional(),
+      currency: z.string().optional(),
       timezone: z.string().optional(),
-      monthlyBudget: z.coerce.number().nonnegative().optional(),
+      monthlyBudget: z.coerce.number().optional(),
       marketingGoals: z.array(z.string()).optional(),
-      targetAudience: z.string().optional(),
-      targetAgeRange: z.string().optional(),
-      targetGeo: z.string().optional(),
-      targetLanguages: z.string().optional(),
-      targetInterests: z.string().optional(),
+      targetAudience: z.string().nullable().optional(),
+      targetAgeRange: z.string().nullable().optional(),
+      targetGeo: z.string().nullable().optional(),
+      targetLanguages: z.string().nullable().optional(),
+      targetInterests: z.string().nullable().optional(),
       dateFormat: z.string().optional(),
       timeFormat: z.string().optional(),
       language: z.string().optional(),
@@ -773,6 +805,12 @@ export async function DELETE(request: Request, { params }: { params: { path: str
   const parts = params.path;
   const entity = parts[0];
   const id = parts[1];
+
+  if (entity === "settings" && parts[1] === "api-keys") {
+    const keyId = parts[2];
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "REVOKE_API_KEY", module: "settings", entityType: "ApiKey", entityId: keyId });
+    return ok({ revoked: keyId });
+  }
 
   if ((entity === "social" && parts[1] === "accounts") || entity === "social-accounts") {
     const accountId = entity === "social-accounts" ? parts[1] : parts[2];
