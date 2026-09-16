@@ -14,7 +14,6 @@
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:push": "prisma db push",
-    "prisma:seed": "tsx prisma/seed.ts",
     "worker": "tsx scripts/worker.ts"
   },
   "dependencies": {

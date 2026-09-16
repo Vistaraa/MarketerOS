@@ -58,22 +58,20 @@ ENCRYPTION_KEY="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 
 ---
 
-### 3. Initialize & Seed Database
+### 3. Initialize Database
 
 1. Ensure your PostgreSQL server is running and create the `marketeros` database if it does not already exist.
-2. Push the Prisma schema and seed the database with demo campaigns, metrics, integrations, and users:
+2. Push the Prisma schema to create the tables:
 
 ```bash
-# Push Prisma schema to PostgreSQL
 npx prisma db push
-
-# Seed demo data
-npm run prisma:seed
 ```
+
+*Note: The application is completely self-bootstrapping. Baseline plans and system configurations are automatically synchronized when the server boots—no manual seeding is required.*
 
 ---
 
-### 4. Start the Development Server
+### 4. Start the Application
 
 ```bash
 npm run dev
@@ -83,16 +81,11 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 🔑 Default Login Credentials
+## 👤 User Registration & Authentication
 
-After seeding, log in using the pre-configured admin account:
-
-- **Login URL:** [http://localhost:3000/auth/login](http://localhost:3000/auth/login)
-- **Email:** `rohan@acme.com`
-- **Password:** `password123`
-- **Workspace:** Acme Corp (Agency Admin)
-
-*You can also register a new account and workspace anytime at [`/auth/signup`](http://localhost:3000/auth/signup).*
+MarketerOS is built for live multi-tenant production:
+- **Create Account:** Register a new workspace and account at [`/auth/signup`](http://localhost:3000/auth/signup).
+- **Sign In:** Access your workspace at [`/auth/login`](http://localhost:3000/auth/login).
 
 ---
 

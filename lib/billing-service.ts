@@ -304,35 +304,73 @@ export async function getPersistedBillingOverview(workspaceId: string): Promise<
 
   if (!workspace) throw new Error("Workspace not found.");
 
-  // Seed plans into DB if missing
-  if (!dbPlans.length) {
+  // Self-heal and seed canonical plans into DB if any are missing or outdated
+  const CANONICAL_SLUGS = ["starter", "pro", "business", "enterprise"];
+  const hasAllCanonicalPlans = CANONICAL_SLUGS.every((slug) =>
+    dbPlans.some((p) => p.slug === slug)
+  );
+
+  if (!hasAllCanonicalPlans) {
     for (const p of DEFAULT_PLANS) {
       await prisma.plan.upsert({
         where: { slug: p.slug },
-        update: {},
+        update: {
+          name: p.name,
+          description: p.description,
+          monthlyPrice: p.monthlyPrice,
+          yearlyPrice: p.yearlyPrice,
+          priceMonthly: p.monthlyPrice,
+          priceYearly: p.yearlyPrice,
+          maxMembers: p.maxMembers,
+          maxClients: p.maxClients,
+          maxCampaigns: p.maxCampaigns,
+          monthlyAICredits: p.monthlyAICredits,
+          features: p.features,
+          isActive: true
+        },
         create: {
           name: p.name,
           slug: p.slug,
           description: p.description,
           monthlyPrice: p.monthlyPrice,
           yearlyPrice: p.yearlyPrice,
+          priceMonthly: p.monthlyPrice,
+          priceYearly: p.yearlyPrice,
           maxMembers: p.maxMembers,
           maxClients: p.maxClients,
           maxCampaigns: p.maxCampaigns,
           monthlyAICredits: p.monthlyAICredits,
-          features: p.features
+          features: p.features,
+          isActive: true
         }
       });
     }
-    dbPlans = await prisma.plan.findMany({ orderBy: { monthlyPrice: "asc" } });
+    dbPlans = await prisma.plan.findMany({
+      where: { slug: { in: CANONICAL_SLUGS } },
+      orderBy: { monthlyPrice: "asc" }
+    });
   }
 
-  // Ensure an active subscription exists in DB
-  if (!subscription) {
-    const proPlan = dbPlans.find((p) => p.slug === "pro") || dbPlans[0];
+  // Filter dbPlans strictly to canonical plans so legacy obsolete plans (e.g. "scale") never render
+  const canonicalPlans = dbPlans.filter((p) => CANONICAL_SLUGS.includes(p.slug));
+  const proPlan = canonicalPlans.find((p) => p.slug === "pro") || canonicalPlans[0];
+
+  // Ensure an active subscription exists in DB and is migrated off legacy plans (e.g. "scale") to "pro"
+  if (!subscription || !CANONICAL_SLUGS.includes(subscription.plan?.slug)) {
     const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    subscription = await prisma.subscription.create({
-      data: {
+    subscription = await prisma.subscription.upsert({
+      where: { workspaceId },
+      update: {
+        planId: proPlan.id,
+        planSlug: proPlan.slug,
+        status: "ACTIVE",
+        interval: "MONTHLY",
+        billingInterval: "MONTHLY",
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: periodEnd,
+        cancelAtPeriodEnd: false
+      },
+      create: {
         workspaceId,
         planId: proPlan.id,
         planSlug: proPlan.slug,
@@ -345,6 +383,15 @@ export async function getPersistedBillingOverview(workspaceId: string): Promise<
       },
       include: { plan: true }
     });
+
+    // Attempt to purge obsolete non-canonical plans
+    try {
+      await prisma.plan.deleteMany({
+        where: { slug: { notIn: CANONICAL_SLUGS } }
+      });
+    } catch {
+      // Ignored if historical foreign keys exist
+    }
   }
 
   // Count active team members
@@ -404,7 +451,7 @@ export async function getPersistedBillingOverview(workspaceId: string): Promise<
     calcUsageItem("reports", "Generated Reports", workspace._count.reports, reportsQuota, "reports")
   ];
 
-  const plansPayload = dbPlans.map((p) => ({
+  const plansPayload = canonicalPlans.map((p) => ({
     id: p.id,
     slug: p.slug,
     name: p.name,

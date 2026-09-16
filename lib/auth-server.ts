@@ -125,7 +125,13 @@ export async function createPersistedUser(input: {
         monthlyBudget: input.monthlyBudget
       }
     });
+
     return { user, workspace };
+  }).then(async (result) => {
+    // Automatically ensure workspace subscription without any manual seeding
+    const { ensureWorkspaceSubscription } = await import("@/lib/bootstrap");
+    await ensureWorkspaceSubscription(result.workspace.id, "pro");
+    return result;
   });
 }
 
