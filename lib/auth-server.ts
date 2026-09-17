@@ -57,15 +57,34 @@ export async function getSession(explicitToken?: string) {
     include: { user: true }
   });
   if (!active) return null;
-  const workspace = await prisma.workspace.findFirst({
+  let workspace = await prisma.workspace.findFirst({
     where: { ownerId: active.userId, status: "ACTIVE" },
     orderBy: { createdAt: "asc" }
   });
+  let role = "OWNER";
+
+  if (!workspace) {
+    const membership = await prisma.oAuthState.findFirst({
+      where: {
+        userId: active.userId,
+        providerKey: { in: ["WORKSPACE_MEMBER", "TEAM_INVITE"] },
+        workspace: { status: "ACTIVE" }
+      },
+      include: { workspace: true },
+      orderBy: { createdAt: "desc" }
+    });
+
+    if (membership?.workspace) {
+      workspace = membership.workspace;
+      role = membership.returnTo || "MANAGER";
+    }
+  }
+
   if (!workspace) return null;
   return {
     userId: active.userId,
     workspaceId: workspace.id,
-    role: "OWNER",
+    role,
     email: active.user.email,
     name: `${active.user.firstName} ${active.user.lastName}`
   };
@@ -138,16 +157,35 @@ export async function createPersistedUser(input: {
 export async function authenticatePersistedUser(email: string, password: string) {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) return null;
-  const workspace = await prisma.workspace.findFirst({
+  let workspace = await prisma.workspace.findFirst({
     where: { ownerId: user.id, status: "ACTIVE" },
     orderBy: { createdAt: "asc" }
   });
+  let role = "OWNER";
+
+  if (!workspace) {
+    const membership = await prisma.oAuthState.findFirst({
+      where: {
+        userId: user.id,
+        providerKey: { in: ["WORKSPACE_MEMBER", "TEAM_INVITE"] },
+        workspace: { status: "ACTIVE" }
+      },
+      include: { workspace: true },
+      orderBy: { createdAt: "desc" }
+    });
+
+    if (membership?.workspace) {
+      workspace = membership.workspace;
+      role = membership.returnTo || "MANAGER";
+    }
+  }
+
   if (!workspace) return null;
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   return {
     userId: user.id,
     workspaceId: workspace.id,
-    role: "OWNER",
+    role,
     email: user.email,
     name: `${user.firstName} ${user.lastName}`
   } as SessionInput;

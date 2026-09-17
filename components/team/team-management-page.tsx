@@ -16,7 +16,9 @@ import {
   Lock,
   RefreshCw,
   UserCheck,
-  UserX
+  UserX,
+  Copy,
+  ExternalLink
 } from "lucide-react";
 import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
 import { CustomDialog } from "@/components/ui/custom-dialog";
@@ -92,6 +94,8 @@ export function TeamManagementPage() {
     loadTeam();
   }, []);
 
+  const [resendingId, setResendingId] = useState<string | null>(null);
+
   async function handleInviteMember(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
@@ -103,16 +107,96 @@ export function TeamManagementPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(inviteForm)
       });
-      const payload = await safeFetchJson<ApiResponse<any>>(res);
+      const payload = await safeFetchJson<ApiResponse<{
+        item: any;
+        inviteUrl?: string;
+        delivered?: boolean;
+        message?: string;
+      }>>(res);
       if (!res.ok) throw new Error(payload.error?.message || "Failed to send invitation.");
 
       setIsInviteModalOpen(false);
+      const invitedEmail = inviteForm.email;
       setInviteForm({ firstName: "", lastName: "", email: "", jobTitle: "", role: "MANAGER" });
       await loadTeam();
+
+      const delivered = payload.data?.delivered;
+      const inviteUrl = payload.data?.inviteUrl;
+
+      if (delivered) {
+        setDialogConfig({
+          isOpen: true,
+          title: "Invitation Email Sent!",
+          message: `An invitation email containing a secure link to set their password has been dispatched to ${invitedEmail}.`,
+          type: "success",
+          confirmText: "Got It"
+        });
+      } else if (inviteUrl) {
+        setDialogConfig({
+          isOpen: true,
+          title: "Member Added · Setup Link Ready",
+          message: `The setup link for ${invitedEmail} has been generated. When SMTP is configured, emails are sent automatically. You can copy the link now to test or share directly:\n\n${inviteUrl}`,
+          type: "info",
+          confirmText: "Copy Link",
+          confirmTone: "primary",
+          onConfirm: () => {
+            navigator.clipboard.writeText(inviteUrl);
+          }
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to invite member.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleResendInvite(memberId: string, email: string) {
+    setResendingId(memberId);
+    try {
+      const res = await fetch(`/api/v1/team/${memberId}/resend`, { method: "POST" });
+      const payload = await safeFetchJson<ApiResponse<{
+        success: boolean;
+        delivered?: boolean;
+        inviteUrl?: string;
+        message?: string;
+      }>>(res);
+
+      if (!res.ok) throw new Error(payload.error?.message || "Failed to resend invite.");
+
+      const delivered = payload.data?.delivered;
+      const inviteUrl = payload.data?.inviteUrl;
+
+      if (delivered) {
+        setDialogConfig({
+          isOpen: true,
+          title: "Invitation Re-Sent!",
+          message: `A fresh invitation email with a password setup link was delivered to ${email}.`,
+          type: "success",
+          confirmText: "Close"
+        });
+      } else if (inviteUrl) {
+        setDialogConfig({
+          isOpen: true,
+          title: "Invitation Link Regenerated",
+          message: `A new setup link for ${email} is ready:\n\n${inviteUrl}`,
+          type: "info",
+          confirmText: "Copy Link",
+          onConfirm: () => {
+            navigator.clipboard.writeText(inviteUrl);
+          }
+        });
+      }
+    } catch (err: any) {
+      setDialogConfig({
+        isOpen: true,
+        title: "Could Not Resend Invite",
+        message: err?.message || "An error occurred while resending the invite.",
+        type: "error",
+        confirmText: "Close"
+      });
+    } finally {
+      setResendingId(null);
     }
   }
 
@@ -336,6 +420,17 @@ export function TeamManagementPage() {
                     <td className="px-5 py-3.5 text-right">
                       {member.role !== "OWNER" && (
                         <div className="flex items-center justify-end gap-2">
+                          {member.status === "INVITED" && (
+                            <button
+                              onClick={() => handleResendInvite(member.id, member.email)}
+                              disabled={resendingId === member.id}
+                              className="btn-secondary py-1 px-2 text-[11px] text-indigo-600 dark:text-indigo-400 flex items-center gap-1"
+                              title="Resend Setup Email"
+                            >
+                              <Mail size={12} className={resendingId === member.id ? "animate-spin" : ""} />
+                              {resendingId === member.id ? "Sending…" : "Resend"}
+                            </button>
+                          )}
                           <button
                             onClick={() => {
                               setEditingMember(member);

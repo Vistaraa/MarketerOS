@@ -61,7 +61,7 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
         throw new Error(payload?.error?.message || `Server error (${response.status}): Database tables may not be created yet or connection failed.`);
       }
 
-      const target = returnTo || payload.data?.next || "/";
+      const target = returnTo || payload?.data?.next || "/";
       router.push(target);
       router.refresh();
     } catch (cause) {

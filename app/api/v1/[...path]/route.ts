@@ -236,6 +236,7 @@ export async function GET(request: Request, { params }: { params: { path: string
 
 export async function POST(request: Request, { params }: { params: { path: string[] } }) {
   const path = params.path.join("/");
+  const url = new URL(request.url);
   const permission = path === "campaigns" || path === "leads" ? "campaign.edit" : path.startsWith("notifications") || path === "ai/insights/generate" ? "analytics.view" : path === "ai/generate" || path === "content" ? "content.edit" : path === "social/posts" || path === "social/accounts" ? "social.edit" : path === "reports" ? "report.edit" : path === "automation" ? "automation.manage" : path === "clients" ? "client.edit" : path.startsWith("billing/") ? "billing.manage" : "settings.manage";
   const auth = await context(permission);
   if (auth.error) return auth.error;
@@ -517,8 +518,57 @@ export async function POST(request: Request, { params }: { params: { path: strin
     const parsed = teamInviteInput.safeParse(body);
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid team invitation.");
     const { invitePersistedTeamMember } = await import("@/lib/repositories");
-    const created = await invitePersistedTeamMember({ workspaceId: auth.session.workspaceId, ...parsed.data });
-    return ok(created, undefined, { status: 201 });
+    const reqProto = request.headers.get("x-forwarded-proto") || (url.protocol.replace(":", "") || "http");
+    const reqHost = request.headers.get("x-forwarded-host") || request.headers.get("host") || url.host;
+    const origin = process.env.APP_URL || (reqHost ? `${reqProto}://${reqHost}` : url.origin);
+
+    const created = await invitePersistedTeamMember({
+      workspaceId: auth.session.workspaceId,
+      inviterUserId: auth.session.userId,
+      inviterName: auth.session.name,
+      baseUrl: origin,
+      ...parsed.data
+    });
+    return ok({
+      item: created.user,
+      inviteUrl: created.inviteUrl,
+      delivered: created.emailResult.delivered,
+      previewUrl: created.emailResult.previewUrl,
+      message: created.emailResult.delivered
+        ? `Invitation email successfully sent to ${created.user.email}.`
+        : `Invitation created! Setup link generated for ${created.user.email}.`
+    }, undefined, { status: 201 });
+  }
+  if (path.startsWith("team/") && path.endsWith("/resend")) {
+    const auth = await context("settings.manage"); if (auth.error) return auth.error;
+    const memberId = path.split("/")[1];
+    const member = await prisma.user.findUnique({ where: { id: memberId } });
+    if (!member) return error("Team member not found.", 404);
+
+    const reqProto = request.headers.get("x-forwarded-proto") || (url.protocol.replace(":", "") || "http");
+    const reqHost = request.headers.get("x-forwarded-host") || request.headers.get("host") || url.host;
+    const origin = process.env.APP_URL || (reqHost ? `${reqProto}://${reqHost}` : url.origin);
+
+    const { invitePersistedTeamMember } = await import("@/lib/repositories");
+    const created = await invitePersistedTeamMember({
+      workspaceId: auth.session.workspaceId,
+      inviterUserId: auth.session.userId,
+      inviterName: auth.session.name,
+      firstName: member.firstName,
+      lastName: member.lastName,
+      email: member.email,
+      jobTitle: member.jobTitle || undefined,
+      baseUrl: origin
+    });
+    return ok({
+      success: true,
+      inviteUrl: created.inviteUrl,
+      delivered: created.emailResult.delivered,
+      previewUrl: created.emailResult.previewUrl,
+      message: created.emailResult.delivered
+        ? `Invitation re-sent to ${member.email}.`
+        : `Invitation link regenerated for ${member.email}.`
+    });
   }
   if (path === "integrations/connect-credentials") {
     const auth = await context("settings.manage");
@@ -835,7 +885,7 @@ export async function PATCH(request: Request, { params }: { params: { path: stri
   if (path.startsWith("team/")) {
     const id = path.split("/")[1];
     const { updatePersistedTeamMember } = await import("@/lib/repositories");
-    const updated = await updatePersistedTeamMember(id, body as never);
+    const updated = await updatePersistedTeamMember(id, body as never, auth.session.workspaceId);
     return ok({ id, updated: true });
   }
   if (path.startsWith("ai/insights/")) {
@@ -953,7 +1003,7 @@ export async function DELETE(request: Request, { params }: { params: { path: str
   }
   if (entity === "team") {
     const { deletePersistedTeamMember } = await import("@/lib/repositories");
-    await deletePersistedTeamMember(id);
+    await deletePersistedTeamMember(id, auth.session.workspaceId);
     return ok({ deleted: id });
   }
   if (entity === "content") {

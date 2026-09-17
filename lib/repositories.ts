@@ -641,52 +641,94 @@ export async function listPersistedTeam(workspaceId: string) {
   const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId }, include: { owner: true } });
   if (!workspace) return [];
 
+  // Fetch workspace memberships and active/pending invites
+  const memberships = await prisma.oAuthState.findMany({
+    where: {
+      workspaceId,
+      providerKey: { in: ["WORKSPACE_MEMBER", "TEAM_INVITE"] }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+
+  const memberMeta = new Map<string, { role: string; isInvited: boolean }>();
+  for (const m of memberships) {
+    if (m.userId && !memberMeta.has(m.userId)) {
+      memberMeta.set(m.userId, {
+        role: m.returnTo || "MANAGER",
+        isInvited: m.providerKey === "TEAM_INVITE" && !m.consumedAt
+      });
+    }
+  }
+
+  const memberUserIds = Array.from(memberMeta.keys());
   const users = await prisma.user.findMany({
+    where: {
+      OR: [
+        { id: workspace.ownerId },
+        ...(memberUserIds.length > 0 ? [{ id: { in: memberUserIds } }] : []),
+        { status: "INVITED" }
+      ]
+    },
     orderBy: { createdAt: "asc" }
   });
 
-  return users.map((u) => ({
-    id: u.id,
-    name: `${u.firstName} ${u.lastName}`.trim(),
-    firstName: u.firstName,
-    lastName: u.lastName,
-    email: u.email,
-    role: u.id === workspace.ownerId ? "OWNER" : "MANAGER",
-    status: u.status,
-    lastLoginAt: u.lastLoginAt?.toISOString() || null,
-    jobTitle: u.jobTitle || (u.id === workspace.ownerId ? "Chief Executive Officer" : "Team Member")
-  }));
-}
+  return users.map((u) => {
+    const isOwner = u.id === workspace.ownerId;
+    const meta = memberMeta.get(u.id);
+    const role = isOwner ? "OWNER" : (meta?.role || "MANAGER");
+    const status = isOwner
+      ? u.status
+      : (meta?.isInvited || u.status === "INVITED" || !u.passwordHash ? "INVITED" : u.status);
 
-export async function invitePersistedTeamMember(input: { workspaceId: string; firstName: string; lastName: string; email: string; jobTitle?: string; role?: string }) {
-  const existing = await prisma.user.findUnique({ where: { email: input.email } });
-  if (existing) {
-    return prisma.user.update({
-      where: { id: existing.id },
-      data: {
-        firstName: input.firstName,
-        lastName: input.lastName,
-        jobTitle: input.jobTitle || existing.jobTitle,
-        status: "ACTIVE"
-      }
-    });
-  }
-
-  return prisma.user.create({
-    data: {
-      email: input.email,
-      firstName: input.firstName,
-      lastName: input.lastName,
-      jobTitle: input.jobTitle || "Team Member",
-      status: "INVITED"
-    }
+    return {
+      id: u.id,
+      name: `${u.firstName} ${u.lastName}`.trim(),
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      role,
+      status,
+      lastLoginAt: u.lastLoginAt?.toISOString() || null,
+      jobTitle: u.jobTitle || (isOwner ? "Chief Executive Officer" : "Team Member"),
+      createdAt: u.createdAt.toISOString()
+    };
   });
 }
 
-export async function updatePersistedTeamMember(id: string, data: { role?: string; status?: string; jobTitle?: string }) {
+export async function invitePersistedTeamMember(input: {
+  workspaceId: string;
+  inviterUserId?: string;
+  inviterName?: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  jobTitle?: string;
+  role?: string;
+  baseUrl?: string;
+}) {
+  const { createTeamInvitation } = await import("@/lib/invite-service");
+  return createTeamInvitation(input);
+}
+
+export async function updatePersistedTeamMember(
+  id: string,
+  data: { role?: string; status?: string; jobTitle?: string },
+  workspaceId?: string
+) {
   const updateData: Record<string, unknown> = {};
   if (data.status !== undefined) updateData.status = data.status.toUpperCase() as never;
   if (data.jobTitle !== undefined) updateData.jobTitle = data.jobTitle;
+
+  if (data.role && workspaceId) {
+    await prisma.oAuthState.updateMany({
+      where: {
+        workspaceId,
+        userId: id,
+        providerKey: { in: ["WORKSPACE_MEMBER", "TEAM_INVITE"] }
+      },
+      data: { returnTo: data.role.toUpperCase() }
+    });
+  }
 
   return prisma.user.update({
     where: { id },
@@ -694,8 +736,17 @@ export async function updatePersistedTeamMember(id: string, data: { role?: strin
   });
 }
 
-export async function deletePersistedTeamMember(id: string) {
-  return prisma.user.delete({ where: { id } });
+export async function deletePersistedTeamMember(id: string, workspaceId?: string) {
+  if (workspaceId) {
+    await prisma.oAuthState.deleteMany({
+      where: { workspaceId, userId: id }
+    });
+  }
+
+  const ownedWorkspaces = await prisma.workspace.count({ where: { ownerId: id } });
+  if (ownedWorkspaces === 0) {
+    return prisma.user.delete({ where: { id } }).catch(() => null);
+  }
 }
 
 
