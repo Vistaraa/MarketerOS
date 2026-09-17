@@ -531,12 +531,10 @@ export async function POST(request: Request, { params }: { params: { path: strin
     });
     return ok({
       item: created.user,
-      inviteUrl: created.inviteUrl,
       delivered: created.emailResult.delivered,
-      previewUrl: created.emailResult.previewUrl,
       message: created.emailResult.delivered
         ? `Invitation email successfully sent to ${created.user.email}.`
-        : `Invitation created! Setup link generated for ${created.user.email}.`
+        : `Invitation created for ${created.user.email}. Configure SMTP to enable automatic email delivery.`
     }, undefined, { status: 201 });
   }
   if (path.startsWith("team/") && path.endsWith("/resend")) {
@@ -562,12 +560,10 @@ export async function POST(request: Request, { params }: { params: { path: strin
     });
     return ok({
       success: true,
-      inviteUrl: created.inviteUrl,
       delivered: created.emailResult.delivered,
-      previewUrl: created.emailResult.previewUrl,
       message: created.emailResult.delivered
         ? `Invitation re-sent to ${member.email}.`
-        : `Invitation link regenerated for ${member.email}.`
+        : `Invitation refreshed for ${member.email}. Configure SMTP to enable automatic email delivery.`
     });
   }
   if (path === "integrations/connect-credentials") {

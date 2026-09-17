@@ -126,22 +126,18 @@ export function TeamManagementPage() {
       if (delivered) {
         setDialogConfig({
           isOpen: true,
-          title: "Invitation Email Sent!",
-          message: `An invitation email containing a secure link to set their password has been dispatched to ${invitedEmail}.`,
+          title: "Invitation Sent!",
+          message: `An invitation email has been sent directly to ${invitedEmail}. They can open the email to set their password and activate their account.`,
           type: "success",
           confirmText: "Got It"
         });
-      } else if (inviteUrl) {
+      } else {
         setDialogConfig({
           isOpen: true,
-          title: "Member Added · Setup Link Ready",
-          message: `The setup link for ${invitedEmail} has been generated. When SMTP is configured, emails are sent automatically. You can copy the link now to test or share directly:\n\n${inviteUrl}`,
-          type: "info",
-          confirmText: "Copy Link",
-          confirmTone: "primary",
-          onConfirm: () => {
-            navigator.clipboard.writeText(inviteUrl);
-          }
+          title: "Email Delivery Pending",
+          message: `The invitation for ${invitedEmail} was created, but your server's SMTP mail credentials are not yet configured. Once SMTP is configured on your server, invitations will be sent directly to their inbox.`,
+          type: "warning",
+          confirmText: "Understood"
         });
       }
     } catch (err) {
@@ -158,33 +154,28 @@ export function TeamManagementPage() {
       const payload = await safeFetchJson<ApiResponse<{
         success: boolean;
         delivered?: boolean;
-        inviteUrl?: string;
         message?: string;
       }>>(res);
 
       if (!res.ok) throw new Error(payload.error?.message || "Failed to resend invite.");
 
       const delivered = payload.data?.delivered;
-      const inviteUrl = payload.data?.inviteUrl;
 
       if (delivered) {
         setDialogConfig({
           isOpen: true,
           title: "Invitation Re-Sent!",
-          message: `A fresh invitation email with a password setup link was delivered to ${email}.`,
+          message: `A fresh invitation email has been sent directly to ${email}.`,
           type: "success",
           confirmText: "Close"
         });
-      } else if (inviteUrl) {
+      } else {
         setDialogConfig({
           isOpen: true,
-          title: "Invitation Link Regenerated",
-          message: `A new setup link for ${email} is ready:\n\n${inviteUrl}`,
-          type: "info",
-          confirmText: "Copy Link",
-          onConfirm: () => {
-            navigator.clipboard.writeText(inviteUrl);
-          }
+          title: "Email Delivery Pending",
+          message: `The invitation was refreshed, but email sending is pending server SMTP configuration. Once SMTP credentials are added to your hosting environment, emails deliver automatically.`,
+          type: "warning",
+          confirmText: "Close"
         });
       }
     } catch (err: any) {
