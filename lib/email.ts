@@ -28,11 +28,20 @@ function getSmtpTransporter() {
     return null;
   }
 
+  const cleanPass = pass.replace(/\s+/g, "");
+
+  if (host.includes("gmail")) {
+    return nodemailer.createTransport({
+      service: "gmail",
+      auth: { user, pass: cleanPass }
+    });
+  }
+
   return nodemailer.createTransport({
     host,
     port,
     secure,
-    auth: { user, pass },
+    auth: { user, pass: cleanPass },
     tls: {
       rejectUnauthorized: process.env.NODE_ENV === "production"
     }
