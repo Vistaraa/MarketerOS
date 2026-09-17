@@ -520,7 +520,8 @@ export async function POST(request: Request, { params }: { params: { path: strin
     const { invitePersistedTeamMember } = await import("@/lib/repositories");
     const reqProto = request.headers.get("x-forwarded-proto") || (url.protocol.replace(":", "") || "http");
     const reqHost = request.headers.get("x-forwarded-host") || request.headers.get("host") || url.host;
-    const origin = process.env.APP_URL || (reqHost ? `${reqProto}://${reqHost}` : url.origin);
+    const isLocal = reqHost?.includes("localhost") || reqHost?.includes("127.0.0.1");
+    const origin = isLocal ? `${reqProto}://${reqHost}` : (process.env.APP_URL || `${reqProto}://${reqHost}`);
 
     const created = await invitePersistedTeamMember({
       workspaceId: auth.session.workspaceId,
@@ -545,7 +546,8 @@ export async function POST(request: Request, { params }: { params: { path: strin
 
     const reqProto = request.headers.get("x-forwarded-proto") || (url.protocol.replace(":", "") || "http");
     const reqHost = request.headers.get("x-forwarded-host") || request.headers.get("host") || url.host;
-    const origin = process.env.APP_URL || (reqHost ? `${reqProto}://${reqHost}` : url.origin);
+    const isLocal = reqHost?.includes("localhost") || reqHost?.includes("127.0.0.1");
+    const origin = isLocal ? `${reqProto}://${reqHost}` : (process.env.APP_URL || `${reqProto}://${reqHost}`);
 
     const { invitePersistedTeamMember } = await import("@/lib/repositories");
     const created = await invitePersistedTeamMember({
