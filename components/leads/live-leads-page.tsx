@@ -95,9 +95,11 @@ export function LiveLeadsPage({ detailId }: { detailId?: string }) {
       action={
         <button
           onClick={() => setOpen(true)}
-          className="btn-primary"
+          className="btn-primary h-8 px-2.5 sm:px-3.5"
+          title="Add Lead"
         >
-          <Plus size={14} /> Add Lead
+          <Plus size={14} />
+          <span className="hidden sm:inline">Add Lead</span>
         </button>
       }
     >
@@ -111,14 +113,14 @@ export function LiveLeadsPage({ detailId }: { detailId?: string }) {
         )}
 
         {/* Search */}
-        <div className="relative w-64">
+        <div className="relative w-full sm:w-64">
           <Search size={14} className="absolute left-3 top-2.5 text-zinc-400" />
           <input
             type="text"
             placeholder="Search leads by name, company…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-8 w-full rounded-lg border border-zinc-200 bg-white pl-8 pr-3 text-xs text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+            className="input-clean pl-8 py-1.5"
           />
         </div>
 

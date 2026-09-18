@@ -262,12 +262,17 @@ export function TeamManagementPage() {
     <AppShell
       title="Team"
       action={
-        <div className="flex items-center gap-2">
-          <button onClick={() => setIsInviteModalOpen(true)} className="btn-primary">
-            <UserPlus size={14} /> Invite Team Member
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <button
+            onClick={() => setIsInviteModalOpen(true)}
+            className="btn-primary h-8 px-2.5 sm:px-3.5"
+            title="Invite Team Member"
+          >
+            <UserPlus size={14} />
+            <span className="hidden sm:inline">Invite Team Member</span>
           </button>
-          <button onClick={loadTeam} className="btn-secondary grid h-9 w-9 place-items-center p-0">
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          <button onClick={loadTeam} className="btn-secondary grid h-8 w-8 place-items-center p-0" title="Refresh">
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
           </button>
         </div>
       }

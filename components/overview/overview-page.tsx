@@ -49,6 +49,7 @@ import type {
 } from "@/lib/types";
 import { cn, money } from "@/lib/utils";
 import { AppShell, StatusBadge } from "@/components/ui/marketeros-shell";
+import { KpiCard, KpiGrid } from "@/components/ui/kpi-card";
 import { useOverviewData } from "@/hooks/use-overview-data";
 import {
   Bar,
@@ -1009,9 +1010,11 @@ export function OverviewPage() {
           </button>
           <button
             onClick={() => router.push("/campaigns/create")}
-            className="btn-primary"
+            className="btn-primary h-8 px-2.5 sm:px-3.5"
+            title="Create Campaign"
           >
-            <Plus size={13} /> Create Campaign
+            <Plus size={14} />
+            <span className="hidden sm:inline">Create Campaign</span>
           </button>
         </div>
       }
@@ -1021,48 +1024,53 @@ export function OverviewPage() {
         {isFreshUser && <OnboardingWelcomeBanner />}
 
         {/* ROW 1: TOP 5 STAT CARDS */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-          <TopKpiCard
+        <KpiGrid columns={5}>
+          <KpiCard
             title="Total Spend"
             value={spendKpi.value}
             change={spendKpi.change}
+            period="vs previous period"
             icon={DollarSign}
             iconBg="bg-purple-50 dark:bg-purple-950/40"
             iconColor="text-purple-600 dark:text-purple-400"
           />
-          <TopKpiCard
+          <KpiCard
             title="Total Clicks"
             value={clicksKpi.value}
             change={clicksKpi.change}
+            period="vs previous period"
             icon={MousePointer2}
             iconBg="bg-sky-50 dark:bg-sky-950/40"
             iconColor="text-sky-600 dark:text-sky-400"
           />
-          <TopKpiCard
+          <KpiCard
             title="Conversions"
             value={convKpi.value}
             change={convKpi.change}
+            period="vs previous period"
             icon={ShoppingCart}
             iconBg="bg-emerald-50 dark:bg-emerald-950/40"
             iconColor="text-emerald-600 dark:text-emerald-400"
           />
-          <TopKpiCard
+          <KpiCard
             title="ROAS"
             value={roasKpi.value}
             change={roasKpi.change}
+            period="vs previous period"
             icon={TrendingUp}
             iconBg="bg-rose-50 dark:bg-rose-950/40"
             iconColor="text-rose-600 dark:text-rose-400"
           />
-          <TopKpiCard
+          <KpiCard
             title="CTR"
             value={ctrKpi.value}
             change={ctrKpi.change}
+            period="vs previous period"
             icon={Percent}
             iconBg="bg-blue-50 dark:bg-blue-950/40"
             iconColor="text-blue-600 dark:text-blue-400"
           />
-        </div>
+        </KpiGrid>
 
         {/* ROW 2: PERFORMANCE OVERVIEW (3-LINE GRAPH) + SPEND DONUT + QUICK ACTIONS */}
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">

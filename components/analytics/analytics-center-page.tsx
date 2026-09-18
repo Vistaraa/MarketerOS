@@ -15,9 +15,14 @@ import {
   Sparkles,
   RefreshCw,
   Download,
-  Share2
+  Share2,
+  MousePointer2,
+  ShoppingCart,
+  Percent,
+  Eye
 } from "lucide-react";
 import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
+import { KpiCard, KpiGrid } from "@/components/ui/kpi-card";
 import { TrendChart } from "@/components/ui/marketeros-charts";
 import { CustomDialog } from "@/components/ui/custom-dialog";
 import type { ApiResponse } from "@/lib/api-contracts";
@@ -68,7 +73,7 @@ export function AnalyticsCenterPage() {
     <AppShell
       title="Analytics Center"
       action={
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             onClick={() =>
               setDialogConfig({
@@ -78,12 +83,14 @@ export function AnalyticsCenterPage() {
                 type: "info"
               })
             }
-            className="btn-secondary"
+            className="btn-secondary h-8 px-2.5 sm:px-3.5"
+            title="Export CSV"
           >
-            <Download size={14} /> Export CSV
+            <Download size={14} />
+            <span className="hidden sm:inline">Export CSV</span>
           </button>
-          <button onClick={loadAnalytics} className="btn-secondary grid h-9 w-9 place-items-center p-0">
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          <button onClick={loadAnalytics} className="btn-secondary grid h-8 w-8 place-items-center p-0" title="Refresh">
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
           </button>
         </div>
       }
@@ -135,19 +142,50 @@ export function AnalyticsCenterPage() {
           </div>
         </div>
 
-        {/* Stat Cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {data?.kpis.map((metric) => (
-            <div
-              key={metric.label}
-              className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60"
-            >
-              <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{metric.label}</div>
-              <div className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{metric.value}</div>
-              <div className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">{metric.change} vs prior period</div>
-            </div>
-          ))}
-        </div>
+        {/* Enhanced Stat Cards */}
+        <KpiGrid columns={4}>
+          {data?.kpis.map((metric) => {
+            const l = metric.label.toLowerCase();
+            const icon = l.includes("spend")
+              ? DollarSign
+              : l.includes("click")
+              ? MousePointer2
+              : l.includes("conv")
+              ? ShoppingCart
+              : l.includes("roas")
+              ? TrendingUp
+              : l.includes("lead")
+              ? Users
+              : BarChart3;
+            const iconBg = l.includes("spend")
+              ? "bg-purple-50 dark:bg-purple-950/40"
+              : l.includes("click")
+              ? "bg-sky-50 dark:bg-sky-950/40"
+              : l.includes("conv")
+              ? "bg-emerald-50 dark:bg-emerald-950/40"
+              : "bg-indigo-50 dark:bg-indigo-950/40";
+            const iconColor = l.includes("spend")
+              ? "text-purple-600 dark:text-purple-400"
+              : l.includes("click")
+              ? "text-sky-600 dark:text-sky-400"
+              : l.includes("conv")
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-indigo-600 dark:text-indigo-400";
+
+            return (
+              <KpiCard
+                key={metric.label}
+                title={metric.label}
+                value={metric.value}
+                change={metric.change}
+                period="vs prior period"
+                icon={icon}
+                iconBg={iconBg}
+                iconColor={iconColor}
+              />
+            );
+          })}
+        </KpiGrid>
 
         {/* Tabs Navigation */}
         <div className="flex rounded-xl border border-zinc-200/90 bg-white p-1 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 text-xs font-semibold">

@@ -106,15 +106,16 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
       }
 
       const names = fullName.trim().split(/\s+/);
+      const normalizedEmail = email.trim().toLowerCase();
       const body = signup
         ? {
-          email,
+          email: normalizedEmail,
           password,
           firstName: names[0] || "User",
           lastName: names.slice(1).join(" ") || names[0] || "Admin",
           workspaceName: workspaceName || (fullName ? `${fullName}'s Workspace` : "My Workspace"),
         }
-        : { email, password };
+        : { email: normalizedEmail, password };
 
       const endpoint = `/api/auth/${signup ? "signup" : "login"}`;
       const response = await fetch(endpoint, {

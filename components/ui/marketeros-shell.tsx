@@ -236,10 +236,10 @@ export function ModernSidebar({
             }}
             title={collapsed ? label : undefined}
             className={cn(
-              "group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs transition-all",
+              "group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition-all lg:py-1.5",
               active
                 ? "bg-zinc-100 font-semibold text-zinc-900 dark:bg-zinc-800/80 dark:text-zinc-100"
-                : "font-medium text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
+                : "font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
             )}
           >
             <Icon
@@ -272,9 +272,10 @@ export function ModernSidebar({
     <>
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex h-screen shrink-0 flex-col border-r border-zinc-200/80 bg-white p-3 text-zinc-900 transition-all duration-300 ease-in-out dark:border-zinc-800 dark:bg-zinc-950 lg:sticky lg:top-0 lg:translate-x-0",
-          collapsed ? "w-[64px]" : "w-[220px]",
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed inset-y-0 left-0 z-50 flex h-screen shrink-0 flex-col border-r border-zinc-200/80 bg-white p-3 text-zinc-900 transition-all duration-300 ease-in-out dark:border-zinc-800 dark:bg-zinc-950 lg:sticky lg:top-0 lg:z-40",
+          collapsed ? "lg:w-[64px]" : "lg:w-[220px]",
+          "w-[280px] max-w-[85vw]",
+          mobileOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full lg:translate-x-0"
         )}
       >
         {/* Workspace Switcher Header */}
@@ -297,9 +298,9 @@ export function ModernSidebar({
 
           <button
             onClick={onMobileClose}
-            className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 lg:hidden dark:hover:bg-zinc-800"
+            className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 lg:hidden dark:hover:bg-zinc-800"
           >
-            <X size={16} />
+            <X size={17} />
           </button>
         </div>
 
@@ -404,7 +405,7 @@ export function ModernSidebar({
       {mobileOpen && (
         <div
           onClick={onMobileClose}
-          className="fixed inset-0 z-30 bg-black/30 backdrop-blur-2xs lg:hidden"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-2xs transition-opacity lg:hidden"
         />
       )}
     </>
@@ -454,28 +455,26 @@ export function ModernTopbar({
   };
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-zinc-200/80 bg-white/95 px-4 backdrop-blur-sm sm:px-6 dark:border-zinc-800 dark:bg-zinc-950/95">
-      {/* Left: Mobile menu & Breadcrumbs */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onMobileMenuOpen}
-          className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 lg:hidden dark:hover:bg-zinc-800"
-        >
-          <Menu size={16} />
-        </button>
-
+    <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-zinc-200/80 bg-white/95 px-3 sm:px-6 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/95">
+      {/* Left: Page Title only on mobile; Full breadcrumbs on desktop */}
+      <div className="flex items-center min-w-0 pr-2">
         <div className="flex items-center gap-1.5 text-xs text-zinc-400">
-          <span className="hover:text-zinc-900 cursor-pointer transition dark:hover:text-zinc-100" onClick={() => router.push("/")}>
+          <span
+            className="hidden sm:inline hover:text-zinc-900 cursor-pointer transition dark:hover:text-zinc-100"
+            onClick={() => router.push("/")}
+          >
             Dashboard
           </span>
-          <ChevronRight size={12} className="text-zinc-300 dark:text-zinc-600" />
-          <span className="font-semibold text-zinc-900 dark:text-zinc-100">{title}</span>
+          <ChevronRight size={12} className="hidden sm:inline text-zinc-300 dark:text-zinc-600" />
+          <span className="text-sm sm:text-xs font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
+            {title}
+          </span>
         </div>
       </div>
 
-      {/* Right: Quick actions, Date selector, Theme Switcher, Notifications */}
-      <div className="flex items-center gap-2">
-        {/* Date Selector Pill */}
+      {/* Right: Quick actions, Theme Switcher, Notifications, Action Button */}
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {/* Date Selector Pill (Desktop only) */}
         <button className="hidden h-7 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-600 shadow-sm hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 md:flex">
           <Calendar size={12} className="text-zinc-400" />
           <span>Last 30 Days</span>
@@ -485,7 +484,7 @@ export function ModernTopbar({
         <button
           onClick={toggleTheme}
           title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          className="relative grid h-7 w-7 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-600 shadow-sm hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          className="grid h-8 w-8 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-600 shadow-2xs hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
         >
           {isDark ? <Sun size={13} /> : <Moon size={13} />}
         </button>
@@ -494,10 +493,10 @@ export function ModernTopbar({
         <div className="relative">
           <button
             onClick={() => setNotificationsOpen((prev) => !prev)}
-            className="relative grid h-7 w-7 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-600 shadow-sm hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+            className="relative grid h-8 w-8 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-600 shadow-2xs hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
           >
             <Bell size={13} />
-            <span className="absolute -right-0.5 -top-0.5 grid h-3 w-3 place-items-center rounded-full bg-zinc-900 text-[7px] font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
+            <span className="absolute -right-0.5 -top-0.5 grid h-3.5 w-3.5 place-items-center rounded-full bg-zinc-900 text-[8px] font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
               2
             </span>
           </button>
@@ -524,6 +523,69 @@ export function ModernTopbar({
         {action}
       </div>
     </header>
+  );
+}
+
+/* =========================================================================
+   MOBILE BOTTOM DOCK NAVIGATION
+   ========================================================================= */
+export function MobileBottomNav({
+  onOpenMenu,
+  onOpenCommand
+}: {
+  onOpenMenu: () => void;
+  onOpenCommand?: () => void;
+}) {
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const navItems = [
+    { label: "Overview", href: "/", icon: LayoutDashboard },
+    { label: "Campaigns", href: "/campaigns", icon: Target },
+    { label: "Analytics", href: "/analytics", icon: FileBarChart },
+    { label: "Leads", href: "/leads", icon: Users }
+  ];
+
+  return (
+    <nav className="fixed bottom-0 inset-x-0 z-50 flex h-14 items-center justify-around border-t border-zinc-200/90 bg-white/95 px-2 backdrop-blur-lg dark:border-zinc-800 dark:bg-zinc-950/95 lg:hidden pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-2px_12px_rgba(0,0,0,0.06)]">
+      {navItems.map(({ label, href, icon: Icon }) => {
+        const active = isRouteActive(pathname, href);
+        return (
+          <button
+            key={href}
+            onClick={() => router.push(href)}
+            className={cn(
+              "flex flex-1 flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium transition-colors",
+              active
+                ? "font-bold text-zinc-900 dark:text-zinc-100"
+                : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+            )}
+          >
+            <div
+              className={cn(
+                "flex h-7 w-11 items-center justify-center rounded-full transition-colors",
+                active
+                  ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
+                  : "text-zinc-500 dark:text-zinc-400"
+              )}
+            >
+              <Icon size={16} />
+            </div>
+            <span className="truncate">{label}</span>
+          </button>
+        );
+      })}
+
+      <button
+        onClick={onOpenMenu}
+        className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+      >
+        <div className="flex h-7 w-11 items-center justify-center rounded-full">
+          <Menu size={16} />
+        </div>
+        <span>Menu</span>
+      </button>
+    </nav>
   );
 }
 
@@ -566,7 +628,7 @@ export function AppShell({
         onOpenCommand={() => setCommandOpen(true)}
       />
 
-      <div className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="relative flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
         <ModernTopbar
           title={title}
           action={action}
@@ -574,9 +636,14 @@ export function AppShell({
           onMobileMenuOpen={() => setMobileOpen(true)}
         />
 
-        <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6">
-          <div className="mx-auto max-w-[1550px] w-full pb-16">{children}</div>
+        <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 pb-24 lg:pb-8">
+          <div className="mx-auto max-w-[1550px] w-full">{children}</div>
         </main>
+
+        <MobileBottomNav
+          onOpenMenu={() => setMobileOpen(true)}
+          onOpenCommand={() => setCommandOpen(true)}
+        />
       </div>
 
       <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
@@ -687,3 +754,8 @@ export function Tabs({
 export function Skeleton({ className }: { className?: string }) {
   return <div className={cn("animate-pulse rounded-md bg-zinc-100 dark:bg-zinc-800", className)} />;
 }
+
+export const MarketerOSShell = AppShell;
+export { KpiCard, KpiGrid, MiniKpiStat } from "@/components/ui/kpi-card";
+export type { KpiCardProps } from "@/components/ui/kpi-card";
+

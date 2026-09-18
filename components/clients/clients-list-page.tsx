@@ -211,12 +211,17 @@ export function ClientsListPage() {
     <AppShell
       title="Clients"
       action={
-        <div className="flex items-center gap-2">
-          <button onClick={openCreateModal} className="btn-primary">
-            <Plus size={14} /> Add Client
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <button
+            onClick={openCreateModal}
+            className="btn-primary h-8 px-2.5 sm:px-3.5"
+            title="Add Client"
+          >
+            <Plus size={14} />
+            <span className="hidden sm:inline">Add Client</span>
           </button>
-          <button onClick={loadClients} className="btn-secondary grid h-9 w-9 place-items-center p-0">
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          <button onClick={loadClients} className="btn-secondary grid h-8 w-8 place-items-center p-0" title="Refresh">
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
           </button>
         </div>
       }

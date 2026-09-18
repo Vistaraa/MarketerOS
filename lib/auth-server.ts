@@ -121,9 +121,10 @@ export async function createPersistedUser(input: {
   monthlyBudget?: number;
 }) {
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const normalizedEmail = input.email.trim().toLowerCase();
     const user = await tx.user.create({
       data: {
-        email: input.email,
+        email: normalizedEmail,
         firstName: input.firstName,
         lastName: input.lastName,
         passwordHash: input.passwordHash
@@ -155,7 +156,12 @@ export async function createPersistedUser(input: {
 }
 
 export async function authenticatePersistedUser(email: string, password: string) {
-  const user = await prisma.user.findUnique({ where: { email } });
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = await prisma.user.findFirst({
+    where: {
+      email: { equals: normalizedEmail, mode: "insensitive" }
+    }
+  });
   if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) return null;
   let workspace = await prisma.workspace.findFirst({
     where: { ownerId: user.id, status: "ACTIVE" },
