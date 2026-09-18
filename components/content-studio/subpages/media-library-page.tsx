@@ -438,7 +438,7 @@ export function MediaLibraryPage() {
 
       {/* MEDIA PREVIEW DRAWER */}
       {selectedMediaItem && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-md">
           <div className="w-full max-w-md bg-white p-6 shadow-2xl dark:bg-zinc-900 overflow-y-auto space-y-5 animate-in slide-in-from-right duration-200 text-xs">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
               <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Media Preview</h3>
@@ -482,7 +482,7 @@ export function MediaLibraryPage() {
 
       {/* UPLOAD MEDIA MODAL */}
       {isUploadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md">
           <div className="w-full max-w-lg rounded-xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs space-y-4">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
               <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Upload Media Assets</h3>
@@ -542,7 +542,7 @@ export function MediaLibraryPage() {
 
       {/* CREATE FOLDER MODAL */}
       {showCreateFolderModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md">
           <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs space-y-4">
             <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Create New Folder</h3>
             <input

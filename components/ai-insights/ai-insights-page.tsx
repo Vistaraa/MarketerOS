@@ -579,7 +579,7 @@ export function AiInsightsPage() {
         {/* Insight Detail Inspect Modal */}
         {selectedInsight && parsedModal && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-5 backdrop-blur-xs"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-5 backdrop-blur-md"
             onClick={() => setSelectedInsight(null)}
           >
             <div
@@ -774,7 +774,7 @@ export function AiInsightsPage() {
         {/* Generate AI Insights Modal */}
         {showGenerateModal && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-5 backdrop-blur-xs"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-5 backdrop-blur-md"
             onClick={() => setShowGenerateModal(false)}
           >
             <div

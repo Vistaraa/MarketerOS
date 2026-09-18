@@ -129,7 +129,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-20 backdrop-blur-xs sm:p-6 sm:pt-28">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 pt-20 backdrop-blur-md sm:p-6 sm:pt-28">
       <div
         className="w-full max-w-xl overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl transition-all dark:border-zinc-800 dark:bg-zinc-900"
         onClick={(e) => e.stopPropagation()}
@@ -405,7 +405,7 @@ export function ModernSidebar({
       {mobileOpen && (
         <div
           onClick={onMobileClose}
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-2xs transition-opacity lg:hidden"
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
         />
       )}
     </>

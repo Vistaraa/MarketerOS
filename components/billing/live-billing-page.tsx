@@ -1283,7 +1283,7 @@ export function LiveBillingPage() {
 
         {/* PLAN UPGRADE MODAL */}
         {selectedPlanToUpgrade && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md animate-in fade-in">
             <div className="w-full max-w-md bg-white p-6 rounded-xl border border-zinc-200 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 space-y-5 animate-in zoom-in-95">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
@@ -1377,7 +1377,7 @@ export function LiveBillingPage() {
 
         {/* BUY AI CREDITS MODAL */}
         {isBuyCreditsModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md animate-in fade-in">
             <div className="w-full max-w-lg bg-white p-6 rounded-xl border border-zinc-200 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 space-y-5 animate-in zoom-in-95">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <div className="flex items-center gap-2">
@@ -1466,7 +1466,7 @@ export function LiveBillingPage() {
 
         {/* ITEMIZED INVOICE RECEIPT DRAWER */}
         {selectedInvoice && (
-          <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs animate-in fade-in">
+          <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-md animate-in fade-in">
             <div className="w-full max-w-lg bg-white p-6 shadow-2xl dark:bg-zinc-900 overflow-y-auto space-y-6 animate-in slide-in-from-right">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <div className="flex items-center gap-2">
@@ -1615,7 +1615,7 @@ export function LiveBillingPage() {
 
         {/* RAZORPAY SETUP GUIDE MODAL */}
         {isSetupGuideOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md animate-in fade-in">
             <div className="w-full max-w-lg bg-white p-6 rounded-xl border border-zinc-200 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 space-y-5 animate-in zoom-in-95">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <div className="flex items-center gap-2">

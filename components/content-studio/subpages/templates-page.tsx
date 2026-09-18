@@ -318,7 +318,7 @@ export function TemplatesPage() {
 
       {/* TEMPLATE DETAIL DRAWER */}
       {selectedTemplateItem && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-md">
           <div className="w-full max-w-md bg-white p-6 shadow-2xl dark:bg-zinc-900 overflow-y-auto space-y-5 animate-in slide-in-from-right duration-200">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
               <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Template Details</h3>
@@ -409,7 +409,7 @@ export function TemplatesPage() {
 
       {/* TEMPLATE CREATOR MODAL / CANVAS EDITOR */}
       {isTemplateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md">
           <div className="w-full max-w-4xl h-[85vh] rounded-xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 flex flex-col text-xs">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">

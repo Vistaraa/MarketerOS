@@ -453,7 +453,7 @@ export function ContentLibraryPage() {
 
       {/* CONTENT DETAIL DRAWER */}
       {selectedContentItem && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-md">
           <div className="w-full max-w-md bg-white p-6 shadow-2xl dark:bg-zinc-900 overflow-y-auto space-y-5 animate-in slide-in-from-right duration-200">
             {/* Drawer Header */}
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">

@@ -777,7 +777,7 @@ export function LiveIntegrationsPage() {
          GOOGLE ADS SETUP GUIDE MODAL / DRAWER
          ========================================================================= */}
       {googleAdsGuideOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
               <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
@@ -802,7 +802,7 @@ export function LiveIntegrationsPage() {
          GENERIC PLATFORM CONNECT MODAL
          ========================================================================= */}
       {genericConnectModalOpen && selectedPlatform && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md">
           <div className="w-full max-w-lg overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
             <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
               <div className="flex items-center gap-3">
@@ -884,7 +884,7 @@ export function LiveIntegrationsPage() {
 
       {/* Disconnect Modal */}
       {disconnectTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md">
           <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 space-y-4 text-xs">
             <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
               Disconnect {disconnectTarget.platformName}?

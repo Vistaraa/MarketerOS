@@ -1395,7 +1395,7 @@ export function LiveSettingsPage() {
 
         {/* INVITE TEAM MEMBER MODAL */}
         {isTeamModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in">
             <div className="w-full max-w-md bg-white p-6 rounded-xl border border-zinc-200 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Invite Workspace Team Member</h3>
@@ -1475,7 +1475,7 @@ export function LiveSettingsPage() {
 
         {/* API KEY CREATION MODAL */}
         {isApiKeyModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in">
             <div className="w-full max-w-md bg-white p-6 rounded-xl border border-zinc-200 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Generate Developer API Key</h3>

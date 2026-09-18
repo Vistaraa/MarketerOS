@@ -173,7 +173,7 @@ export function LiveLeadsPage({ detailId }: { detailId?: string }) {
 
         {/* Add Lead Modal */}
         {open && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md">
             <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Add Lead</h2>

@@ -219,7 +219,7 @@ Platform requirements: Keep within character limit for ${platform}, use 3-5 rele
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
       <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 text-xs">
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
