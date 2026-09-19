@@ -80,8 +80,57 @@ async function context(permission = "analytics.view") {
   }
 }
 
-export async function GET(request: Request, { params }: { params: { path: string[] } }) {
-  const path = params.path.join("/");
+async function resolveV1Path(
+  request: Request,
+  params: { path: string[] } | Promise<{ path: string[] }>
+): Promise<string> {
+  let segments: string[] = [];
+  try {
+    const resolvedParams = await Promise.resolve(params);
+    if (resolvedParams?.path) {
+      segments = Array.isArray(resolvedParams.path)
+        ? resolvedParams.path
+        : [String(resolvedParams.path)];
+    }
+  } catch {
+    // fallback
+  }
+
+  let pathStr = segments.filter(Boolean).join("/").toLowerCase().trim();
+
+  if (!pathStr) {
+    try {
+      const url = new URL(request.url);
+      pathStr = url.pathname.replace(/^\/api\/v1\/?/, "").toLowerCase().trim();
+    } catch {
+      // ignore
+    }
+  }
+
+  return pathStr.replace(/^\/+|\/+$/g, "");
+}
+
+function getRequiredPermission(path: string, method: "GET" | "POST" = "GET"): string {
+  if (path === "team" || path.startsWith("team/")) return "team.manage";
+  if (path === "billing" || path.startsWith("billing")) return "billing.manage";
+  if (path === "settings" || path.startsWith("settings")) return method === "GET" || path === "settings/profile" || path === "settings/notifications" ? "settings.view" : "settings.manage";
+  if (path === "clients" || path.startsWith("clients/")) return method === "GET" ? "client.view" : "client.edit";
+  if (path === "leads" || path.startsWith("leads/")) return method === "GET" ? "lead.view" : "lead.edit";
+  if (path === "content" || path.startsWith("content/")) return method === "GET" ? "content.view" : "content.edit";
+  if (path.startsWith("social/")) return method === "GET" ? "social.view" : "social.edit";
+  if (path === "automation" || path.startsWith("automation/")) return method === "GET" ? "automation.view" : "automation.manage";
+  if (path === "reports" || path.startsWith("reports/")) return method === "GET" ? "report.view" : "report.edit";
+  if (path === "campaigns" || path.startsWith("campaigns/")) return method === "GET" ? "campaign.view" : "campaign.edit";
+  if (path.startsWith("ai/insights")) return "analytics.view";
+  if (path.startsWith("ai/")) return method === "GET" ? "analytics.view" : "content.edit";
+  return method === "GET" ? "analytics.view" : "settings.manage";
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: { path: string[] } | Promise<{ path: string[] }> }
+) {
+  const path = await resolveV1Path(request, params);
   const url = new URL(request.url);
   if (path === "integrations/oauth/callback") {
     const stateValue = url.searchParams.get("state");
@@ -109,7 +158,8 @@ export async function GET(request: Request, { params }: { params: { path: string
       return NextResponse.redirect(new URL(`${returnTo}${returnTo.includes("?") ? "&" : "?"}error=${encodeURIComponent(message)}`, url.origin));
     }
   }
-  const auth = await context();
+
+  const auth = await context(getRequiredPermission(path, "GET"));
   if (auth.error) return auth.error;
   const listQuery = parseListQuery(request);
   const query = (listQuery.search || listQuery.q).toLowerCase();
@@ -255,11 +305,13 @@ export async function GET(request: Request, { params }: { params: { path: string
   return error("Resource not found.", 404);
 }
 
-export async function POST(request: Request, { params }: { params: { path: string[] } }) {
-  const path = params.path.join("/");
+export async function POST(
+  request: Request,
+  { params }: { params: { path: string[] } | Promise<{ path: string[] }> }
+) {
+  const path = await resolveV1Path(request, params);
   const url = new URL(request.url);
-  const permission = path === "campaigns" || path === "leads" ? "campaign.edit" : path.startsWith("notifications") || path === "ai/insights/generate" ? "analytics.view" : path === "ai/generate" || path === "content" ? "content.edit" : path === "social/posts" || path === "social/accounts" ? "social.edit" : path === "reports" ? "report.edit" : path === "automation" ? "automation.manage" : path === "clients" ? "client.edit" : path.startsWith("billing/") ? "billing.manage" : "settings.manage";
-  const auth = await context(permission);
+  const auth = await context(getRequiredPermission(path, "POST"));
   if (auth.error) return auth.error;
   cacheInvalidatePrefix(`ws:${auth.session.workspaceId}`);
   const body = await request.json().catch(() => null);
@@ -889,7 +941,7 @@ export async function POST(request: Request, { params }: { params: { path: strin
 
 export async function PATCH(request: Request, { params }: { params: { path: string[] } }) {
   const path = params.path.join("/");
-  const auth = await context(path.startsWith("notifications") ? "analytics.view" : path === "settings" ? "settings.manage" : path.startsWith("content/") ? "content.edit" : path.startsWith("social/posts/") ? "social.edit" : path.startsWith("clients/") ? "client.edit" : path.startsWith("automation/") ? "automation.manage" : path.startsWith("ai/insights/") ? "analytics.view" : "campaign.edit");
+  const auth = await context(path.startsWith("notifications") ? "notifications.view" : (path === "settings/profile" || path === "settings/notifications") ? "settings.view" : path === "settings" ? "settings.manage" : path.startsWith("content/") ? "content.edit" : path.startsWith("social/posts/") ? "social.edit" : path.startsWith("clients/") ? "client.edit" : path.startsWith("automation/") ? "automation.manage" : path.startsWith("ai/insights/") ? "analytics.view" : "campaign.edit");
   if (auth.error) return auth.error;
   cacheInvalidatePrefix(`ws:${auth.session.workspaceId}`);
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
@@ -915,7 +967,36 @@ export async function PATCH(request: Request, { params }: { params: { path: stri
     const id = path.split("/")[1];
     const { updatePersistedTeamMember } = await import("@/lib/repositories");
     const updated = await updatePersistedTeamMember(id, body as never, auth.session.workspaceId);
-    return ok({ id, updated: true });
+
+    let emailDelivered = false;
+    if (body?.role) {
+      try {
+        const memberUser = await prisma.user.findUnique({ where: { id } });
+        const workspace = await prisma.workspace.findUnique({ where: { id: auth.session.workspaceId } });
+        if (memberUser && workspace) {
+          const { sendRoleUpdateEmail } = await import("@/lib/email");
+          const reqUrl = new URL(request.url);
+          const reqProto = request.headers.get("x-forwarded-proto") || (reqUrl.protocol.replace(":", "") || "http");
+          const reqHost = request.headers.get("x-forwarded-host") || request.headers.get("host") || reqUrl.host;
+          const isLocal = reqHost?.includes("localhost") || reqHost?.includes("127.0.0.1");
+          const origin = isLocal ? `${reqProto}://${reqHost}` : (process.env.APP_URL || `${reqProto}://${reqHost}`);
+
+          const emailResult = await sendRoleUpdateEmail({
+            to: memberUser.email,
+            recipientName: memberUser.firstName,
+            updatedByName: auth.session.name || "Workspace Administrator",
+            workspaceName: workspace.name,
+            newRole: String(body.role),
+            loginUrl: `${origin}/auth/login`
+          });
+          emailDelivered = emailResult.delivered;
+        }
+      } catch (err) {
+        console.error("Role update notification email failed:", err);
+      }
+    }
+
+    return ok({ id, updated: true, delivered: emailDelivered });
   }
   if (path.startsWith("ai/insights/")) {
     const id = path.split("/")[2];

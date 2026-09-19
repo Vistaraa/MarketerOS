@@ -77,7 +77,7 @@ function isRouteActive(pathname: string, href: string) {
 /* =========================================================================
    COMMAND PALETTE (Cmd+K / Ctrl+K)
    ========================================================================= */
-export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function CommandPalette({ open, onClose, role }: { open: boolean; onClose: () => void; role?: string }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
 
@@ -105,14 +105,19 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     []
   );
 
+  const allowedItems = useMemo(
+    () => allItems.filter((item) => isNavAllowed(item.href, role)),
+    [allItems, role]
+  );
+
   const filtered = useMemo(() => {
-    if (!query.trim()) return allItems;
-    return allItems.filter(
+    if (!query.trim()) return allowedItems;
+    return allowedItems.filter(
       (item) =>
         item.label.toLowerCase().includes(query.toLowerCase()) ||
         item.category.toLowerCase().includes(query.toLowerCase())
     );
-  }, [allItems, query]);
+  }, [allowedItems, query]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -223,50 +228,56 @@ export function ModernSidebar({
     }
   };
 
-  const renderNavSection = (items: readonly { label: string; href: string; icon: LucideIcon; badge?: string }[]) => (
-    <div className="space-y-0.5">
-      {items.map(({ label, href, icon: Icon, badge }) => {
-        const active = isRouteActive(pathname, href);
-        return (
-          <Link
-            key={href}
-            href={href}
-            prefetch
-            onClick={onMobileClose}
-            title={collapsed ? label : undefined}
-            className={cn(
-              "group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition-all lg:py-1.5",
-              active
-                ? "bg-zinc-100 font-semibold text-zinc-900 dark:bg-zinc-800/80 dark:text-zinc-100"
-                : "font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
-            )}
-          >
-            <Icon
-              size={16}
-              className={cn("shrink-0 transition-colors", active ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300")}
-            />
-            {!collapsed && (
-              <>
-                <span className="truncate">{label}</span>
-                {badge && (
-                  <span className="ml-auto rounded bg-zinc-200/80 px-1 py-0.2 text-[9px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                    {badge}
-                  </span>
-                )}
-              </>
-            )}
-          </Link>
-        );
-      })}
-    </div>
-  );
+  const renderNavSection = (items: readonly { label: string; href: string; icon: LucideIcon; badge?: string }[]) => {
+    const visibleItems = items.filter((item) => isNavAllowed(item.href, session?.user?.role));
+    if (visibleItems.length === 0) return null;
+
+    return (
+      <div className="space-y-0.5">
+        {visibleItems.map(({ label, href, icon: Icon, badge }) => {
+          const active = isRouteActive(pathname, href);
+          return (
+            <button
+              key={href}
+              onClick={() => {
+                router.push(href);
+                onMobileClose();
+              }}
+              title={collapsed ? label : undefined}
+              className={cn(
+                "group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition-all lg:py-1.5",
+                active
+                  ? "bg-zinc-100 font-semibold text-zinc-900 dark:bg-zinc-800/80 dark:text-zinc-100"
+                  : "font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
+              )}
+            >
+              <Icon
+                size={16}
+                className={cn("shrink-0 transition-colors", active ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300")}
+              />
+              {!collapsed && (
+                <>
+                  <span className="truncate">{label}</span>
+                  {badge && (
+                    <span className="ml-auto rounded bg-zinc-200/80 px-1 py-0.2 text-[9px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                      {badge}
+                    </span>
+                  )}
+                </>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
 
   const initials = sessionUser?.name
     ? sessionUser.name
-        .split(" ")
-        .map((p) => p[0])
-        .join("")
-        .slice(0, 2)
+      .split(" ")
+      .map((p) => p[0])
+      .join("")
+      .slice(0, 2)
     : "";
 
   return (
@@ -592,6 +603,54 @@ export function MobileBottomNav({
   );
 }
 
+export function isNavAllowed(pathname: string, role?: string): boolean {
+  if (!role) return true;
+  const r = role.toUpperCase();
+  if (r === "OWNER" || r === "ADMIN") return true;
+
+  const path = pathname.split("?")[0].replace(/\/$/, "") || "/";
+
+  if (r === "MANAGER") {
+    return !path.startsWith("/team") && !path.startsWith("/billing");
+  }
+
+  if (r === "CONTENT_MANAGER") {
+    const allowed = ["/content-studio", "/automation", "/ai-insights", "/notifications", "/settings", "/campaigns", "/social-media"];
+    return allowed.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+  }
+
+  if (r === "ANALYST") {
+    const allowed = ["/", "/overview", "/analytics", "/reports", "/ai-insights", "/campaigns", "/automation", "/notifications", "/settings"];
+    return allowed.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+  }
+
+  if (r === "SALES") {
+    const allowed = ["/leads", "/clients", "/campaigns", "/notifications", "/settings"];
+    return allowed.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+  }
+
+  if (r === "VIEWER") {
+    const allowed = ["/", "/overview", "/ai-insights", "/analytics", "/reports", "/notifications"];
+    return allowed.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+  }
+
+  return true;
+}
+
+export function getDefaultRouteForRoleUI(role?: string): string {
+  const r = (role || "").toUpperCase();
+  switch (r) {
+    case "CONTENT_MANAGER":
+      return "/content-studio";
+    case "ANALYST":
+      return "/analytics";
+    case "SALES":
+      return "/leads";
+    default:
+      return "/overview";
+  }
+}
+
 /* =========================================================================
    UNIFIED APP SHELL
    ========================================================================= */
@@ -605,9 +664,29 @@ export function AppShell({
   action?: React.ReactNode;
   breadcrumb?: boolean;
 }) {
+  const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [session, setSession] = useState<{ user?: { role?: string } } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then((res) => res.json())
+      .then((payload) => {
+        const sess = payload.data || null;
+        setSession(sess);
+        if (sess?.user?.role) {
+          const userRole = sess.user.role;
+          const targetDefault = getDefaultRouteForRoleUI(userRole);
+          if ((pathname === "/" || pathname === "/overview") && !isNavAllowed(pathname, userRole)) {
+            router.replace(targetDefault);
+          }
+        }
+      })
+      .catch(() => setSession(null));
+  }, [pathname, router]);
 
   // Global Keyboard shortcut (Cmd+K / Ctrl+K)
   useEffect(() => {
@@ -620,6 +699,10 @@ export function AppShell({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  const isAllowed = isNavAllowed(pathname, session?.user?.role);
+  const role = session?.user?.role || "USER";
+  const defaultRoute = getDefaultRouteForRoleUI(role);
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#fafafa] text-zinc-900 antialiased font-sans dark:bg-zinc-950 dark:text-zinc-100">
@@ -640,7 +723,31 @@ export function AppShell({
         />
 
         <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 pb-24 lg:pb-8">
-          <div className="mx-auto max-w-[1550px] w-full">{children}</div>
+          <div className="mx-auto max-w-[1550px] w-full">
+            {isAllowed ? (
+              children
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="grid h-16 w-16 place-items-center rounded-2xl bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 mb-4">
+                  <Shield size={32} />
+                </div>
+                <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+                  Access Restricted
+                </h1>
+                <p className="mt-2 max-w-md text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                  Your assigned workspace role (<span className="font-semibold text-zinc-700 dark:text-zinc-300">{role.replace(/_/g, " ")}</span>) does not have permission to view <code className="font-mono text-xs text-rose-600 dark:text-rose-400">{pathname}</code>.
+                </p>
+                <div className="mt-6">
+                  <button
+                    onClick={() => router.push(defaultRoute)}
+                    className="btn-primary py-2.5 px-4 text-xs flex items-center gap-2"
+                  >
+                    Return to Your Workspace Dashboard <ArrowRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </main>
 
         <MobileBottomNav
@@ -649,7 +756,7 @@ export function AppShell({
         />
       </div>
 
-      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
+      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} role={session?.user?.role} />
     </div>
   );
 }

@@ -69,27 +69,63 @@ export async function getSession(explicitToken?: string) {
     where: { tokenHash, expiresAt: { gt: new Date() } },
     include: { user: true }
   });
-  if (!active) return null;
-  let workspace = await prisma.workspace.findFirst({
-    where: { ownerId: active.userId, status: "ACTIVE" },
-    orderBy: { createdAt: "asc" }
-  });
+  if (!active || active.user.status === "SUSPENDED") return null;
+  let sessionPayload: SessionInput | null = null;
+  try {
+    sessionPayload = JSON.parse(Buffer.from(payload, "base64url").toString("utf-8"));
+  } catch {
+    // ignore
+  }
+
+  let workspace: any = null;
   let role = "OWNER";
 
+  // 1. Check workspace membership via OAuthState (WORKSPACE_MEMBER or TEAM_INVITE)
+  const membership = await prisma.oAuthState.findFirst({
+    where: {
+      userId: active.userId,
+      providerKey: { in: ["WORKSPACE_MEMBER", "TEAM_INVITE"] },
+      workspace: { status: "ACTIVE" },
+      ...(sessionPayload?.workspaceId ? { workspaceId: sessionPayload.workspaceId } : {})
+    },
+    include: { workspace: true },
+    orderBy: { createdAt: "desc" }
+  });
+
+  if (membership?.workspace) {
+    workspace = membership.workspace;
+    role = (membership.returnTo || "MANAGER").toUpperCase();
+    if (workspace.ownerId === active.userId) {
+      role = "OWNER";
+    }
+  }
+
+  // 2. If no membership record, check if user is workspace owner
   if (!workspace) {
-    const membership = await prisma.oAuthState.findFirst({
+    const ownedWorkspace = await prisma.workspace.findFirst({
       where: {
-        userId: active.userId,
-        providerKey: { in: ["WORKSPACE_MEMBER", "TEAM_INVITE"] },
-        workspace: { status: "ACTIVE" }
+        ownerId: active.userId,
+        status: "ACTIVE",
+        ...(sessionPayload?.workspaceId ? { id: sessionPayload.workspaceId } : {})
       },
-      include: { workspace: true },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "asc" }
     });
 
-    if (membership?.workspace) {
-      workspace = membership.workspace;
-      role = membership.returnTo || "MANAGER";
+    if (ownedWorkspace) {
+      workspace = ownedWorkspace;
+      role = "OWNER";
+    }
+  }
+
+  // 3. Fallback: Any active workspace user owns
+  if (!workspace) {
+    const fallbackOwned = await prisma.workspace.findFirst({
+      where: { ownerId: active.userId, status: "ACTIVE" },
+      orderBy: { createdAt: "asc" }
+    });
+    if (fallbackOwned) {
+      workspace = fallbackOwned;
+      role = "OWNER";
     }
   }
 
@@ -99,7 +135,7 @@ export async function getSession(explicitToken?: string) {
     workspaceId: workspace.id,
     role,
     email: active.user.email,
-    name: `${active.user.firstName} ${active.user.lastName}`
+    name: `${active.user.firstName} ${active.user.lastName}`.trim()
   };
   cacheSet(sessionCacheKey(tokenHash), session, SESSION_CACHE_TTL_MS);
   return session;
@@ -111,12 +147,58 @@ export async function requireTenant() {
   return session;
 }
 
+export function getDefaultRouteForRole(role: string): string {
+  const normalized = (role || "").toUpperCase();
+  switch (normalized) {
+    case "CONTENT_MANAGER":
+      return "/content-studio";
+    case "ANALYST":
+      return "/analytics";
+    case "SALES":
+      return "/leads";
+    case "MANAGER":
+    case "ADMIN":
+    case "OWNER":
+    case "VIEWER":
+    default:
+      return "/overview";
+  }
+}
+
 export function can(role: string, permission: string) {
-  const normalizedRole = role.toUpperCase();
+  const normalizedRole = (role || "").toUpperCase();
+  const perm = (permission || "").toLowerCase();
+
   if (normalizedRole === "OWNER" || normalizedRole === "ADMIN") return true;
-  if (normalizedRole === "MANAGER") return !permission.includes("manage") && !permission.includes("delete");
-  if (normalizedRole === "ANALYST") return permission.endsWith(".view") || permission.startsWith("analytics.");
-  if (normalizedRole === "VIEWER") return permission.endsWith(".view");
+
+  if (normalizedRole === "MANAGER") {
+    if (perm.startsWith("team.") || perm.startsWith("billing.")) return false;
+    return true;
+  }
+
+  if (normalizedRole === "CONTENT_MANAGER") {
+    if (perm.startsWith("content.") || perm.startsWith("social.") || perm.startsWith("automation.") || perm.startsWith("ai.")) return true;
+    if (perm === "campaign.view" || perm === "campaign.edit" || perm === "notifications.view" || perm === "settings.view") return true;
+    return false;
+  }
+
+  if (normalizedRole === "ANALYST") {
+    if (perm.startsWith("analytics.") || perm.startsWith("report.") || perm.startsWith("ai.")) return true;
+    if (perm === "campaign.view" || perm === "automation.view" || perm === "notifications.view" || perm === "settings.view" || perm === "overview.view") return true;
+    return false;
+  }
+
+  if (normalizedRole === "SALES") {
+    if (perm.startsWith("lead.") || perm.startsWith("client.")) return true;
+    if (perm === "campaign.view" || perm === "notifications.view" || perm === "settings.view") return true;
+    return false;
+  }
+
+  if (normalizedRole === "VIEWER") {
+    if (perm.startsWith("team.") || perm.startsWith("billing.")) return false;
+    return perm.endsWith(".view");
+  }
+
   return false;
 }
 
@@ -178,26 +260,40 @@ export async function authenticatePersistedUser(email: string, password: string)
     }
   });
   if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) return null;
-  let workspace = await prisma.workspace.findFirst({
-    where: { ownerId: user.id, status: "ACTIVE" },
-    orderBy: { createdAt: "asc" }
+  if (user.status === "SUSPENDED") {
+    throw new Error("Your account has been suspended by your workspace administrator. Please contact your administrator.");
+  }
+  // 1. Check workspace membership via OAuthState (WORKSPACE_MEMBER or TEAM_INVITE)
+  const membership = await prisma.oAuthState.findFirst({
+    where: {
+      userId: user.id,
+      providerKey: { in: ["WORKSPACE_MEMBER", "TEAM_INVITE"] },
+      workspace: { status: "ACTIVE" }
+    },
+    include: { workspace: true },
+    orderBy: { createdAt: "desc" }
   });
+
+  let workspace: any = null;
   let role = "OWNER";
 
-  if (!workspace) {
-    const membership = await prisma.oAuthState.findFirst({
-      where: {
-        userId: user.id,
-        providerKey: { in: ["WORKSPACE_MEMBER", "TEAM_INVITE"] },
-        workspace: { status: "ACTIVE" }
-      },
-      include: { workspace: true },
-      orderBy: { createdAt: "desc" }
-    });
+  if (membership?.workspace) {
+    workspace = membership.workspace;
+    role = (membership.returnTo || "MANAGER").toUpperCase();
+    if (workspace.ownerId === user.id) {
+      role = "OWNER";
+    }
+  }
 
-    if (membership?.workspace) {
-      workspace = membership.workspace;
-      role = membership.returnTo || "MANAGER";
+  // 2. Fallback to workspace owned by user if no membership
+  if (!workspace) {
+    const ownedWorkspace = await prisma.workspace.findFirst({
+      where: { ownerId: user.id, status: "ACTIVE" },
+      orderBy: { createdAt: "asc" }
+    });
+    if (ownedWorkspace) {
+      workspace = ownedWorkspace;
+      role = "OWNER";
     }
   }
 
@@ -208,6 +304,6 @@ export async function authenticatePersistedUser(email: string, password: string)
     workspaceId: workspace.id,
     role,
     email: user.email,
-    name: `${user.firstName} ${user.lastName}`
+    name: `${user.firstName} ${user.lastName}`.trim()
   } as SessionInput;
 }

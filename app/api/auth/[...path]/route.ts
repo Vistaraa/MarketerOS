@@ -8,38 +8,83 @@ export const runtime = "nodejs";
 
 const credentials = z.object({ email: z.string().email(), password: z.string().min(8) });
 
-export async function GET(request: Request, { params }: { params: { path: string[] } }) {
-  const path = params.path.join("/");
-  if (path === "session") {
-    const session = await getSession();
-    return NextResponse.json({
-      data: {
-        authenticated: Boolean(session),
-        user: session ? { id: session.userId, name: session.name, email: session.email, workspaceId: session.workspaceId, role: session.role } : null
-      }
-    });
+async function resolvePath(
+  request: Request,
+  params: { path: string[] } | Promise<{ path: string[] }>
+): Promise<string> {
+  let segments: string[] = [];
+  try {
+    const resolvedParams = await Promise.resolve(params);
+    if (resolvedParams?.path) {
+      segments = Array.isArray(resolvedParams.path)
+        ? resolvedParams.path
+        : [String(resolvedParams.path)];
+    }
+  } catch {
+    // fallback
   }
-  if (path === "set-password") {
-    const url = new URL(request.url);
-    const token = url.searchParams.get("token");
-    if (!token) return NextResponse.json({ error: { message: "Invitation token is required." } }, { status: 400 });
-    const { verifyInvitationToken } = await import("@/lib/invite-service");
-    const result = await verifyInvitationToken(token);
-    if (!result.valid) return NextResponse.json({ error: { message: result.reason || "Invalid or expired invitation token." } }, { status: 400 });
-    return NextResponse.json({ data: result });
+
+  let pathStr = segments.filter(Boolean).join("/").toLowerCase().trim();
+
+  if (!pathStr) {
+    try {
+      const url = new URL(request.url);
+      pathStr = url.pathname.replace(/^\/api\/auth\/?/, "").toLowerCase().trim();
+    } catch {
+      // ignore
+    }
   }
-  return NextResponse.json({ error: { message: "Auth route not found." } }, { status: 404 });
+
+  return pathStr.replace(/^\/+|\/+$/g, "");
 }
 
-export async function POST(request: Request, { params }: { params: { path: string[] } }) {
-  const path = params.path.join("/");
-  const body = await request.json().catch(() => null);
+export async function GET(
+  request: Request,
+  { params }: { params: { path: string[] } | Promise<{ path: string[] }> }
+) {
   try {
+    const path = await resolvePath(request, params);
+    if (path === "session") {
+      const session = await getSession();
+      return NextResponse.json({
+        data: {
+          authenticated: Boolean(session),
+          user: session ? { id: session.userId, name: session.name, email: session.email, workspaceId: session.workspaceId, role: session.role } : null
+        }
+      });
+    }
+    if (path === "set-password" || path === "accept-invite" || path === "activate") {
+      const url = new URL(request.url);
+      const token = url.searchParams.get("token");
+      if (!token) return NextResponse.json({ error: { message: "Invitation token is required." } }, { status: 400 });
+      const { verifyInvitationToken } = await import("@/lib/invite-service");
+      const result = await verifyInvitationToken(token);
+      if (!result.valid) return NextResponse.json({ error: { message: result.reason || "Invalid or expired invitation token." } }, { status: 400 });
+      return NextResponse.json({ data: result });
+    }
+    return NextResponse.json({ error: { message: "Auth route not found." } }, { status: 404 });
+  } catch (err: any) {
+    console.error("Auth GET error:", err);
+    return NextResponse.json(
+      { error: { message: err?.message || "Authentication service failed." } },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(
+  request: Request,
+  { params }: { params: { path: string[] } | Promise<{ path: string[] }> }
+) {
+  try {
+    const path = await resolvePath(request, params);
+    const body = await request.json().catch(() => null);
+
     if (path === "logout") {
       await clearSession();
       return NextResponse.json({ data: { success: true, message: "Logged out successfully." } });
     }
-    if (path === "set-password") {
+    if (path === "set-password" || path === "accept-invite" || path === "activate") {
       const parsed = z.object({
         token: z.string().min(1, "Invitation token is required."),
         password: z.string().min(8, "Password must be at least 8 characters.")
@@ -49,12 +94,25 @@ export async function POST(request: Request, { params }: { params: { path: strin
       }
       const { consumeInvitationToken } = await import("@/lib/invite-service");
       const result = await consumeInvitationToken(parsed.data.token, parsed.data.password);
+      const { getDefaultRouteForRole, setSession } = await import("@/lib/auth-server");
+
+      const sessionInput = {
+        userId: result.user.id,
+        workspaceId: result.workspaceId,
+        role: result.role,
+        email: result.user.email,
+        name: `${result.user.firstName} ${result.user.lastName}`.trim()
+      };
+      await setSession(sessionInput);
+      const nextRoute = getDefaultRouteForRole(result.role);
+
       return NextResponse.json({
         data: {
           success: true,
-          message: "Password set successfully! Your account is now active.",
+          message: "Password set successfully! Your account is active.",
           email: result.user.email,
-          next: `/auth/login?email=${encodeURIComponent(result.user.email)}&activated=true`
+          user: sessionInput,
+          next: nextRoute
         }
       });
     }
@@ -81,7 +139,9 @@ export async function POST(request: Request, { params }: { params: { path: strin
       const session = await authenticatePersistedUser(email, parsed.data.password);
       if (!session) return NextResponse.json({ error: { message: "Email or password is incorrect." } }, { status: 401 });
       await setSession(session);
-      return NextResponse.json({ data: { success: true, user: session, next: "/overview" } });
+      const { getDefaultRouteForRole } = await import("@/lib/auth-server");
+      const nextRoute = getDefaultRouteForRole(session.role);
+      return NextResponse.json({ data: { success: true, user: session, next: nextRoute } });
     }
     if (path === "forgot-password") {
       const parsed = z.object({ email: z.string().email("Please enter a valid email address.") }).safeParse(body);

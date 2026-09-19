@@ -63,6 +63,8 @@ export function SetPasswordPage() {
   const passwordsMatch = password.length > 0 && password === confirmPassword;
   const isFormValid = hasMinLength && hasNumberOrSpecial && passwordsMatch;
 
+  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!isFormValid || !token) return;
@@ -82,7 +84,12 @@ export function SetPasswordPage() {
         throw new Error(payload.error?.message || "Failed to set password. Please try again.");
       }
 
+      const target = payload.data?.next || "/overview";
+      setRedirectUrl(target);
       setSuccess(true);
+      setTimeout(() => {
+        router.push(target);
+      }, 700);
     } catch (err: any) {
       setSubmitError(err?.message || "An unexpected error occurred.");
     } finally {
@@ -167,28 +174,24 @@ export function SetPasswordPage() {
               </div>
             ) : success ? (
               <div className="space-y-5 text-center py-4">
-                <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
+                <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 animate-bounce">
                   <Check size={24} />
                 </div>
                 <div>
                   <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                    Password Set Successfully!
+                    Account Activated!
                   </h1>
                   <p className="mt-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                    Your account has been activated. You can now sign in to MarketerOS with your work email and new password.
+                    Your password has been saved. Opening your <span className="font-semibold text-zinc-700 dark:text-zinc-300">{inviteInfo?.role?.replace(/_/g, " ") || "Role"}</span> workspace interface now…
                   </p>
                 </div>
 
                 <div className="pt-3">
                   <button
-                    onClick={() =>
-                      router.push(
-                        `/auth/login?email=${encodeURIComponent(inviteInfo?.email || "")}&activated=true`
-                      )
-                    }
+                    onClick={() => router.push(redirectUrl || "/overview")}
                     className="btn-primary w-full py-2.5 text-xs flex items-center justify-center gap-2"
                   >
-                    Proceed to Sign In <ArrowRight size={14} />
+                    Entering Workspace <ArrowRight size={14} />
                   </button>
                 </div>
               </div>

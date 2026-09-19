@@ -37,6 +37,86 @@ interface TeamMember {
   createdAt?: string;
 }
 
+function RoleScopeBreakdown({ role }: { role: string }) {
+  const r = (role || "").toUpperCase();
+
+  const details: Record<string, { landing: string; visible: string[]; hidden: string[] }> = {
+    ADMIN: {
+      landing: "/overview",
+      visible: ["Overview", "AI Insights", "Campaigns", "Integrations", "Leads CRM", "Analytics", "Reports", "Content Studio", "Automation", "Clients Directory", "Team Management", "Billing & Plans", "Notifications", "Settings"],
+      hidden: []
+    },
+    MANAGER: {
+      landing: "/overview",
+      visible: ["Overview", "AI Insights", "Campaigns", "Integrations", "Leads CRM", "Analytics", "Reports", "Content Studio", "Automation", "Clients Directory", "Notifications", "Settings"],
+      hidden: ["Team Management", "Billing & Plans"]
+    },
+    CONTENT_MANAGER: {
+      landing: "/content-studio",
+      visible: ["Content Studio", "Automation", "AI Insights", "Campaigns", "Notifications", "Settings"],
+      hidden: ["Overview Dashboard", "Analytics", "Reports", "Leads CRM", "Clients Directory", "Team Management", "Billing & Plans", "Integrations"]
+    },
+    ANALYST: {
+      landing: "/analytics",
+      visible: ["Analytics", "Reports", "Overview Dashboard", "AI Insights", "Campaigns", "Automation", "Notifications", "Settings"],
+      hidden: ["Content Studio", "Leads CRM", "Clients Directory", "Team Management", "Billing & Plans", "Integrations"]
+    },
+    SALES: {
+      landing: "/leads",
+      visible: ["Leads CRM", "Clients Directory", "Campaigns", "Notifications", "Settings"],
+      hidden: ["Overview Dashboard", "Content Studio", "Analytics", "Reports", "Automation", "AI Insights", "Integrations", "Team Management", "Billing & Plans"]
+    },
+    VIEWER: {
+      landing: "/overview",
+      visible: ["Overview Dashboard", "AI Insights", "Analytics", "Reports", "Notifications"],
+      hidden: ["Content Studio", "Automation", "Campaigns Edit", "Leads CRM", "Clients Directory", "Team Management", "Billing & Plans", "Integrations", "Settings"]
+    }
+  };
+
+  const scope = details[r] || details.MANAGER;
+
+  return (
+    <div className="mt-3 rounded-xl border border-zinc-200/90 bg-zinc-50/70 p-3.5 text-xs dark:border-zinc-800 dark:bg-zinc-900/60">
+      <div className="flex items-center justify-between border-b border-zinc-200/60 pb-2 dark:border-zinc-800">
+        <span className="font-semibold text-zinc-900 dark:text-zinc-100">Primary Landing Route:</span>
+        <code className="rounded bg-indigo-50 px-2 py-0.5 font-mono text-[11px] font-bold text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
+          {scope.landing}
+        </code>
+      </div>
+
+      <div className="mt-2.5 space-y-2">
+        <div>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1 flex items-center gap-1">
+            <span>✓ Visible & Accessible Pages ({scope.visible.length})</span>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {scope.visible.map((p) => (
+              <span key={p} className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                {p}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {scope.hidden.length > 0 && (
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-rose-500/90 dark:text-rose-400 mb-1 flex items-center gap-1">
+              <span>✕ Hidden & Restricted Pages ({scope.hidden.length})</span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {scope.hidden.map((p) => (
+                <span key={p} className="rounded-md bg-rose-50/60 px-2 py-0.5 text-[10px] font-medium text-rose-700/80 dark:bg-rose-950/30 dark:text-rose-400/80">
+                  {p}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function TeamManagementPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -193,14 +273,26 @@ export function TeamManagementPage() {
 
   async function handleUpdateRole(id: string, newRole: string) {
     try {
+      const targetMember = members.find((m) => m.id === id);
       const res = await fetch(`/api/v1/team/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role: newRole })
       });
+      const payload = await safeFetchJson<ApiResponse<{ updated: boolean; delivered?: boolean }>>(res);
       if (res.ok) {
         setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, role: newRole } : m)));
         setEditingMember(null);
+        const delivered = payload.data?.delivered;
+        setDialogConfig({
+          isOpen: true,
+          title: "Role Updated",
+          message: delivered
+            ? `Successfully updated ${targetMember?.name || "member"}'s role to ${newRole.replace(/_/g, " ").toUpperCase()}. A notification email has been sent to ${targetMember?.email}.`
+            : `Successfully updated ${targetMember?.name || "member"}'s role to ${newRole.replace(/_/g, " ").toUpperCase()}. (Email notification pending SMTP configuration).`,
+          type: "success",
+          confirmText: "Got It"
+        });
       }
     } catch (err) {
       console.error("Failed to update role:", err);
@@ -209,6 +301,7 @@ export function TeamManagementPage() {
 
   async function handleToggleStatus(id: string, currentStatus: string) {
     const nextStatus = currentStatus === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
+    const targetMember = members.find((m) => m.id === id);
     try {
       const res = await fetch(`/api/v1/team/${id}`, {
         method: "PATCH",
@@ -217,6 +310,15 @@ export function TeamManagementPage() {
       });
       if (res.ok) {
         setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, status: nextStatus } : m)));
+        if (nextStatus === "SUSPENDED") {
+          setDialogConfig({
+            isOpen: true,
+            title: "Member Suspended",
+            message: `${targetMember?.name || "Member"} has been suspended. Their access to the workspace has been immediately revoked and active sessions terminated.`,
+            type: "warning",
+            confirmText: "Understood"
+          });
+        }
       }
     } catch (err) {
       console.error("Failed to update status:", err);
@@ -538,12 +640,14 @@ export function TeamManagementPage() {
                     className="input-clean mt-1"
                   >
                     <option value="ADMIN">Admin (Full Control)</option>
-                    <option value="MANAGER">Manager (Campaigns & Clients)</option>
+                    <option value="MANAGER">Manager (Campaigns & Workspace Ops)</option>
                     <option value="CONTENT_MANAGER">Content Manager (Content Studio & Social)</option>
-                    <option value="ANALYST">Analyst (Analytics & Reports)</option>
-                    <option value="SALES">Sales (Leads CRM)</option>
+                    <option value="ANALYST">Analyst (Analytics & Performance Reports)</option>
+                    <option value="SALES">Sales (Leads Pipeline & Clients)</option>
                     <option value="VIEWER">Viewer (Read Only)</option>
                   </select>
+
+                  <RoleScopeBreakdown role={inviteForm.role} />
                 </div>
 
                 <div className="mt-6 flex items-center justify-end gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
@@ -582,6 +686,8 @@ export function TeamManagementPage() {
                   <option value="SALES">Sales</option>
                   <option value="VIEWER">Viewer</option>
                 </select>
+
+                <RoleScopeBreakdown role={editRole} />
               </div>
 
               <div className="mt-6 flex justify-end gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
