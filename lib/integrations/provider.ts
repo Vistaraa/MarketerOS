@@ -26,7 +26,7 @@ export function providerConfiguration(providerKey: ProviderKey) {
 }
 
 async function jsonRequest<T>(url: string, init: RequestInit) {
-  const response = await fetch(url, init); const body = await response.json().catch(() => ({}));
+  const response = await fetch(url, { ...init, signal: AbortSignal.timeout(12_000) }); const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(typeof body?.error?.message === "string" ? body.error.message : `Provider request failed with ${response.status}.`);
   return body as T;
 }

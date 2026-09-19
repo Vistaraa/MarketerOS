@@ -389,6 +389,7 @@ model Client {
 
   @@unique([workspaceId, slug])
   @@index([workspaceId, status])
+  @@index([workspaceId, updatedAt])
 }
 
 // ==========================================
@@ -428,6 +429,7 @@ model Integration {
 
   @@unique([workspaceId, platform, accountId])
   @@index([workspaceId, platform])
+  @@index([workspaceId, updatedAt])
   @@index([status])
 }
 
@@ -528,6 +530,7 @@ model Campaign {
   automations     Automation[]
 
   @@index([workspaceId, status])
+  @@index([workspaceId, updatedAt])
   @@index([platform, status])
   @@index([externalId])
 }
@@ -669,6 +672,7 @@ model SocialPost {
   client          Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   @@index([socialAccountId, status])
+  @@index([socialAccountId, updatedAt])
   @@index([workspaceId])
 }
 
@@ -698,6 +702,7 @@ model Content {
   createdBy      User          @relation("ContentCreator", fields: [createdById], references: [id])
 
   @@index([workspaceId, status])
+  @@index([workspaceId, updatedAt])
   @@index([type])
 }
 
@@ -729,6 +734,7 @@ model Lead {
   owner          User?      @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, status])
+  @@index([workspaceId, createdAt])
   @@index([email])
 }
 
@@ -758,6 +764,7 @@ model AIInsight {
   recipientUser   User?         @relation("InsightRecipient", fields: [recipientUserId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, status])
+  @@index([workspaceId, updatedAt])
   @@index([campaignId])
 }
 
@@ -782,6 +789,7 @@ model Automation {
   campaign       Campaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, isActive])
+  @@index([workspaceId, updatedAt])
 }
 
 model AIRequest {
@@ -837,6 +845,7 @@ model Report {
   createdBy     User         @relation("ReportCreator", fields: [createdById], references: [id])
 
   @@index([workspaceId])
+  @@index([workspaceId, updatedAt])
 }
 
 // ==========================================
@@ -953,6 +962,7 @@ model Notification {
 
   @@index([userId, isRead])
   @@index([workspaceId])
+  @@index([workspaceId, userId, createdAt])
 }
 
 model AuditLog {

@@ -39,9 +39,11 @@ import {
   Zap
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import { resetClientSession, useClientSession } from "@/lib/client-session";
 
 // Navigation Groups
 const mainNavItems = [
@@ -158,12 +160,11 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
               {filtered.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <button
+                  <Link
                     key={`${item.category}-${item.href}-${item.label}`}
-                    onClick={() => {
-                      router.push(item.href);
-                      onClose();
-                    }}
+                    href={item.href}
+                    prefetch
+                    onClick={onClose}
                     className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
                   >
                     <div className="flex items-center gap-2.5">
@@ -173,7 +174,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                       <span className="font-medium text-xs">{item.label}</span>
                     </div>
                     <span className="text-[10px] text-zinc-400">{item.category}</span>
-                  </button>
+                  </Link>
                 );
               })}
             </div>
@@ -203,18 +204,17 @@ export function ModernSidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [session, setSession] = useState<{ user?: { name?: string; email?: string; role?: string } } | null>(null);
+  const session = useClientSession();
+  const sessionUser = session.status === "authenticated" ? session.user : null;
 
   useEffect(() => {
-    fetch("/api/auth/session")
-      .then((res) => res.json())
-      .then((payload: { data?: { user?: { name?: string; email?: string; role?: string } } }) =>
-        setSession(payload.data || null)
-      )
-      .catch(() => setSession(null));
-  }, []);
+    for (const item of [...mainNavItems, ...workspaceNavItems, ...systemNavItems]) {
+      router.prefetch(item.href);
+    }
+  }, [router]);
 
   const handleLogout = async () => {
+    resetClientSession();
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
@@ -228,12 +228,11 @@ export function ModernSidebar({
       {items.map(({ label, href, icon: Icon, badge }) => {
         const active = isRouteActive(pathname, href);
         return (
-          <button
+          <Link
             key={href}
-            onClick={() => {
-              router.push(href);
-              onMobileClose();
-            }}
+            href={href}
+            prefetch
+            onClick={onMobileClose}
             title={collapsed ? label : undefined}
             className={cn(
               "group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition-all lg:py-1.5",
@@ -256,17 +255,19 @@ export function ModernSidebar({
                 )}
               </>
             )}
-          </button>
+          </Link>
         );
       })}
     </div>
   );
 
-  const initials = (session?.user?.name || "HM")
-    .split(" ")
-    .map((p) => p[0])
-    .join("")
-    .slice(0, 2);
+  const initials = sessionUser?.name
+    ? sessionUser.name
+        .split(" ")
+        .map((p) => p[0])
+        .join("")
+        .slice(0, 2)
+    : "";
 
   return (
     <>
@@ -364,15 +365,15 @@ export function ModernSidebar({
             )}
           >
             <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-zinc-200 font-bold text-zinc-800 text-[10px] dark:bg-zinc-800 dark:text-zinc-200">
-              {initials}
+              {initials || "…"}
             </span>
             {!collapsed && (
               <div className="min-w-0 flex-1">
                 <span className="block truncate font-semibold text-zinc-900 text-xs dark:text-zinc-100">
-                  {session?.user?.name || "Heet Patel"}
+                  {sessionUser?.name || "…"}
                 </span>
                 <span className="block truncate text-[10px] text-zinc-400">
-                  {session?.user?.email || "Owner"}
+                  {sessionUser?.email || "…"}
                 </span>
               </div>
             )}
@@ -459,12 +460,13 @@ export function ModernTopbar({
       {/* Left: Page Title only on mobile; Full breadcrumbs on desktop */}
       <div className="flex items-center min-w-0 pr-2">
         <div className="flex items-center gap-1.5 text-xs text-zinc-400">
-          <span
-            className="hidden sm:inline hover:text-zinc-900 cursor-pointer transition dark:hover:text-zinc-100"
-            onClick={() => router.push("/")}
+          <Link
+            href="/"
+            prefetch
+            className="hidden sm:inline hover:text-zinc-900 transition dark:hover:text-zinc-100"
           >
             Dashboard
-          </span>
+          </Link>
           <ChevronRight size={12} className="hidden sm:inline text-zinc-300 dark:text-zinc-600" />
           <span className="text-sm sm:text-xs font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
             {title}
@@ -551,9 +553,10 @@ export function MobileBottomNav({
       {navItems.map(({ label, href, icon: Icon }) => {
         const active = isRouteActive(pathname, href);
         return (
-          <button
+          <Link
             key={href}
-            onClick={() => router.push(href)}
+            href={href}
+            prefetch
             className={cn(
               "flex flex-1 flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium transition-colors",
               active
@@ -572,7 +575,7 @@ export function MobileBottomNav({
               <Icon size={16} />
             </div>
             <span className="truncate">{label}</span>
-          </button>
+          </Link>
         );
       })}
 

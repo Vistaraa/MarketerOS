@@ -2,8 +2,16 @@ import { cookies, headers } from "next/headers";
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { Prisma, prisma } from "@/lib/prisma";
+import { cacheGet, cacheInvalidateKey, cacheSet } from "@/lib/cache";
 
 const COOKIE = "marketeros_session";
+
+const SESSION_CACHE_TTL_MS = 30_000;
+const SESSION_CACHE_PREFIX = "session:";
+
+function sessionCacheKey(tokenHash: string) {
+  return `${SESSION_CACHE_PREFIX}${tokenHash}`;
+}
 
 function sign(payload: string) {
   const secret = process.env.SESSION_SECRET;
@@ -27,7 +35,10 @@ export async function setSession(input: SessionInput) {
 export async function clearSession() {
   const store = await cookies();
   const raw = store.get(COOKIE)?.value;
-  if (raw) await prisma.session.deleteMany({ where: { tokenHash: hashSession(raw) } });
+  if (raw) {
+    cacheInvalidateKey(sessionCacheKey(hashSession(raw)));
+    await prisma.session.deleteMany({ where: { tokenHash: hashSession(raw) } });
+  }
   store.delete(COOKIE);
 }
 
@@ -52,6 +63,8 @@ export async function getSession(explicitToken?: string) {
   const [payload, signature] = raw.split(".");
   if (!payload || !signature || sign(payload) !== signature) return null;
   const tokenHash = hashSession(raw);
+  const cached = cacheGet<{ userId: string; workspaceId: string; role: string; email: string; name: string }>(sessionCacheKey(tokenHash));
+  if (cached) return cached;
   const active = await prisma.session.findFirst({
     where: { tokenHash, expiresAt: { gt: new Date() } },
     include: { user: true }
@@ -81,13 +94,15 @@ export async function getSession(explicitToken?: string) {
   }
 
   if (!workspace) return null;
-  return {
+  const session = {
     userId: active.userId,
     workspaceId: workspace.id,
     role,
     email: active.user.email,
     name: `${active.user.firstName} ${active.user.lastName}`
   };
+  cacheSet(sessionCacheKey(tokenHash), session, SESSION_CACHE_TTL_MS);
+  return session;
 }
 
 export async function requireTenant() {

@@ -12,6 +12,7 @@ import { enqueueJob } from "@/lib/jobs";
 import { validateCredentials } from "@/lib/integrations/validate";
 import { validateYouTubeApiKey, validateYouTubeChannel, fetchChannelInfo, fetchRecentVideos, fetchAllYouTubeAnalytics } from "@/lib/youtube";
 import { paged, parseListQuery } from "@/lib/api-contracts";
+import { cacheGetOrSet, cacheInvalidatePrefix } from "@/lib/cache";
 import { buildPersistedOverview, parseOverviewQuery } from "@/lib/overview-service";
 import { archivePersistedCampaign, connectPersistedIntegrationCredentials, createOrUpdatePersistedSocialAccount, createPersistedCampaign, createPersistedLead, disconnectPersistedIntegration, disconnectPersistedSocialAccount, getPersistedCampaign, getPersistedIntegration, getPersistedLead, listPersistedAutomations, listPersistedCampaigns, listPersistedClients, listPersistedContent, listPersistedInsights, listPersistedIntegrations, listPersistedLeads, listPersistedNotifications, listPersistedReports, listPersistedSocialAccountsMerged, listPersistedSocialPosts, listPersistedTeam, searchPersisted, updatePersistedCampaignStatus } from "@/lib/repositories";
 
@@ -115,26 +116,40 @@ export async function GET(request: Request, { params }: { params: { path: string
   if (path === "overview" || path === "analytics/overview") {
     const parsed = parseOverviewQuery(request);
     if (!parsed.success) return error(parsed.message, 400, "INVALID_OVERVIEW_QUERY");
-    const data = await buildPersistedOverview(auth.session.workspaceId, parsed.data);
+    const key = `ws:${auth.session.workspaceId}:v1:${path}:${url.search}`;
+    const data = await cacheGetOrSet(key, () => buildPersistedOverview(auth.session.workspaceId, parsed.data), 30_000);
     return ok(data);
   }
-  if (path === "campaigns") { const source = (await listPersistedCampaigns(auth.session.workspaceId, query)).filter((item) => (!listQuery.status || item.status.toLowerCase() === listQuery.status.toLowerCase()) && (!listQuery.platform || item.platform.toLowerCase() === listQuery.platform.toLowerCase())); const result = paged(source, listQuery); return ok({ items: result.items, total: result.total }, { page: listQuery.page, pageSize: listQuery.pageSize, total: result.total }); }
+  if (path === "campaigns") {
+    const key = `ws:${auth.session.workspaceId}:v1:campaigns:${url.search}`;
+    const source = await cacheGetOrSet(key, async () => listPersistedCampaigns(auth.session.workspaceId, query), 15_000);
+    const filtered = source.filter((item) => (!listQuery.status || item.status.toLowerCase() === listQuery.status.toLowerCase()) && (!listQuery.platform || item.platform.toLowerCase() === listQuery.platform.toLowerCase()));
+    const result = paged(filtered, listQuery);
+    return ok({ items: result.items, total: result.total }, { page: listQuery.page, pageSize: listQuery.pageSize, total: result.total });
+  }
   if (path.startsWith("campaigns/")) {
     const id = path.split("/")[1];
     const found = await getPersistedCampaign(auth.session.workspaceId, id);
     return found ? ok(found) : error("Campaign not found.", 404);
   }
-  if (path === "leads") { const source = (await listPersistedLeads(auth.session.workspaceId, query)).filter((item) => !listQuery.status || item.status.toLowerCase() === listQuery.status.toLowerCase()); const result = paged(source, listQuery); return ok({ items: result.items, total: result.total }, { page: listQuery.page, pageSize: listQuery.pageSize, total: result.total }); }
+  if (path === "leads") {
+    const key = `ws:${auth.session.workspaceId}:v1:leads:${url.search}`;
+    const source = await cacheGetOrSet(key, async () => listPersistedLeads(auth.session.workspaceId, query), 15_000);
+    const filtered = source.filter((item) => !listQuery.status || item.status.toLowerCase() === listQuery.status.toLowerCase());
+    const result = paged(filtered, listQuery);
+    return ok({ items: result.items, total: result.total }, { page: listQuery.page, pageSize: listQuery.pageSize, total: result.total });
+  }
   if (path.startsWith("leads/")) {
     const id = path.split("/")[1];
     const found = await getPersistedLead(auth.session.workspaceId, id);
     return found ? ok(found) : error("Lead not found.", 404);
   }
-  if (path === "integrations") return ok({ items: await listPersistedIntegrations(auth.session.workspaceId), syncHistory: await prisma.integrationSyncLog.findMany({ where: { integration: { workspaceId: auth.session.workspaceId } }, orderBy: { startedAt: "desc" }, take: 50 }) });
+  if (path === "integrations") return ok(await cacheGetOrSet(`ws:${auth.session.workspaceId}:v1:integrations`, async () => ({ items: await listPersistedIntegrations(auth.session.workspaceId), syncHistory: await prisma.integrationSyncLog.findMany({ where: { integration: { workspaceId: auth.session.workspaceId } }, orderBy: { startedAt: "desc" }, take: 50 }) }), 15_000));
   if (path.startsWith("integrations/")) { const found = await getPersistedIntegration(auth.session.workspaceId, path.split("/")[1]); return found ? ok(found) : error("Integration not found.", 404); }
-  if (path === "social/posts") return ok({ items: await listPersistedSocialPosts(auth.session.workspaceId, query) });
+  if (path === "social/posts") return ok(await cacheGetOrSet(`ws:${auth.session.workspaceId}:v1:social/posts:${url.search}`, async () => ({ items: await listPersistedSocialPosts(auth.session.workspaceId, query) }), 15_000));
   if (path === "social/accounts") {
-    const accounts = await listPersistedSocialAccountsMerged(auth.session.workspaceId);
+    const key = `ws:${auth.session.workspaceId}:v1:social/accounts`;
+    const accounts = await cacheGetOrSet(key, async () => listPersistedSocialAccountsMerged(auth.session.workspaceId), 15_000);
     return ok({ items: accounts });
   }
   if (path.startsWith("social/accounts/")) {
@@ -149,21 +164,21 @@ export async function GET(request: Request, { params }: { params: { path: string
     const igId = account.accountId;
     try {
       if (action === "profile") {
-        const res = await fetch(`https://graph.facebook.com/v20.0/${igId}?fields=username,name,biography,followers_count,follows_count,media_count,profile_picture_url&access_token=${encodeURIComponent(accessToken)}`);
+        const res = await fetch(`https://graph.facebook.com/v20.0/${igId}?fields=username,name,biography,followers_count,follows_count,media_count,profile_picture_url&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(12_000) });
         const data = await res.json();
         if (data.error) return error(data.error.message, 422, "INSTAGRAM_API_ERROR");
         return ok(data);
       }
       if (action === "insights") {
         const metrics = "impressions,reach,profile_views,follower_count,phone_call_clicks,text_message_clicks,email_contacts,website_clicks";
-        const res = await fetch(`https://graph.facebook.com/v20.0/${igId}/insights?metric=${metrics}&period=day&access_token=${encodeURIComponent(accessToken)}`);
+        const res = await fetch(`https://graph.facebook.com/v20.0/${igId}/insights?metric=${metrics}&period=day&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(12_000) });
         const data = await res.json();
         if (data.error) return error(data.error.message, 422, "INSTAGRAM_API_ERROR");
         return ok(data);
       }
       if (action === "media") {
         const limit = url.searchParams.get("limit") || "25";
-        const res = await fetch(`https://graph.facebook.com/v20.0/${igId}/media?fields=id,caption,media_type,media_url,thumbnail_url,timestamp,like_count,comments_count,permalink&limit=${limit}&access_token=${encodeURIComponent(accessToken)}`);
+        const res = await fetch(`https://graph.facebook.com/v20.0/${igId}/media?fields=id,caption,media_type,media_url,thumbnail_url,timestamp,like_count,comments_count,permalink&limit=${limit}&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(12_000) });
         const data = await res.json();
         if (data.error) return error(data.error.message, 422, "INSTAGRAM_API_ERROR");
         return ok(data);
@@ -173,27 +188,27 @@ export async function GET(request: Request, { params }: { params: { path: string
       return error(`Instagram API failed: ${e instanceof Error ? e.message : String(e)}`, 502, "INSTAGRAM_API_FAILED");
     }
   }
-  if (path === "content") return ok({ items: await listPersistedContent(auth.session.workspaceId, query) });
-  if (path === "ai/insights") return ok({ items: await listPersistedInsights(auth.session.workspaceId) });
+  if (path === "content") return ok(await cacheGetOrSet(`ws:${auth.session.workspaceId}:v1:content:${url.search}`, async () => ({ items: await listPersistedContent(auth.session.workspaceId, query) }), 15_000));
+  if (path === "ai/insights") return ok(await cacheGetOrSet(`ws:${auth.session.workspaceId}:v1:ai/insights`, async () => ({ items: await listPersistedInsights(auth.session.workspaceId) }), 15_000));
   if (path === "notifications") {
     const items = await listPersistedNotifications(auth.session.workspaceId, auth.session.userId, url.searchParams.get("unread") === "true");
     return ok({ items: items.map((item) => ({ id: item.id, title: item.title, message: item.message, read: Boolean(item.readAt), link: item.link, createdAt: item.createdAt })) });
   }
-  if (path === "reports") return ok({ items: await listPersistedReports(auth.session.workspaceId), filters: listQuery });
+  if (path === "reports") return ok(await cacheGetOrSet(`ws:${auth.session.workspaceId}:v1:reports`, async () => ({ items: await listPersistedReports(auth.session.workspaceId), filters: listQuery }), 15_000));
   if (path.startsWith("reports/")) {
     const id = path.split("/")[1];
     const { getPersistedReport } = await import("@/lib/repositories");
     const found = await getPersistedReport(auth.session.workspaceId, id);
     return found ? ok(found) : error("Report not found.", 404);
   }
-  if (path === "clients") return ok({ items: await listPersistedClients(auth.session.workspaceId), filters: listQuery });
+  if (path === "clients") return ok(await cacheGetOrSet(`ws:${auth.session.workspaceId}:v1:clients`, async () => ({ items: await listPersistedClients(auth.session.workspaceId), filters: listQuery }), 15_000));
   if (path.startsWith("clients/")) {
     const id = path.split("/")[1];
     const { getPersistedClient } = await import("@/lib/repositories");
     const found = await getPersistedClient(auth.session.workspaceId, id);
     return found ? ok(found) : error("Client not found.", 404);
   }
-  if (path === "automation") return ok({ items: await listPersistedAutomations(auth.session.workspaceId), filters: listQuery });
+  if (path === "automation") return ok(await cacheGetOrSet(`ws:${auth.session.workspaceId}:v1:automation`, async () => ({ items: await listPersistedAutomations(auth.session.workspaceId), filters: listQuery }), 15_000));
   if (path.startsWith("automation/")) {
     const id = path.split("/")[1];
     const { getPersistedAutomationWithLogs } = await import("@/lib/repositories");
@@ -220,7 +235,7 @@ export async function GET(request: Request, { params }: { params: { path: string
     if (!invoice) return error("Invoice not found.", 404);
     return ok(invoice);
   }
-  if (path === "team") return ok({ items: await listPersistedTeam(auth.session.workspaceId), filters: listQuery });
+  if (path === "team") return ok(await cacheGetOrSet(`ws:${auth.session.workspaceId}:v1:team`, async () => ({ items: await listPersistedTeam(auth.session.workspaceId), filters: listQuery }), 15_000));
   if (path === "settings") {
     const { getPersistedSettings } = await import("@/lib/settings-service");
     const data = await getPersistedSettings(auth.session.workspaceId, auth.session.userId, auth.session.role);
@@ -228,7 +243,8 @@ export async function GET(request: Request, { params }: { params: { path: string
   }
   if (["analytics", "ad-manager", "social-media"].includes(path)) return ok({ items: [], filters: listQuery });
   if (path === "search") {
-    const items = await searchPersisted(auth.session.workspaceId, query);
+    const key = `ws:${auth.session.workspaceId}:v1:search:${query}`;
+    const items = await cacheGetOrSet(key, async () => searchPersisted(auth.session.workspaceId, query), 15_000);
     return ok({ items }, { page: listQuery.page, pageSize: listQuery.pageSize, total: items.length });
   }
   return error("Resource not found.", 404);
@@ -240,6 +256,7 @@ export async function POST(request: Request, { params }: { params: { path: strin
   const permission = path === "campaigns" || path === "leads" ? "campaign.edit" : path.startsWith("notifications") || path === "ai/insights/generate" ? "analytics.view" : path === "ai/generate" || path === "content" ? "content.edit" : path === "social/posts" || path === "social/accounts" ? "social.edit" : path === "reports" ? "report.edit" : path === "automation" ? "automation.manage" : path === "clients" ? "client.edit" : path.startsWith("billing/") ? "billing.manage" : "settings.manage";
   const auth = await context(permission);
   if (auth.error) return auth.error;
+  cacheInvalidatePrefix(`ws:${auth.session.workspaceId}`);
   const body = await request.json().catch(() => null);
   if (path === "notifications/read-all") { await prisma.notification.updateMany({ where: { workspaceId: auth.session.workspaceId, userId: auth.session.userId, readAt: null }, data: { readAt: new Date() } }); return ok({ updated: true }); }
   if (path.match(/^integrations\/[^/]+\/connect$/)) {
@@ -861,6 +878,7 @@ export async function PATCH(request: Request, { params }: { params: { path: stri
   const path = params.path.join("/");
   const auth = await context(path.startsWith("notifications") ? "analytics.view" : path === "settings" ? "settings.manage" : path.startsWith("content/") ? "content.edit" : path.startsWith("social/posts/") ? "social.edit" : path.startsWith("clients/") ? "client.edit" : path.startsWith("automation/") ? "automation.manage" : path.startsWith("ai/insights/") ? "analytics.view" : "campaign.edit");
   if (auth.error) return auth.error;
+  cacheInvalidatePrefix(`ws:${auth.session.workspaceId}`);
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (path.startsWith("notifications/")) { const id = path.split("/")[1]; const updated = await prisma.notification.updateMany({ where: { id, workspaceId: auth.session.workspaceId, userId: auth.session.userId }, data: { readAt: new Date() } }); return updated.count ? ok({ id, read: true }) : error("Notification not found.", 404); }
   if (path.startsWith("leads/")) { const id = path.split("/")[1]; if (!body?.status) return error("A lead status is required."); const updated = await prisma.lead.updateMany({ where: { id, workspaceId: auth.session.workspaceId }, data: { status: String(body.status).toUpperCase().replaceAll(" ", "_") as never } }); if (!updated.count) return error("Lead not found.", 404); await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE_STATUS", module: "leads", entityType: "Lead", entityId: id, afterData: { status: body.status } }); return ok({ id, status: body.status }); }
@@ -967,6 +985,7 @@ export async function DELETE(request: Request, { params }: { params: { path: str
   const path = params.path.join("/");
   const auth = await context("campaign.delete");
   if (auth.error) return auth.error;
+  cacheInvalidatePrefix(`ws:${auth.session.workspaceId}`);
   const parts = params.path;
   const entity = parts[0];
   const id = parts[1];

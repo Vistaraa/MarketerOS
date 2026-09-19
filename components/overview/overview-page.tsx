@@ -926,6 +926,12 @@ function OnboardingWelcomeBanner() {
 export function OverviewPage() {
   const router = useRouter();
 
+  useEffect(() => {
+    for (const href of ["/campaigns", "/reports", "/ai-insights", "/integrations", "/clients", "/leads"]) {
+      router.prefetch(href);
+    }
+  }, [router]);
+
   const [granularity, setGranularity] = useState<"daily" | "weekly" | "monthly">("daily");
   const [dateRange] = useState(() => {
     const now = new Date();

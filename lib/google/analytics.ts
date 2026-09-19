@@ -303,7 +303,8 @@ export async function sendMeasurementEvent(
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(9_000)
     });
 
     if (res.status >= 200 && res.status < 300) {

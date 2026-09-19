@@ -5,6 +5,7 @@ import { ArrowRight, Check, CheckCircle2, Eye, EyeOff, KeyRound, Lock, Mail, Shi
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ApiResponse } from "@/lib/api-contracts";
 import { cn } from "@/lib/utils";
+import { resetClientSession } from "@/lib/client-session";
 
 type AuthMode = "login" | "signup" | "forgot-password" | "reset-password" | "verify-email";
 
@@ -133,6 +134,7 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
       }
 
       const target = returnTo || payload?.data?.next || "/";
+      resetClientSession();
       router.push(target);
       router.refresh();
     } catch (cause) {

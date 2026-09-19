@@ -222,16 +222,58 @@ export async function buildPersistedOverview(
   workspaceId: string,
   query: OverviewQuery
 ): Promise<OverviewPayload> {
-  const rows = await prisma.campaign.findMany({
-    where: {
-      workspaceId,
-      ...(query.clientId ? { clientId: query.clientId } : {}),
-      ...(query.status ? { status: query.status.toUpperCase().replace(" ", "_") as never } : {}),
-      ...(query.platform ? { platform: query.platform.toUpperCase().replace(" ", "_") as never } : {})
-    },
-    include: { client: true },
-    orderBy: { updatedAt: "desc" }
-  });
+  const [rows, integrations, insights, metrics] = await Promise.all([
+    prisma.campaign.findMany({
+      where: {
+        workspaceId,
+        ...(query.clientId ? { clientId: query.clientId } : {}),
+        ...(query.status ? { status: query.status.toUpperCase().replace(" ", "_") as never } : {}),
+        ...(query.platform ? { platform: query.platform.toUpperCase().replace(" ", "_") as never } : {})
+      },
+      select: {
+        id: true,
+        name: true,
+        platform: true,
+        status: true,
+        objective: true,
+        budget: true,
+        spend: true,
+        clicks: true,
+        conversions: true,
+        roas: true,
+        ctr: true,
+        cpa: true,
+        startDate: true,
+        clientId: true,
+        client: { select: { name: true } }
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 1000
+    }),
+    prisma.integration.findMany({
+      where: { workspaceId, ...(query.clientId ? { clientId: query.clientId } : {}) },
+      select: {
+        id: true,
+        platform: true,
+        providerKey: true,
+        status: true,
+        accountName: true,
+        accountId: true,
+        lastSyncedAt: true
+      },
+      orderBy: { updatedAt: "desc" }
+    }),
+    prisma.aIInsight.findMany({ where: { workspaceId }, orderBy: { updatedAt: "desc" }, take: 4 }),
+    prisma.platformMetricDaily.findMany({
+      where: {
+        workspaceId,
+        date: { gte: dateOnly(query.dateFrom), lte: dateOnly(query.dateTo) },
+        ...(query.clientId ? { clientId: query.clientId } : {}),
+        ...(query.platform ? { platform: query.platform.toUpperCase().replace(" ", "_") as never } : {})
+      },
+      orderBy: { date: "asc" }
+    })
+  ]);
 
   const rawCampaigns: Campaign[] = rows
     .filter(
@@ -266,23 +308,6 @@ export async function buildPersistedOverview(
       clientId: row.clientId || undefined
     }));
   const campaigns = rawCampaigns;
-
-  const [integrations, insights, metrics] = await Promise.all([
-    prisma.integration.findMany({
-      where: { workspaceId, ...(query.clientId ? { clientId: query.clientId } : {}) },
-      orderBy: { updatedAt: "desc" }
-    }),
-    prisma.aIInsight.findMany({ where: { workspaceId }, orderBy: { updatedAt: "desc" }, take: 4 }),
-    prisma.platformMetricDaily.findMany({
-      where: {
-        workspaceId,
-        date: { gte: dateOnly(query.dateFrom), lte: dateOnly(query.dateTo) },
-        ...(query.clientId ? { clientId: query.clientId } : {}),
-        ...(query.platform ? { platform: query.platform.toUpperCase().replace(" ", "_") as never } : {})
-      },
-      orderBy: { date: "asc" }
-    })
-  ]);
 
   const integrationItems: Integration[] = integrations.map((row) => {
     const platform = persistedProviderPlatform(row.platform, row.providerKey);
