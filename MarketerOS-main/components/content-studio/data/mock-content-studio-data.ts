@@ -1,0 +1,662 @@
+import {
+  ContentItem,
+  Template,
+  MediaAsset,
+  Hashtag,
+  HashtagGroup,
+  ConnectedSocialAccount,
+  WorkflowStep,
+  User,
+  ContentStudioSettingsState
+} from "../types/content-studio-types";
+
+export const MOCK_USERS: User[] = [
+  { id: "u-1", name: "Rohan Mehta", avatar: "/avatars/rohan.jpg", role: "Marketing Lead", email: "rohan@marketeros.io" },
+  { id: "u-2", name: "Sarah Jenkins", avatar: "/avatars/sarah.jpg", role: "Content Designer", email: "sarah@marketeros.io" },
+  { id: "u-3", name: "Alex Rivera", avatar: "/avatars/alex.jpg", role: "Social Media Manager", email: "alex@marketeros.io" },
+  { id: "u-4", name: "Priya Sharma", avatar: "/avatars/priya.jpg", role: "Brand Strategist", email: "priya@marketeros.io" }
+];
+
+export const MOCK_CONTENT_ITEMS: ContentItem[] = [
+  {
+    id: "post-1",
+    title: "Summer Sale Announcement",
+    platform: "instagram",
+    contentType: "Carousel",
+    status: "Scheduled",
+    caption: "Our biggest sale of the year is here! 🚀 Get up to 50% off on all premium growth plans. Don't miss out on boosting your brand ROI! #SummerSale #MarketingTips #ScaleYourBusiness",
+    mediaUrls: ["/summer-sale-banner.png", "/summer-sale-slide2.png"],
+    hashtags: ["#SummerSale", "#MarketingTips", "#ScaleYourBusiness", "#GrowthHacking"],
+    campaign: "Summer Growth Blast",
+    author: MOCK_USERS[0],
+    scheduledAt: "May 1, 2024 · 10:00 AM",
+    createdAt: "Apr 25, 2024",
+    updatedAt: "Apr 28, 2024",
+    day: 1,
+    month: 5,
+    year: 2024,
+    time: "10:00 AM",
+    performance: {
+      reach: "14.2K",
+      impressions: "18.6K",
+      likes: "1,240",
+      comments: "184",
+      shares: "92",
+      saves: "310",
+      clicks: "520",
+      engagementRate: "4.8%",
+      predictedScore: "94/100 (High Reach Potential)"
+    }
+  },
+  {
+    id: "post-2",
+    title: "New Collection Preview",
+    platform: "facebook",
+    contentType: "Post",
+    status: "Scheduled",
+    caption: "Sneak peek alert! Check out what our creative team has been crafting for the upcoming summer season. Join the waitlist now for early access perks. 🎨✨",
+    mediaUrls: ["/collection-preview.png"],
+    hashtags: ["#ProductLaunch", "#BrandPreview", "#DesignInspiration"],
+    campaign: "Product Launch 2024",
+    author: MOCK_USERS[1],
+    scheduledAt: "May 1, 2024 · 02:00 PM",
+    createdAt: "Apr 26, 2024",
+    updatedAt: "Apr 26, 2024",
+    day: 1,
+    month: 5,
+    year: 2024,
+    time: "02:00 PM",
+    performance: {
+      reach: "8.4K",
+      impressions: "11.2K",
+      likes: "612",
+      comments: "45",
+      shares: "28",
+      saves: "78",
+      clicks: "210",
+      engagementRate: "3.4%",
+      predictedScore: "82/100"
+    }
+  },
+  {
+    id: "post-3",
+    title: "Industry Insights: B2B Marketing Trends",
+    platform: "linkedin",
+    contentType: "Carousel",
+    status: "Published",
+    caption: "5 key trends shaping B2B marketing strategies in 2024. From hyper-personalized AI workflows to dark social attribution, here is what high-growth CMOs are prioritizing. Swipe to read!",
+    mediaUrls: ["/b2b-trends-carousel.png"],
+    hashtags: ["#B2BMarketing", "#CMOStrategy", "#GrowthMarketing", "#Leadership"],
+    campaign: "Thought Leadership Q2",
+    author: MOCK_USERS[0],
+    publishedAt: "Apr 28, 2024 · 11:00 AM",
+    createdAt: "Apr 20, 2024",
+    updatedAt: "Apr 28, 2024",
+    day: 2,
+    month: 5,
+    year: 2024,
+    time: "11:00 AM",
+    performance: {
+      reach: "24.8K",
+      impressions: "32.1K",
+      likes: "1,890",
+      comments: "240",
+      shares: "410",
+      saves: "620",
+      clicks: "1,150",
+      engagementRate: "6.2%",
+      predictedScore: "98/100"
+    }
+  },
+  {
+    id: "post-4",
+    title: "Quick Marketing Tip #24: Hook Scripting",
+    platform: "tiktok",
+    contentType: "Video",
+    status: "Scheduled",
+    caption: "How to boost short-form video retention by 300% using hook scripting in the first 3 seconds! 📈 Try this visual pattern interrupt today.",
+    mediaUrls: ["/tiktok-tip-video.mp4"],
+    hashtags: ["#TikTokTips", "#ContentCreator", "#MarketingHacks", "#ShortFormVideo"],
+    campaign: "Organic Growth Hacks",
+    author: MOCK_USERS[2],
+    scheduledAt: "May 3, 2024 · 09:30 AM",
+    createdAt: "Apr 27, 2024",
+    updatedAt: "Apr 29, 2024",
+    day: 3,
+    month: 5,
+    year: 2024,
+    time: "09:30 AM",
+    performance: {
+      reach: "38.5K",
+      impressions: "45.0K",
+      likes: "4,200",
+      comments: "380",
+      shares: "950",
+      saves: "1,400",
+      clicks: "890",
+      engagementRate: "7.5%",
+      predictedScore: "96/100"
+    }
+  },
+  {
+    id: "post-5",
+    title: "Behind the Scenes at MarketerOS",
+    platform: "instagram",
+    contentType: "Story",
+    status: "Draft",
+    caption: "Meet the creative minds building MarketerOS! Behind every automated campaign is a passionate engineering & design team.",
+    mediaUrls: ["/bts-office.png"],
+    hashtags: ["#Culture", "#StartupLife", "#BehindTheScenes"],
+    author: MOCK_USERS[3],
+    createdAt: "Apr 29, 2024",
+    updatedAt: "Apr 29, 2024",
+    day: 6,
+    month: 5,
+    year: 2024,
+    time: "11:00 AM",
+    performance: {
+      reach: "5.0K",
+      impressions: "6.2K",
+      likes: "210",
+      comments: "15",
+      shares: "8",
+      saves: "12",
+      clicks: "45",
+      engagementRate: "2.8%",
+      predictedScore: "70/100"
+    }
+  },
+  {
+    id: "post-6",
+    title: "Monday Motivation & Goal Setting",
+    platform: "twitter",
+    contentType: "Post",
+    status: "Published",
+    caption: "Start your week strong. What's your #1 marketing priority for this week? 👇 Drop it in the replies and let's hold each other accountable!",
+    mediaUrls: [],
+    hashtags: ["#MondayMotivation", "#MarketingTwitter", "#BuildInPublic"],
+    author: MOCK_USERS[2],
+    publishedAt: "Apr 29, 2024 · 09:00 AM",
+    createdAt: "Apr 28, 2024",
+    updatedAt: "Apr 29, 2024",
+    day: 6,
+    month: 5,
+    year: 2024,
+    time: "09:00 AM",
+    performance: {
+      reach: "18.2K",
+      impressions: "22.5K",
+      likes: "840",
+      comments: "142",
+      shares: "98",
+      saves: "45",
+      clicks: "310",
+      engagementRate: "4.1%",
+      predictedScore: "85/100"
+    }
+  },
+  {
+    id: "post-7",
+    title: "Client Case Study: BrandX Growth",
+    platform: "facebook",
+    contentType: "Post",
+    status: "In Review",
+    caption: "How BrandX scaled their organic lead acquisition by 240% using automated social workflows in 60 days flat. Read the full teardown.",
+    mediaUrls: ["/case-study-brandx.png"],
+    hashtags: ["#CaseStudy", "#ClientSuccess", "#GrowthStrategy"],
+    campaign: "Client Success Stories",
+    author: MOCK_USERS[0],
+    createdAt: "Apr 30, 2024",
+    updatedAt: "Apr 30, 2024",
+    day: 7,
+    month: 5,
+    year: 2024,
+    time: "10:30 PM",
+    performance: {
+      reach: "9.5K",
+      impressions: "12.0K",
+      likes: "450",
+      comments: "32",
+      shares: "54",
+      saves: "89",
+      clicks: "410",
+      engagementRate: "4.5%",
+      predictedScore: "88/100"
+    }
+  },
+  {
+    id: "post-8",
+    title: "Archive: Old Q1 Promo Carousel",
+    platform: "instagram",
+    contentType: "Carousel",
+    status: "Archived",
+    caption: "Q1 Special launch discount ending tonight. Upgrade your subscription package before midnight.",
+    mediaUrls: ["/old-q1-promo.png"],
+    hashtags: ["#Q1Promo", "#SpecialOffer"],
+    campaign: "Q1 Discount Run",
+    author: MOCK_USERS[1],
+    createdAt: "Jan 15, 2024",
+    updatedAt: "Mar 31, 2024",
+    day: 8,
+    month: 5,
+    year: 2024,
+    time: "02:00 PM",
+    performance: {
+      reach: "11.0K",
+      impressions: "14.2K",
+      likes: "780",
+      comments: "50",
+      shares: "22",
+      saves: "110",
+      clicks: "640",
+      engagementRate: "3.9%",
+      predictedScore: "78/100"
+    }
+  }
+];
+
+export const MOCK_TEMPLATES: Template[] = [
+  {
+    id: "tpl-1",
+    name: "Summer Sale Promotion",
+    category: "Social Posts",
+    platforms: ["instagram", "facebook", "linkedin"],
+    thumbnail: "/summer-sale-banner.png",
+    width: 1080,
+    height: 1080,
+    author: MOCK_USERS[1],
+    usageCount: 48,
+    isFavorite: true,
+    isFeatured: true,
+    isBrand: true,
+    updatedAt: "May 2, 2024",
+    headline: "Summer Super Sale!",
+    subheadline: "Get up to {{discount}}% off on all packages",
+    captionTemplate: "Huge news! Our {{headline}} is live. Get {{discount}}% off when you use code {{coupon_code}} at checkout! Visit {{website}} now. 🚀",
+    variables: ["headline", "discount", "coupon_code", "website"],
+    version: "v2.1",
+    versionHistory: [
+      { version: "v2.1", author: "Sarah Jenkins", date: "May 2, 2024", changes: "Added responsive badge layout & new brand purple" },
+      { version: "v2.0", author: "Rohan Mehta", date: "Apr 15, 2024", changes: "Updated typography to Inter & aligned CTA button" }
+    ]
+  },
+  {
+    id: "tpl-2",
+    name: "B2B Educational Carousel",
+    category: "Carousels",
+    platforms: ["linkedin", "instagram"],
+    thumbnail: "/b2b-trends-carousel.png",
+    width: 1080,
+    height: 1350,
+    author: MOCK_USERS[0],
+    usageCount: 84,
+    isFavorite: true,
+    isFeatured: true,
+    isBrand: true,
+    updatedAt: "May 4, 2024",
+    headline: "{{number}} Lessons from {{topic}}",
+    subheadline: "Swipe to master {{skill}} in 5 minutes",
+    captionTemplate: "Want to level up your {{topic}} game? Here are {{number}} proven strategies we learned after analyzing 100+ campaigns. Save this post! 📌",
+    variables: ["number", "topic", "skill"],
+    version: "v1.4",
+    versionHistory: [
+      { version: "v1.4", author: "Rohan Mehta", date: "May 4, 2024", changes: "Added page numbers and custom footer branding" }
+    ]
+  },
+  {
+    id: "tpl-3",
+    name: "Product Feature Highlight",
+    category: "Ads",
+    platforms: ["facebook", "instagram", "twitter"],
+    thumbnail: "/collection-preview.png",
+    width: 1200,
+    height: 628,
+    author: MOCK_USERS[2],
+    usageCount: 32,
+    isFavorite: false,
+    isFeatured: true,
+    isBrand: false,
+    updatedAt: "Apr 28, 2024",
+    headline: "Introducing {{feature_name}}",
+    subheadline: "The easiest way to {{benefit}}",
+    captionTemplate: "Meet {{feature_name}} — built specifically for marketers who want to {{benefit}}. Try it free today! Link in bio. 💥",
+    variables: ["feature_name", "benefit"],
+    version: "v1.0"
+  },
+  {
+    id: "tpl-4",
+    name: "Customer Review / Testimonial",
+    category: "Brand Templates",
+    platforms: ["instagram", "facebook", "linkedin", "twitter"],
+    thumbnail: "/case-study-brandx.png",
+    width: 1080,
+    height: 1080,
+    author: MOCK_USERS[3],
+    usageCount: 62,
+    isFavorite: true,
+    isFeatured: true,
+    isBrand: true,
+    updatedAt: "May 1, 2024",
+    headline: '"{{quote}}"',
+    subheadline: "— {{author_name}}, {{author_title}}",
+    captionTemplate: '"{{quote}}"\n\nWe love hearing success stories from partners like {{author_name}} at {{company}}! Learn how they achieved {{metric}} with MarketerOS.',
+    variables: ["quote", "author_name", "author_title", "company", "metric"],
+    version: "v3.0"
+  },
+  {
+    id: "tpl-5",
+    name: "Event / Webinar Announcement",
+    category: "Campaigns",
+    platforms: ["linkedin", "facebook", "twitter"],
+    thumbnail: "/webinar-banner.png",
+    width: 1920,
+    height: 1080,
+    author: MOCK_USERS[0],
+    usageCount: 29,
+    isFavorite: false,
+    isFeatured: false,
+    isBrand: true,
+    updatedAt: "Apr 18, 2024",
+    headline: "Live Masterclass: {{topic}}",
+    subheadline: "Join {{speaker}} on {{date}} at {{time}}",
+    captionTemplate: "🚨 Free Live Masterclass Alert! Join {{speaker}} as we break down {{topic}}. Seats are limited to 100 attendees! Register now: {{link}}",
+    variables: ["topic", "speaker", "date", "time", "link"],
+    version: "v1.2"
+  },
+  {
+    id: "tpl-6",
+    name: "Short-Form Video Hook Frame",
+    category: "Reels",
+    platforms: ["tiktok", "instagram"],
+    thumbnail: "/tiktok-tip-video.mp4",
+    width: 1080,
+    height: 1920,
+    author: MOCK_USERS[2],
+    usageCount: 95,
+    isFavorite: true,
+    isFeatured: false,
+    isBrand: false,
+    updatedAt: "May 5, 2024",
+    headline: "Stop scrolling! Here's how to {{result}}...",
+    captionTemplate: "Did you know this simple hack? Here is how to {{result}} without spending hours manually tweaking ads! 👇",
+    variables: ["result"],
+    version: "v2.0"
+  }
+];
+
+export const MOCK_MEDIA_ASSETS: MediaAsset[] = [
+  {
+    id: "med-1",
+    name: "summer-sale-banner.png",
+    type: "Image",
+    url: "/summer-sale-banner.png",
+    thumbnail: "/summer-sale-banner.png",
+    size: 2450000, // 2.45 MB
+    width: 1080,
+    height: 1080,
+    folderId: "fld-1",
+    folderName: "Campaigns",
+    tags: ["Summer", "Sale", "Banner", "Purple"],
+    uploadedBy: MOCK_USERS[0],
+    createdAt: "May 1, 2024",
+    updatedAt: "May 1, 2024",
+    isFavorite: true,
+    usedInPostsCount: 8
+  },
+  {
+    id: "med-2",
+    name: "b2b-trends-carousel.png",
+    type: "Image",
+    url: "/b2b-trends-carousel.png",
+    thumbnail: "/b2b-trends-carousel.png",
+    size: 3820000,
+    width: 1080,
+    height: 1350,
+    folderId: "fld-2",
+    folderName: "Social Posts",
+    tags: ["Carousel", "B2B", "Analytics", "Report"],
+    uploadedBy: MOCK_USERS[1],
+    createdAt: "Apr 28, 2024",
+    updatedAt: "Apr 28, 2024",
+    isFavorite: true,
+    usedInPostsCount: 12
+  },
+  {
+    id: "med-3",
+    name: "tiktok-tip-video.mp4",
+    type: "Video",
+    url: "/tiktok-tip-video.mp4",
+    thumbnail: "/tiktok-tip-video.mp4",
+    size: 18400000, // 18.4 MB
+    width: 1080,
+    height: 1920,
+    duration: 38,
+    folderId: "fld-5",
+    folderName: "Videos",
+    tags: ["TikTok", "Reel", "VideoTip", "Hook"],
+    uploadedBy: MOCK_USERS[2],
+    createdAt: "Apr 25, 2024",
+    updatedAt: "Apr 27, 2024",
+    isFavorite: false,
+    usedInPostsCount: 4
+  },
+  {
+    id: "med-4",
+    name: "marketeros-brand-guidelines.pdf",
+    type: "Document",
+    url: "/marketeros-brand-guidelines.pdf",
+    size: 5120000,
+    folderId: "fld-4",
+    folderName: "Brand Assets",
+    tags: ["Brand", "PDF", "Guidelines", "Logo"],
+    uploadedBy: MOCK_USERS[0],
+    createdAt: "Apr 10, 2024",
+    updatedAt: "Apr 10, 2024",
+    isFavorite: true,
+    usedInPostsCount: 25
+  },
+  {
+    id: "med-5",
+    name: "animated-launch-icon.gif",
+    type: "GIF",
+    url: "/animated-launch-icon.gif",
+    size: 1420000,
+    width: 800,
+    height: 800,
+    folderId: "fld-6",
+    folderName: "Logos",
+    tags: ["GIF", "Animation", "Logo", "Sparkle"],
+    uploadedBy: MOCK_USERS[3],
+    createdAt: "Apr 12, 2024",
+    updatedAt: "Apr 12, 2024",
+    isFavorite: false,
+    usedInPostsCount: 6
+  },
+  {
+    id: "med-6",
+    name: "collection-preview.png",
+    type: "Image",
+    url: "/collection-preview.png",
+    thumbnail: "/collection-preview.png",
+    size: 1950000,
+    width: 1200,
+    height: 628,
+    folderId: "fld-3",
+    folderName: "Product Images",
+    tags: ["Product", "Preview", "Summer"],
+    uploadedBy: MOCK_USERS[1],
+    createdAt: "Apr 18, 2024",
+    updatedAt: "Apr 20, 2024",
+    isFavorite: false,
+    usedInPostsCount: 3
+  }
+];
+
+export const MOCK_HASHTAGS: Hashtag[] = [
+  { id: "h-1", name: "digitalmarketing", usageCount: 2450000, reach: 48500, engagementRate: 4.8, competition: "high", growthRate: 12.4, isSaved: true, category: "Marketing" },
+  { id: "h-2", name: "marketingtips", usageCount: 1820000, reach: 32100, engagementRate: 5.2, competition: "medium", growthRate: 18.2, isSaved: true, category: "Marketing" },
+  { id: "h-3", name: "contentmarketing", usageCount: 1420000, reach: 28900, engagementRate: 4.5, competition: "medium", growthRate: 8.7, isSaved: true, category: "Content" },
+  { id: "h-4", name: "socialmediastrategy", usageCount: 980000, reach: 19400, engagementRate: 5.8, competition: "low", growthRate: 24.1, isSaved: true, category: "Strategy" },
+  { id: "h-5", name: "growthhacking", usageCount: 1150000, reach: 24000, engagementRate: 6.1, competition: "medium", growthRate: 15.5, isSaved: true, category: "Growth" },
+  { id: "h-6", name: "b2bmarketing", usageCount: 750000, reach: 18200, engagementRate: 6.4, competition: "low", growthRate: 21.0, isSaved: true, category: "B2B" },
+  { id: "h-7", name: "branding101", usageCount: 520000, reach: 12500, engagementRate: 4.2, competition: "low", growthRate: 9.3, isSaved: false, category: "Branding" },
+  { id: "h-8", name: "aicontent", usageCount: 890000, reach: 34100, engagementRate: 7.8, competition: "high", growthRate: 45.2, isSaved: true, category: "AI" }
+];
+
+export const MOCK_HASHTAG_GROUPS: HashtagGroup[] = [
+  {
+    id: "hg-1",
+    name: "Growth & Digital Marketing",
+    hashtags: ["#digitalmarketing", "#marketingtips", "#contentmarketing", "#growthhacking", "#socialmediastrategy"],
+    usageCount: 42,
+    averagePerformance: 5.6,
+    lastUsed: "2 days ago",
+    category: "Marketing"
+  },
+  {
+    id: "hg-2",
+    name: "B2B Thought Leadership",
+    hashtags: ["#b2bmarketing", "#cmostrategy", "#leadership", "#growthmarketing", "#businessstrategy"],
+    usageCount: 28,
+    averagePerformance: 6.2,
+    lastUsed: "Yesterday",
+    category: "B2B"
+  },
+  {
+    id: "hg-3",
+    name: "Brand Awareness & Identity",
+    hashtags: ["#branding101", "#brandstrategy", "#visualidentity", "#designinspo", "#creativemarketing"],
+    usageCount: 19,
+    averagePerformance: 4.4,
+    lastUsed: "May 1, 2024",
+    category: "Branding"
+  },
+  {
+    id: "hg-4",
+    name: "AI & Tech Innovation",
+    hashtags: ["#aicontent", "#futureofmarketing", "#martech", "#aiworkflow", "#automationsolutions"],
+    usageCount: 35,
+    averagePerformance: 7.4,
+    lastUsed: "3 hours ago",
+    category: "AI"
+  }
+];
+
+export const MOCK_SOCIAL_ACCOUNTS: ConnectedSocialAccount[] = [
+  {
+    id: "sa-1",
+    platform: "instagram",
+    accountName: "MarketerOS Official",
+    handle: "@marketeros.io",
+    avatarUrl: "/avatars/instagram.jpg",
+    status: "Connected",
+    lastSynced: "2 minutes ago",
+    followersCount: "48.2K"
+  },
+  {
+    id: "sa-2",
+    platform: "facebook",
+    accountName: "MarketerOS Global Page",
+    handle: "facebook.com/marketeros",
+    avatarUrl: "/avatars/facebook.jpg",
+    status: "Connected",
+    lastSynced: "5 minutes ago",
+    followersCount: "92.5K"
+  },
+  {
+    id: "sa-3",
+    platform: "linkedin",
+    accountName: "MarketerOS Inc.",
+    handle: "linkedin.com/company/marketeros",
+    avatarUrl: "/avatars/linkedin.jpg",
+    status: "Connected",
+    lastSynced: "12 minutes ago",
+    followersCount: "34.1K"
+  },
+  {
+    id: "sa-4",
+    platform: "tiktok",
+    accountName: "@marketeros_official",
+    handle: "@marketeros_official",
+    avatarUrl: "/avatars/tiktok.jpg",
+    status: "Connected",
+    lastSynced: "1 hour ago",
+    followersCount: "125.0K"
+  },
+  {
+    id: "sa-5",
+    platform: "twitter",
+    accountName: "MarketerOS HQ",
+    handle: "@MarketerOS_HQ",
+    avatarUrl: "/avatars/twitter.jpg",
+    status: "Needs Reconnect",
+    lastSynced: "3 days ago",
+    followersCount: "18.9K"
+  }
+];
+
+export const MOCK_WORKFLOW_STEPS: WorkflowStep[] = [
+  { id: "wf-1", name: "Content Creator Drafts Post", role: "Creator", assignee: "Sarah Jenkins", required: true },
+  { id: "wf-2", name: "Peer Review & Compliance Check", role: "Reviewer", assignee: "Alex Rivera", required: true },
+  { id: "wf-3", name: "Marketing Lead Sign-off", role: "Approver", assignee: "Rohan Mehta", required: true },
+  { id: "wf-4", name: "Automated Scheduler Release", role: "Publisher", assignee: "System Auto-Publisher", required: true }
+];
+
+export const INITIAL_SETTINGS_STATE: ContentStudioSettingsState = {
+  general: {
+    workspaceName: "MarketerOS Enterprise Workspace",
+    defaultTimezone: "(GMT-05:00) Eastern Time (US & Canada)",
+    defaultLanguage: "English (US)",
+    dateFormat: "MMM DD, YYYY",
+    timeFormat: "12-hour (10:00 AM)",
+    defaultLandingPage: "Content Calendar"
+  },
+  publishing: {
+    defaultPublishingTime: "10:00 AM",
+    timezone: "Eastern Time (US & Canada)",
+    defaultPlatform: "instagram",
+    defaultPostStatus: "Scheduled",
+    autoPublish: true,
+    scheduleConfirmation: true,
+    retryFailedPosts: true,
+    crossPlatformPublishing: true
+  },
+  notifications: {
+    postPublishedInApp: true,
+    postPublishedEmail: true,
+    postPublishedPush: false,
+    postScheduledInApp: true,
+    postScheduledEmail: false,
+    postScheduledPush: false,
+    postFailedInApp: true,
+    postFailedEmail: true,
+    postFailedPush: true,
+    approvalRequestedInApp: true,
+    approvalRequestedEmail: true,
+    approvalRequestedPush: false,
+    approvalCompletedInApp: true,
+    approvalCompletedEmail: false,
+    approvalCompletedPush: false,
+    performanceReportsInApp: true,
+    performanceReportsEmail: true,
+    performanceReportsPush: false
+  },
+  branding: {
+    workspaceLogo: "/logo.png",
+    favicon: "/favicon.ico",
+    primaryColor: "#7c3aed", // violet-600
+    secondaryColor: "#0f172a", // slate-900
+    defaultFont: "Inter, sans-serif"
+  },
+  ai: {
+    aiCaptionGeneration: true,
+    aiHashtagSuggestions: true,
+    aiContentIdeas: true,
+    aiEngagementPrediction: true,
+    aiBestTimeRecommendation: true,
+    aiContentRepurposing: true,
+    aiTone: "Professional",
+    language: "English (US)",
+    creativity: "High"
+  }
+};
