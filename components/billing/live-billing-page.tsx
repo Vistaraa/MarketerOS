@@ -27,7 +27,7 @@ import { CustomDialog } from "@/components/ui/custom-dialog";
 import type { ApiResponse } from "@/lib/api-contracts";
 import type { BillingOverviewPayload } from "@/lib/billing-service";
 import { CREDIT_PACKS } from "@/lib/razorpay";
-import { cn, money } from "@/lib/utils";
+import { cn, money, safeFetchJson } from "@/lib/utils";
 
 type ActiveTab =
   | "overview"
@@ -101,7 +101,7 @@ export function LiveBillingPage() {
     setError(null);
     fetch("/api/v1/billing")
       .then(async (res) => {
-        const payload = (await res.json()) as ApiResponse<BillingOverviewPayload>;
+        const payload = (await safeFetchJson<ApiResponse<BillingOverviewPayload>>(res));
         if (!res.ok) throw new Error(payload.error?.message || "Failed to load billing details.");
         return payload.data;
       })
@@ -140,7 +140,7 @@ export function LiveBillingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(contactForm)
       });
-      const payload = await res.json();
+      const payload = await safeFetchJson(res);
       if (!res.ok) throw new Error(payload.error?.message || "Failed to save billing settings.");
       triggerToast("Billing contact & tax settings successfully saved to database.");
       loadBilling();
@@ -165,7 +165,7 @@ export function LiveBillingPage() {
         setBusy(true);
         try {
           const res = await fetch("/api/v1/billing/cancel", { method: "POST" });
-          const payload = await res.json();
+          const payload = await safeFetchJson(res);
           if (!res.ok) throw new Error(payload.error?.message || "Failed to cancel subscription.");
           triggerToast("Subscription cancellation scheduled for period end.");
           loadBilling();
@@ -195,7 +195,7 @@ export function LiveBillingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(verifyPayload)
       });
-      const result = await res.json();
+      const result = await safeFetchJson(res);
       if (!res.ok) throw new Error(result.error?.message || "Payment verification failed.");
 
       if (verifyPayload.type === "subscription") {
@@ -239,7 +239,7 @@ export function LiveBillingPage() {
           packId: options.packId
         })
       });
-      const orderData = await orderRes.json();
+      const orderData = await safeFetchJson(orderRes);
       if (!orderRes.ok) throw new Error(orderData.error?.message || "Could not create Razorpay order.");
 
       const order = orderData.data;

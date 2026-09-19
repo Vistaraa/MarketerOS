@@ -15,10 +15,13 @@ export function slugify(value: string) {
 }
 
 export async function safeFetchJson<T = any>(res: Response): Promise<T> {
-  const contentType = res.headers.get("content-type") || "";
-  if (contentType.includes("application/json")) {
-    return (await res.json()) as T;
-  }
   const text = await res.text();
-  throw new Error(`Server returned non-JSON response (${res.status} ${res.statusText}): ${text.slice(0, 100)}`);
+  if (!text || !text.trim()) {
+    throw new Error(`The server returned an empty response (HTTP ${res.status} ${res.statusText}). Please try again.`);
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`The server returned an invalid response (HTTP ${res.status} ${res.statusText}): ${text.slice(0, 100)}`);
+  }
 }

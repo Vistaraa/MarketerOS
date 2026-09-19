@@ -222,9 +222,14 @@ export async function GET(request: Request, { params }: { params: { path: string
     return found ? ok(found) : error("Content item not found.", 404);
   }
   if (path === "billing") {
-    const { getPersistedBillingOverview } = await import("@/lib/billing-service");
-    const data = await getPersistedBillingOverview(auth.session.workspaceId);
-    return ok(data);
+    try {
+      const { getPersistedBillingOverview } = await import("@/lib/billing-service");
+      const data = await getPersistedBillingOverview(auth.session.workspaceId);
+      return ok(data);
+    } catch (cause) {
+      console.error("Billing overview failed:", cause);
+      return error(cause instanceof Error ? cause.message : "Failed to load billing details.", 500, "BILLING_LOAD_FAILED");
+    }
   }
   if (path.startsWith("billing/invoices/")) {
     const invoiceId = path.split("/")[2];
@@ -392,8 +397,12 @@ export async function POST(request: Request, { params }: { params: { path: strin
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid billing settings payload.");
 
     const { updatePersistedBillingContact } = await import("@/lib/billing-service");
-    const updated = await updatePersistedBillingContact(auth.session.workspaceId, auth.session.userId, parsed.data);
-    return ok({ success: true, workspace: updated, message: "Billing settings updated successfully." });
+    try {
+      const updated = await updatePersistedBillingContact(auth.session.workspaceId, auth.session.userId, parsed.data);
+      return ok({ success: true, workspace: updated, message: "Billing settings updated successfully." });
+    } catch (cause) {
+      return error(cause instanceof Error ? cause.message : "Failed to save billing settings.", 500, "BILLING_SETTINGS_FAILED");
+    }
   }
   if (path === "billing/checkout") {
     const auth = await context("billing.manage");
@@ -423,9 +432,13 @@ export async function POST(request: Request, { params }: { params: { path: strin
   if (path === "billing/cancel") {
     const auth = await context("billing.manage");
     if (auth.error) return auth.error;
-    const { cancelPersistedSubscription } = await import("@/lib/billing-service");
-    await cancelPersistedSubscription(auth.session.workspaceId, auth.session.userId);
-    return ok({ cancelAtPeriodEnd: true, message: "Subscription cancelled successfully." });
+    try {
+      const { cancelPersistedSubscription } = await import("@/lib/billing-service");
+      await cancelPersistedSubscription(auth.session.workspaceId, auth.session.userId);
+      return ok({ cancelAtPeriodEnd: true, message: "Subscription cancelled successfully." });
+    } catch (cause) {
+      return error(cause instanceof Error ? cause.message : "Failed to cancel subscription.", 500, "BILLING_CANCEL_FAILED");
+    }
   }
   if (path === "settings/api-keys") {
     const auth = await context("settings.manage");
