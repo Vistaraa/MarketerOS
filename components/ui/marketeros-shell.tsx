@@ -441,9 +441,12 @@ export function ModernTopbar({
   onOpenCommand: () => void;
   onMobileMenuOpen: () => void;
 }) {
+  const pathname = usePathname();
   const router = useRouter();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
+
+  const isCampaignRoute = pathname.startsWith("/campaigns");
 
   useEffect(() => {
     const isDarkMode =
@@ -470,10 +473,19 @@ export function ModernTopbar({
   };
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-zinc-200/80 bg-white/95 px-3 sm:px-6 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/95">
-      {/* Left: Page Title only on mobile; Full breadcrumbs on desktop */}
-      <div className="flex items-center min-w-0 pr-2">
-        <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+    <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-zinc-200/80 bg-white/95 px-2.5 sm:px-6 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/95">
+      {/* Left: Mobile Menu Trigger (hidden on campaign routes) & Page Title */}
+      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 pr-1">
+        {!isCampaignRoute && (
+          <button
+            onClick={onMobileMenuOpen}
+            title="Open Menu"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-600 shadow-2xs hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 lg:hidden"
+          >
+            <Menu size={16} />
+          </button>
+        )}
+        <div className="flex items-center gap-1 sm:gap-1.5 text-xs text-zinc-400 min-w-0">
           <Link
             href="/"
             prefetch
@@ -482,14 +494,14 @@ export function ModernTopbar({
             Dashboard
           </Link>
           <ChevronRight size={12} className="hidden sm:inline text-zinc-300 dark:text-zinc-600" />
-          <span className="text-sm sm:text-xs font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
+          <span className="text-xs sm:text-xs font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate max-w-[120px] sm:max-w-xs">
             {title}
           </span>
         </div>
       </div>
 
       {/* Right: Quick actions, Theme Switcher, Notifications, Action Button */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         {/* Date Selector Pill (Desktop only) */}
         <button className="hidden h-7 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-600 shadow-sm hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 md:flex">
           <Calendar size={12} className="text-zinc-400" />
@@ -500,16 +512,16 @@ export function ModernTopbar({
         <button
           onClick={toggleTheme}
           title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          className="grid h-8 w-8 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-600 shadow-2xs hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-600 shadow-2xs hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 shrink-0"
         >
           {isDark ? <Sun size={13} /> : <Moon size={13} />}
         </button>
 
         {/* Notification Bell */}
-        <div className="relative">
+        <div className="relative shrink-0">
           <button
             onClick={() => setNotificationsOpen((prev) => !prev)}
-            className="relative grid h-8 w-8 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-600 shadow-2xs hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+            className="relative grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-600 shadow-2xs hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
           >
             <Bell size={13} />
             <span className="absolute -right-0.5 -top-0.5 grid h-3.5 w-3.5 place-items-center rounded-full bg-zinc-900 text-[8px] font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
@@ -799,12 +811,12 @@ export function PageHeading({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight text-zinc-900 sm:text-2xl dark:text-zinc-100">{title}</h1>
+    <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="min-w-0 flex-1">
+        <h1 className="text-xl font-bold tracking-tight text-zinc-900 sm:text-2xl dark:text-zinc-100 truncate">{title}</h1>
         {description && <p className="mt-1 text-xs text-zinc-500 sm:text-sm dark:text-zinc-400">{description}</p>}
       </div>
-      {action && <div>{action}</div>}
+      {action && <div className="shrink-0 flex flex-wrap items-center gap-2">{action}</div>}
     </div>
   );
 }
@@ -845,13 +857,13 @@ export function Tabs({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="flex gap-1 overflow-x-auto border-b border-zinc-200 dark:border-zinc-800">
+    <div className="flex gap-1 overflow-x-auto border-b border-zinc-200 dark:border-zinc-800 [scrollbar-width:none]">
       {items.map((tab) => (
         <button
           key={tab}
           onClick={() => onChange(tab)}
           className={cn(
-            "border-b-2 px-3 pb-2.5 text-xs font-semibold transition-colors whitespace-nowrap",
+            "border-b-2 px-3 pb-2.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0",
             active === tab
               ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100"
               : "border-transparent text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300"

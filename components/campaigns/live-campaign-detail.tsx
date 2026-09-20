@@ -299,9 +299,14 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
     <AppShell
       title={data?.campaign?.name ? `${data.campaign.name} · Details` : "Campaign Details"}
       action={
-        <div className="flex items-center gap-2">
-          <button onClick={() => router.push("/campaigns")} className="btn-secondary">
-            <ArrowLeft size={13} /> Back
+        <div className="flex items-center gap-1 sm:gap-2">
+          <button
+            onClick={() => router.push("/campaigns")}
+            className="btn-secondary h-7 sm:h-8 px-2 sm:px-3 text-xs"
+            title="Back to Campaigns"
+          >
+            <ArrowLeft size={13} />
+            <span className="hidden sm:inline">Back</span>
           </button>
 
           {/* Pause / Resume Campaign Button */}
@@ -309,11 +314,12 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
             onClick={handleToggleStatus}
             disabled={updatingStatus}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-2xs transition",
+              "inline-flex h-7 sm:h-8 items-center gap-1 sm:gap-1.5 rounded-lg px-2 sm:px-3 text-xs font-semibold shadow-2xs transition whitespace-nowrap",
               isCampaignActive
                 ? "border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300"
                 : "bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-zinc-950"
             )}
+            title={isCampaignActive ? "Pause Campaign" : "Resume Campaign"}
           >
             {updatingStatus ? (
               <RefreshCw size={13} className="animate-spin" />
@@ -322,11 +328,13 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
             ) : (
               <Play size={13} />
             )}
-            <span>{isCampaignActive ? "Pause Campaign" : "Resume Campaign"}</span>
+            <span>{isCampaignActive ? "Pause" : "Resume"}</span>
+            <span className="hidden sm:inline"> Campaign</span>
           </button>
 
-          <button className="btn-secondary">
-            <Share2 size={13} /> Share
+          <button className="hidden sm:inline-flex btn-secondary h-7 sm:h-8 px-2.5" title="Share Campaign">
+            <Share2 size={13} />
+            <span>Share</span>
           </button>
         </div>
       }

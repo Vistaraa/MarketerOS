@@ -499,7 +499,7 @@ export function LiveSettingsPage() {
         <div className="grid grid-cols-12 gap-6">
           {/* Settings Sidebar */}
           <div className="col-span-12 lg:col-span-3 space-y-3">
-            <div className="rounded-xl border border-zinc-200/90 bg-white p-2 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 space-y-0.5">
+            <div className="flex lg:block overflow-x-auto [scrollbar-width:none] rounded-xl border border-zinc-200/90 bg-white p-1.5 lg:p-2 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 gap-1 lg:space-y-0.5">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeSection === item.id;
@@ -508,7 +508,7 @@ export function LiveSettingsPage() {
                     key={item.id}
                     onClick={() => setActiveSection(item.id)}
                     className={cn(
-                      "w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-left font-medium transition",
+                      "flex items-center gap-2 rounded-lg px-3 py-2 text-left font-medium transition whitespace-nowrap shrink-0 lg:w-full",
                       isActive
                         ? "bg-zinc-900 font-bold text-white dark:bg-zinc-100 dark:text-zinc-900"
                         : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
@@ -520,7 +520,7 @@ export function LiveSettingsPage() {
                 );
               })}
 
-              <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 mt-2">
+              <div className="hidden lg:block pt-2 border-t border-zinc-100 dark:border-zinc-800 mt-2">
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-left font-semibold text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 transition cursor-pointer"

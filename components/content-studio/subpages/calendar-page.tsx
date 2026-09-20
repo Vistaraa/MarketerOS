@@ -214,17 +214,19 @@ export function CalendarPage() {
           {/* Calendar Grid Mode */}
           {viewMode === "calendar" ? (
             <div className="rounded-xl border border-zinc-200/90 bg-white shadow-2xs overflow-hidden dark:border-zinc-800 dark:bg-zinc-950/60">
-              <div className="grid grid-cols-7 border-b border-zinc-200/80 bg-zinc-50/50 text-center text-[11px] font-bold text-zinc-500 uppercase tracking-wider py-2.5 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
-                <div>Sun</div>
-                <div>Mon</div>
-                <div>Tue</div>
-                <div>Wed</div>
-                <div>Thu</div>
-                <div>Fri</div>
-                <div>Sat</div>
-              </div>
+              <div className="overflow-x-auto [scrollbar-width:none]">
+                <div className="min-w-[600px]">
+                  <div className="grid grid-cols-7 border-b border-zinc-200/80 bg-zinc-50/50 text-center text-[11px] font-bold text-zinc-500 uppercase tracking-wider py-2.5 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
+                    <div>Sun</div>
+                    <div>Mon</div>
+                    <div>Tue</div>
+                    <div>Wed</div>
+                    <div>Thu</div>
+                    <div>Fri</div>
+                    <div>Sat</div>
+                  </div>
 
-              <div className="grid grid-cols-7 divide-x divide-y divide-zinc-100 dark:divide-zinc-800/60 font-medium">
+                  <div className="grid grid-cols-7 divide-x divide-y divide-zinc-100 dark:divide-zinc-800/60 font-medium">
                 {/* Previous Month Ghost Days */}
                 {prevMonthDays.map((gDay) => (
                   <div key={`ghost-${gDay}`} className="min-h-[110px] p-1.5 bg-zinc-50/30 dark:bg-zinc-950/30">
@@ -319,6 +321,8 @@ export function CalendarPage() {
                     </div>
                   );
                 })}
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
