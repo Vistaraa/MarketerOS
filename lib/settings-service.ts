@@ -106,8 +106,8 @@ export async function getPersistedSettings(
       include: { user: true },
       orderBy: { createdAt: "desc" },
       take: 30
-    }),
-    listPersistedTeam(workspaceId)
+    }).catch(() => []),
+    listPersistedTeam(workspaceId).catch(() => [])
   ]);
 
   if (!workspace) throw new Error("Workspace not found.");

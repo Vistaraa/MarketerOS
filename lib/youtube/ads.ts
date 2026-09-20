@@ -1,21 +1,19 @@
 import type { YouTubeAdCampaign, YouTubeAdGroup, YouTubeAd, YouTubeAdsDashboard, YouTubeAdsMetrics, YouTubeAdsConnectInput } from "./ads-types";
 
-function getYouTubeApiKey(): string | null {
+import { prisma } from "@/lib/prisma";
+
+async function getYouTubeApiKey(): Promise<string | null> {
   try {
     const { decryptSecret } = require("@/lib/crypto");
-    const { PrismaClient } = require("@prisma/client");
-    const prisma = new PrismaClient();
-    const integration = prisma.integration.findFirst({ where: { platform: "YOUTUBE" } });
+    const integration = await prisma.integration.findFirst({ where: { platform: "YOUTUBE" } });
     if (!integration) return null;
     return decryptSecret(integration.apiKeyEncrypted || integration.apiKey || "");
   } catch { return null; }
 }
 
-function getYouTubeChannelId(): string | null {
+async function getYouTubeChannelId(): Promise<string | null> {
   try {
-    const { PrismaClient } = require("@prisma/client");
-    const prisma = new PrismaClient();
-    const integration = prisma.integration.findFirst({ where: { platform: "YOUTUBE" } });
+    const integration = await prisma.integration.findFirst({ where: { platform: "YOUTUBE" } });
     if (!integration) return null;
     return integration.accountId || null;
   } catch { return null; }

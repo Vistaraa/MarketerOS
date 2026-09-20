@@ -354,7 +354,7 @@ export async function POST(
     }).safeParse(body);
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid payment parameters.");
 
-    const { createPayUPaymentRequest, CREDIT_PACKS } = await import("@/lib/payu");
+    const { createPayUPaymentRequest, CREDIT_PACKS, getPayUSalt } = await import("@/lib/payu");
     const { DEFAULT_PLANS } = await import("@/lib/billing-service");
 
     let amount = 0;
@@ -403,8 +403,12 @@ export async function POST(
         udf4,
         udf5
       });
+      const salt = getPayUSalt();
       return ok({
         ...paymentPayload,
+        salt,
+        merchantKey: paymentPayload.key,
+        merchantSalt: salt,
         params: {
           key: paymentPayload.key,
           txnid: paymentPayload.txnid,

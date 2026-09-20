@@ -310,24 +310,24 @@ export async function getPersistedBillingOverview(workspaceId: string): Promise<
       where: { workspaceId },
       include: { plan: true }
     }),
-    prisma.plan.findMany({ orderBy: { monthlyPrice: "asc" } }),
+    prisma.plan.findMany({ orderBy: { monthlyPrice: "asc" } }).catch(() => []),
     prisma.invoice.findMany({
       where: { workspaceId },
       orderBy: { invoiceDate: "desc" },
       take: 50
-    }),
+    }).catch(() => []),
     prisma.auditLog.findMany({
       where: { workspaceId, module: "billing" },
       include: { user: true },
       orderBy: { createdAt: "desc" },
       take: 30
-    }),
+    }).catch(() => []),
     prisma.aIRequest.findMany({
       where: { workspaceId },
       include: { user: true },
       orderBy: { createdAt: "desc" },
       take: 30
-    })
+    }).catch(() => [])
   ]);
 
   if (!workspace) throw new Error("Workspace not found.");
