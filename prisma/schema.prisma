@@ -61,6 +61,7 @@ enum Platform {
   TIKTOK
   X
   SHOPIFY
+  GOOGLE_PLAY
   OTHER
 }
 
@@ -357,6 +358,11 @@ model Workspace {
   aiRequests       AIRequest[]
   backgroundJobs   BackgroundJob[]
   billingEvents    BillingWebhookEvent[]
+  playConsoleApps  PlayConsoleApp[]
+  playConsoleKpis  PlayConsoleKpiDaily[]
+  playConsoleReleases PlayConsoleRelease[]
+  playConsoleMessages PlayConsoleInboxMessage[]
+  userKpiPreferences  UserKpiPreference[]
 
   @@index([ownerId])
   @@index([status])
@@ -387,6 +393,7 @@ model Client {
   leads           Lead[]
   reports         Report[]
   platformMetrics PlatformMetricDaily[]
+  playConsoleApps PlayConsoleApp[]
 
   @@unique([workspaceId, slug])
   @@index([workspaceId, status])
@@ -1019,3 +1026,130 @@ model BackgroundJob {
   @@index([workspaceId, status])
   @@index([type, status])
 }
+
+// ==========================================
+// 10. GOOGLE PLAY CONSOLE & APP KPIS
+// ==========================================
+
+enum PlayReleaseTrack {
+  PRODUCTION
+  OPEN_TESTING
+  CLOSED_TESTING
+  INTERNAL_TESTING
+}
+
+enum PlayReleaseStatus {
+  IN_PROGRESS
+  HALTED
+  COMPLETED
+  DRAFT
+}
+
+enum PlayInboxCategory {
+  IMPORTANT
+  EVERYTHING_ELSE
+}
+
+model PlayConsoleApp {
+  id             String                   @id @default(cuid())
+  workspaceId    String
+  integrationId  String?
+  packageName    String
+  appTitle       String
+  iconUrl        String?
+  category       String?                  @default("Application")
+  primaryLanguage String?                 @default("en")
+  isPrimary      Boolean                  @default(true)
+  clientId       String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  workspace      Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  client         Client?                  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  kpiDaily       PlayConsoleKpiDaily[]
+  releases       PlayConsoleRelease[]
+  inboxMessages  PlayConsoleInboxMessage[]
+
+  @@unique([workspaceId, packageName])
+  @@index([workspaceId])
+}
+
+model PlayConsoleKpiDaily {
+  id                        String         @id @default(cuid())
+  workspaceId               String
+  appId                     String
+  date                      DateTime       @db.Date
+  totalAudienceSize         Int            @default(0)
+  storeListingVisitors      Int            @default(0)
+  storeListingAcquisitions  Int            @default(0)
+  storeListingConversionRate Decimal       @default(0) @db.Decimal(5, 2)
+  activeDevices             Int            @default(0)
+  uninstallsCount           Int            @default(0)
+  crashesCount              Int            @default(0)
+  anrsCount                 Int            @default(0)
+  ratingAverage             Decimal        @default(0) @db.Decimal(3, 2)
+  ratingsCount              Int            @default(0)
+  revenue                   Decimal        @default(0) @db.Decimal(14, 2)
+  createdAt                 DateTime       @default(now())
+  updatedAt                 DateTime       @updatedAt
+  workspace                 Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  app                       PlayConsoleApp @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@unique([appId, date])
+  @@index([workspaceId, date])
+}
+
+model PlayConsoleRelease {
+  id                String            @id @default(cuid())
+  workspaceId       String
+  appId             String
+  track             PlayReleaseTrack  @default(PRODUCTION)
+  versionCode       Int
+  versionName       String
+  rolloutPercentage Decimal           @default(100) @db.Decimal(5, 2)
+  status            PlayReleaseStatus @default(COMPLETED)
+  targetDevices     String[]          @default(["Phones and tablets"])
+  userFraction      Decimal?          @db.Decimal(5, 4)
+  notes             String?
+  releasedAt        DateTime          @default(now())
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  workspace         Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  app               PlayConsoleApp    @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, appId])
+  @@index([track, status])
+}
+
+model PlayConsoleInboxMessage {
+  id          String            @id @default(cuid())
+  workspaceId String
+  appId       String?
+  category    PlayInboxCategory @default(EVERYTHING_ELSE)
+  title       String
+  summary     String
+  body        String?
+  severity    String            @default("INFO") // CRITICAL, WARNING, INFO
+  actionUrl   String?
+  isRead      Boolean           @default(false)
+  receivedAt  DateTime          @default(now())
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  app         PlayConsoleApp?   @relation(fields: [appId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, category, isRead])
+}
+
+model UserKpiPreference {
+  id          String    @id @default(cuid())
+  workspaceId String
+  userId      String?
+  pinnedKpis  String[]  @default(["total_audience", "store_visitors", "conversion_rate", "crashes_anrs", "daily_active"])
+  kpiOrder    String[]  @default(["total_audience", "store_visitors", "conversion_rate", "crashes_anrs", "daily_active"])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId])
+}
+

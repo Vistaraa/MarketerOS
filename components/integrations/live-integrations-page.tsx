@@ -40,6 +40,7 @@ import { AdMobConnectModal } from "@/components/integrations/admob-connect-modal
 import { AdMobSetupGuide } from "@/components/integrations/admob-setup-guide";
 import { GoogleDynamicModal, GooglePlatformType } from "@/components/integrations/google-dynamic-modal";
 import { GoogleLiveDashboard } from "@/components/integrations/google-live-dashboard";
+import { GooglePlayConnectModal } from "@/components/integrations/google-play-connect-modal";
 import {
   MetaAdsConnectModal,
   LinkedinConnectModal
@@ -220,6 +221,35 @@ const SUPPORTED_PLATFORMS: PlatformConfig[] = [
       }
     ]
   },
+  {
+    id: "Google Play Console",
+    name: "Google Play Console",
+    ecosystem: "Google",
+    description: "App listing visitors, 28-day conversion rate, crashes, ANR rates, and version releases.",
+    portalName: "Google Play Console",
+    portalUrl: "https://play.google.com/console",
+    idLabel: "Package Name",
+    idPlaceholder: "com.company.appname",
+    idHelp: "Application package identifier registered in Google Play Console.",
+    keyLabel: "Service Account JSON / OAuth Token",
+    keyPlaceholder: "Paste service account key JSON",
+    keyHelp: "Service Account with androidpublisher & playdeveloperreporting access.",
+    prerequisites: ["Google Play Developer Account", "Service Account added to Play Console API Access"],
+    guideSteps: [
+      {
+        step: 1,
+        title: "Copy App Package Name",
+        instruction: "Open play.google.com/console. Select your app and copy the package name.",
+        tip: "Example: com.company.appname"
+      },
+      {
+        step: 2,
+        title: "Create Service Account with Play Developer API",
+        instruction: "In Google Cloud Console enable Google Play Android Developer API. Grant Service Account access in Play Console API Access settings.",
+        tip: "Enables daily KPI and version release track synchronization."
+      }
+    ]
+  },
   // ==================== META ECOSYSTEM ====================
   {
     id: "Meta Ads",
@@ -324,6 +354,7 @@ export function LiveIntegrationsPage() {
   // AdMob Modals
   const [admobConnectOpen, setAdMobConnectOpen] = useState(false);
   const [admobGuideOpen, setAdMobGuideOpen] = useState(false);
+  const [googlePlayConnectOpen, setGooglePlayConnectOpen] = useState(false);
 
   // Dedicated Channel Modals
   const [metaConnectOpen, setMetaConnectOpen] = useState(false);
@@ -424,6 +455,10 @@ export function LiveIntegrationsPage() {
     }
     if (platform.id === "Firebase" || platform.name.toLowerCase().includes("admob")) {
       setAdMobConnectOpen(true);
+      return;
+    }
+    if (platform.id === "Google Play Console" || platform.name.toLowerCase().includes("play console")) {
+      setGooglePlayConnectOpen(true);
       return;
     }
     if (platform.id === "Meta Ads" || platform.name.toLowerCase().includes("meta")) {
@@ -756,6 +791,12 @@ export function LiveIntegrationsPage() {
         isOpen={admobGuideOpen}
         onClose={() => setAdMobGuideOpen(false)}
         onOpenConnect={() => setAdMobConnectOpen(true)}
+      />
+
+      <GooglePlayConnectModal
+        isOpen={googlePlayConnectOpen}
+        onClose={() => setGooglePlayConnectOpen(false)}
+        onSuccess={fetchIntegrations}
       />
 
       {/* =========================================================================

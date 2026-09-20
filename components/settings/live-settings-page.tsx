@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Building,
   User,
@@ -35,11 +36,13 @@ import {
   Calendar,
   Clock,
   Globe,
-  Sparkles
+  Sparkles,
+  LogOut
 } from "lucide-react";
 import { AppShell, PageHeading } from "@/components/ui/marketeros-shell";
 import type { ApiResponse } from "@/lib/api-contracts";
 import type { FullSettingsPayload } from "@/lib/settings-service";
+import { resetClientSession } from "@/lib/client-session";
 import { cn } from "@/lib/utils";
 
 type SettingsSection =
@@ -54,12 +57,23 @@ type SettingsSection =
   | "audit";
 
 export function LiveSettingsPage() {
+  const router = useRouter();
   const [data, setData] = useState<FullSettingsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SettingsSection>("general");
   const [busy, setBusy] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const handleLogout = async () => {
+    resetClientSession();
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      router.push("/auth/login");
+      router.refresh();
+    }
+  };
 
   // Form states
   const [workspaceForm, setWorkspaceForm] = useState<any>({});
@@ -505,6 +519,16 @@ export function LiveSettingsPage() {
                   </button>
                 );
               })}
+
+              <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 mt-2">
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-left font-semibold text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                >
+                  <LogOut size={14} />
+                  <span>Log Out of Account</span>
+                </button>
+              </div>
             </div>
 
             {/* Platform Integrations Link Card */}
@@ -809,6 +833,26 @@ export function LiveSettingsPage() {
                       Update Password
                     </button>
                   </form>
+                </div>
+
+                {/* Session & Account Control */}
+                <div className="rounded-xl border border-rose-200/80 bg-rose-50/40 p-6 shadow-2xs dark:border-rose-900/60 dark:bg-rose-950/20 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h3 className="font-bold text-rose-900 dark:text-rose-300 text-sm">Active Workspace Session</h3>
+                      <p className="text-xs text-rose-700/80 dark:text-rose-400/80 mt-0.5">
+                        Log out of your active MarketerOS session on this browser window.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                    >
+                      <LogOut size={14} />
+                      <span>Log Out of Workspace</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
