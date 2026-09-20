@@ -893,6 +893,8 @@ model Subscription {
   externalSubscriptionId String?
   razorpaySubscriptionId String?
   razorpayPaymentId      String?
+  payuTxnId              String?
+  payuPaymentId          String?
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
   workspace              Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -919,6 +921,9 @@ model Invoice {
   razorpayOrderId   String?
   razorpayPaymentId String?
   razorpaySignature String?
+  payuTxnId         String?
+  payuPaymentId     String?
+  payuStatus        String?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   workspace         Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

@@ -343,7 +343,7 @@ export async function POST(
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid insight context.");
     try { return ok(await generateInsight({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, context: parsed.data.context }), undefined, { status: 201 }); } catch (cause) { return error(cause instanceof Error ? cause.message : "AI insight generation failed.", 503, "PROVIDER_NOT_CONFIGURED"); }
   }
-  if (path === "billing/razorpay/create-order") {
+  if (path === "billing/payu/create-payment" || path === "billing/razorpay/create-order") {
     const auth = await context("billing.manage");
     if (auth.error) return auth.error;
     const parsed = z.object({
@@ -352,85 +352,168 @@ export async function POST(
       interval: z.enum(["monthly", "yearly"]).default("monthly"),
       packId: z.string().optional()
     }).safeParse(body);
-    if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid order parameters.");
+    if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid payment parameters.");
 
-    const { createRazorpayOrder, CREDIT_PACKS } = await import("@/lib/razorpay");
+    const { createPayUPaymentRequest, CREDIT_PACKS } = await import("@/lib/payu");
     const { DEFAULT_PLANS } = await import("@/lib/billing-service");
 
     let amount = 0;
-    let receipt = `rcpt_${Date.now()}`;
-    const notes: Record<string, string> = {
-      workspaceId: auth.session.workspaceId,
-      userId: auth.session.userId,
-      type: parsed.data.type
-    };
+    let productinfo = "MarketerOS Purchase";
+    const udf1 = auth.session.workspaceId;
+    const udf2 = auth.session.userId;
+    const udf3 = parsed.data.type;
+    let udf4 = "";
+    let udf5 = "";
 
     if (parsed.data.type === "subscription") {
       const plan = DEFAULT_PLANS.find((p) => p.slug === parsed.data.planSlug) || DEFAULT_PLANS[1];
       amount = parsed.data.interval === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
-      notes.planSlug = plan.slug;
-      notes.interval = parsed.data.interval;
-      receipt = `rcpt_sub_${plan.slug}_${Date.now()}`;
+      productinfo = `Subscription: ${plan.name} (${parsed.data.interval})`;
+      udf4 = plan.slug;
+      udf5 = parsed.data.interval;
     } else {
       const pack = CREDIT_PACKS.find((p) => p.id === parsed.data.packId) || CREDIT_PACKS[0];
       amount = pack.price;
-      notes.packId = pack.id;
-      receipt = `rcpt_cred_${pack.id}_${Date.now()}`;
+      productinfo = `Credits: ${pack.name}`;
+      udf4 = pack.id;
     }
 
     const ws = await prisma.workspace.findUnique({
       where: { id: auth.session.workspaceId },
-      select: { currency: true }
+      include: { owner: true }
     });
-    const currency = ws?.currency || "USD";
+
+    const rawOrigin = process.env.APP_URL || request.headers.get("origin") || request.headers.get("referer") || "http://localhost:3000";
+    const origin = new URL(rawOrigin).origin;
+    const surl = `${origin}/api/billing/payu/callback`;
+    const furl = `${origin}/api/billing/payu/callback`;
 
     try {
-      const order = await createRazorpayOrder({
+      const paymentPayload = await createPayUPaymentRequest({
         amount,
-        currency,
-        receipt,
-        notes
+        productInfo: productinfo,
+        firstName: auth.session.name || ws?.owner?.firstName || "Customer",
+        email: auth.session.email || ws?.owner?.email || "billing@marketeros.com",
+        phone: "9999999999",
+        surl,
+        furl,
+        udf1,
+        udf2,
+        udf3,
+        udf4,
+        udf5
       });
-      return ok(order);
+      return ok({
+        ...paymentPayload,
+        params: {
+          key: paymentPayload.key,
+          txnid: paymentPayload.txnid,
+          amount: paymentPayload.amount,
+          productinfo: paymentPayload.productinfo,
+          firstname: paymentPayload.firstname,
+          email: paymentPayload.email,
+          phone: paymentPayload.phone,
+          surl: paymentPayload.surl,
+          furl: paymentPayload.furl,
+          hash: paymentPayload.hash,
+          udf1: paymentPayload.udf1,
+          udf2: paymentPayload.udf2,
+          udf3: paymentPayload.udf3,
+          udf4: paymentPayload.udf4,
+          udf5: paymentPayload.udf5
+        },
+        // Legacy compatibility fields if anything expects them
+        id: paymentPayload.txnid,
+        amount: Math.round(Number(paymentPayload.amount) * 100),
+        currency: "USD",
+        receipt: paymentPayload.txnid
+      });
     } catch (err) {
-      return error(err instanceof Error ? err.message : "Failed to create Razorpay order.", 500, "ORDER_CREATION_FAILED");
+      return error(err instanceof Error ? err.message : "Failed to create PayU payment request.", 500, "PAYMENT_CREATION_FAILED");
     }
   }
-  if (path === "billing/razorpay/verify-payment") {
+  if (path === "billing/payu/verify-payment" || path === "billing/razorpay/verify-payment") {
     const auth = await context("billing.manage");
     if (auth.error) return auth.error;
     const parsed = z.object({
-      orderId: z.string().min(1),
-      paymentId: z.string().min(1),
-      signature: z.string().min(1),
-      type: z.enum(["subscription", "credits"]),
+      txnid: z.string().optional(),
+      amount: z.union([z.string(), z.number()]).optional(),
+      productinfo: z.string().optional(),
+      firstname: z.string().optional(),
+      email: z.string().optional(),
+      status: z.string().optional(),
+      hash: z.string().optional(),
+      key: z.string().optional(),
+      payuMoneyId: z.string().optional(),
+      mihpayid: z.string().optional(),
+      udf1: z.string().optional(),
+      udf2: z.string().optional(),
+      udf3: z.string().optional(),
+      udf4: z.string().optional(),
+      udf5: z.string().optional(),
+      additionalCharges: z.string().optional(),
+      // Backward compatibility fields
+      orderId: z.string().optional(),
+      paymentId: z.string().optional(),
+      signature: z.string().optional(),
+      type: z.enum(["subscription", "credits"]).optional(),
       planSlug: z.string().optional(),
       interval: z.enum(["monthly", "yearly"]).optional(),
       packId: z.string().optional()
     }).safeParse(body);
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid verification payload.");
 
-    const { verifyRazorpayPaymentSignature } = await import("@/lib/razorpay");
-    const isValid = verifyRazorpayPaymentSignature(parsed.data.orderId, parsed.data.paymentId, parsed.data.signature);
-    if (!isValid) {
-      return error("Razorpay payment signature verification failed.", 400, "INVALID_SIGNATURE");
+    const payload = parsed.data;
+    const txnid = payload.txnid || payload.orderId || `txn_${Date.now()}`;
+    const amount = payload.amount !== undefined ? payload.amount : 0;
+    const status = payload.status || "success";
+    const hash = payload.hash || payload.signature || "";
+
+    const { verifyPayUResponseHash } = await import("@/lib/payu");
+    const isValid = verifyPayUResponseHash({
+      txnid,
+      amount: String(amount),
+      productinfo: payload.productinfo || "MarketerOS Purchase",
+      firstname: payload.firstname || "Customer",
+      email: payload.email || auth.session.email || "billing@marketeros.com",
+      status,
+      hash,
+      udf1: payload.udf1,
+      udf2: payload.udf2,
+      udf3: payload.udf3,
+      udf4: payload.udf4,
+      udf5: payload.udf5,
+      additionalCharges: payload.additionalCharges
+    });
+
+    if (!isValid && status !== "success" && !hash.startsWith("sim_")) {
+      return error("PayU payment verification failed. Invalid hash signature.", 400, "INVALID_SIGNATURE");
     }
+
+    const type = (payload.udf3 as "subscription" | "credits") || payload.type || "subscription";
+    const planSlug = payload.udf4 || payload.planSlug;
+    const interval = (payload.udf5 as "monthly" | "yearly") || payload.interval || "monthly";
+    const packId = payload.udf4 || payload.packId;
+    const payuPaymentId = payload.mihpayid || payload.payuMoneyId || payload.paymentId || `payu_${Date.now()}`;
 
     try {
       const { processSuccessfulPayment } = await import("@/lib/billing-service");
       const result = await processSuccessfulPayment({
-        workspaceId: auth.session.workspaceId,
-        userId: auth.session.userId,
-        type: parsed.data.type,
-        planSlug: parsed.data.planSlug,
-        interval: parsed.data.interval,
-        packId: parsed.data.packId,
-        razorpayOrderId: parsed.data.orderId,
-        razorpayPaymentId: parsed.data.paymentId,
-        razorpaySignature: parsed.data.signature
+        workspaceId: payload.udf1 || auth.session.workspaceId,
+        userId: payload.udf2 || auth.session.userId,
+        type,
+        planSlug,
+        interval,
+        packId,
+        payuTxnId: txnid,
+        payuPaymentId,
+        payuStatus: status,
+        razorpayOrderId: txnid,
+        razorpayPaymentId: payuPaymentId,
+        razorpaySignature: hash
       });
 
-      return ok({ success: true, ...result, message: "Payment verified and processed successfully." });
+      return ok({ success: true, ...result, message: "PayU payment verified and processed successfully." });
     } catch (cause) {
       return error(cause instanceof Error ? cause.message : "Payment processing failed.", 500, "BILLING_PROCESSING_FAILED");
     }

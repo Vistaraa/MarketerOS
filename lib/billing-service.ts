@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/audit";
-import { isRazorpayConfigured, getRazorpayKeyId, CREDIT_PACKS } from "@/lib/razorpay";
+import { isPayUConfigured, getPayUKey, getPayUPaymentUrl, CREDIT_PACKS } from "@/lib/payu";
 
 export type ResourceLimitStatus = "NORMAL" | "WARNING" | "LIMIT_REACHED" | "OVER_LIMIT";
 
@@ -31,6 +31,8 @@ export type BillingOverviewPayload = {
     currentPeriodStart: string;
     currentPeriodEnd: string;
     trialEnd?: string | null;
+    payuTxnId?: string | null;
+    payuPaymentId?: string | null;
     razorpaySubscriptionId?: string | null;
     razorpayPaymentId?: string | null;
     plan: {
@@ -77,6 +79,9 @@ export type BillingOverviewPayload = {
     dueDate?: string | null;
     paidAt?: string | null;
     pdfUrl?: string | null;
+    payuTxnId?: string | null;
+    payuPaymentId?: string | null;
+    payuStatus?: string | null;
     razorpayPaymentId?: string | null;
     razorpayOrderId?: string | null;
     items?: InvoiceItem[];
@@ -128,9 +133,10 @@ export type BillingOverviewPayload = {
     currency: string;
   };
   gateway: {
-    provider: "razorpay";
+    provider: "payu";
     isConfigured: boolean;
     keyId: string;
+    paymentUrl: string;
     supportedMethods: string[];
   };
 };
@@ -153,7 +159,7 @@ export const DEFAULT_PLANS = [
       "10 Active Campaigns",
       "2,500 Monthly AI Generation Credits",
       "Standard Analytics & Reporting",
-      "Razorpay Checkout (Card & UPI)"
+      "PayU Checkout (Cards, UPI, Netbanking, Wallets)"
     ]
   },
   {
@@ -174,7 +180,7 @@ export const DEFAULT_PLANS = [
       "10,000 Monthly AI Generation Credits",
       "AI Insights & Visual Automations",
       "Exportable Custom PDF Reports",
-      "Razorpay Checkout (Card, UPI, Netbanking)"
+      "PayU Checkout (Cards, UPI, Netbanking, Wallets)"
     ]
   },
   {
@@ -249,6 +255,9 @@ async function createInvoiceWithRetry(data: {
   invoiceDate: Date;
   paidAt: Date;
   providerInvoiceId: string;
+  payuTxnId?: string;
+  payuPaymentId?: string;
+  payuStatus?: string;
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   razorpaySignature?: string;
@@ -495,6 +504,9 @@ export async function getPersistedBillingOverview(workspaceId: string): Promise<
     dueDate: inv.dueDate?.toISOString(),
     paidAt: inv.paidAt?.toISOString(),
     pdfUrl: inv.pdfUrl,
+    payuTxnId: inv.payuTxnId || inv.providerInvoiceId,
+    payuPaymentId: inv.payuPaymentId || inv.razorpayPaymentId,
+    payuStatus: inv.payuStatus,
     razorpayPaymentId: inv.razorpayPaymentId || inv.providerInvoiceId,
     razorpayOrderId: inv.razorpayOrderId,
     items: Array.isArray(inv.items) ? (inv.items as InvoiceItem[]) : undefined
@@ -503,17 +515,17 @@ export async function getPersistedBillingOverview(workspaceId: string): Promise<
   // Dynamic Payment Methods: only show verified methods from real paid invoices
   const paymentMethods: BillingOverviewPayload["paymentMethods"] = [];
   const paidInvoicesWithGateway = invoices.filter(
-    (i) => i.status === "PAID" && (i.razorpayPaymentId || i.providerInvoiceId)
+    (i) => i.status === "PAID" && (i.payuPaymentId || i.payuTxnId || i.razorpayPaymentId || i.providerInvoiceId)
   );
 
   const seenRefs = new Set<string>();
   for (const inv of paidInvoicesWithGateway) {
-    const ref = inv.razorpayPaymentId || inv.providerInvoiceId;
+    const ref = inv.payuPaymentId || inv.payuTxnId || inv.razorpayPaymentId || inv.providerInvoiceId;
     if (ref && !seenRefs.has(ref)) {
       seenRefs.add(ref);
       paymentMethods.push({
         id: `pm-${inv.id}`,
-        brand: "Razorpay Gateway Token",
+        brand: "PayU Verified Payment Token",
         last4: ref.slice(-4),
         expMonth: 0,
         expYear: 0,
@@ -529,7 +541,7 @@ export async function getPersistedBillingOverview(workspaceId: string): Promise<
     action: log.description || log.action.replaceAll("_", " "),
     timestamp: log.createdAt.toISOString(),
     status: "Completed",
-    actor: log.user ? `${log.user.firstName} ${log.user.lastName}` : "Razorpay Engine"
+    actor: log.user ? `${log.user.firstName} ${log.user.lastName}` : "PayU Payment Gateway"
   }));
 
   const aiUsageHistory = aiRequests.map((req) => {
@@ -570,6 +582,8 @@ export async function getPersistedBillingOverview(workspaceId: string): Promise<
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
       currentPeriodStart: subscription.currentPeriodStart.toISOString(),
       currentPeriodEnd: subscription.currentPeriodEnd.toISOString(),
+      payuTxnId: subscription.payuTxnId,
+      payuPaymentId: subscription.payuPaymentId,
       razorpaySubscriptionId: subscription.razorpaySubscriptionId,
       razorpayPaymentId: subscription.razorpayPaymentId,
       plan: {
@@ -617,10 +631,11 @@ export async function getPersistedBillingOverview(workspaceId: string): Promise<
       currency: workspace.currency || "USD"
     },
     gateway: {
-      provider: "razorpay",
-      isConfigured: isRazorpayConfigured(),
-      keyId: getRazorpayKeyId(),
-      supportedMethods: ["Cards (Credit/Debit)", "UPI (GooglePay, PhonePe, Paytm)", "Netbanking", "Wallets"]
+      provider: "payu",
+      isConfigured: isPayUConfigured(),
+      keyId: getPayUKey(),
+      paymentUrl: getPayUPaymentUrl(),
+      supportedMethods: ["Cards (Credit/Debit)", "UPI (GooglePay, PhonePe, Paytm)", "Netbanking (50+ Banks)", "Wallets", "EMI"]
     }
   };
 }
@@ -677,6 +692,9 @@ export async function processSuccessfulPayment(input: {
   planSlug?: string;
   interval?: "monthly" | "yearly";
   packId?: string;
+  payuTxnId?: string;
+  payuPaymentId?: string;
+  payuStatus?: string;
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   razorpaySignature?: string;
@@ -731,7 +749,9 @@ export async function processSuccessfulPayment(input: {
         currentPeriodStart: new Date(),
         currentPeriodEnd: periodEnd,
         cancelAtPeriodEnd: false,
-        razorpayPaymentId: input.razorpayPaymentId || `pay_${Date.now()}`
+        payuTxnId: input.payuTxnId,
+        payuPaymentId: input.payuPaymentId || `payu_${Date.now()}`,
+        razorpayPaymentId: input.razorpayPaymentId || input.payuPaymentId || `pay_${Date.now()}`
       },
       create: {
         workspaceId,
@@ -742,7 +762,10 @@ export async function processSuccessfulPayment(input: {
         billingInterval: interval === "yearly" ? "YEARLY" : "MONTHLY",
         currentPeriodStart: new Date(),
         currentPeriodEnd: periodEnd,
-        razorpayPaymentId: input.razorpayPaymentId || `pay_${Date.now()}`
+        cancelAtPeriodEnd: false,
+        payuTxnId: input.payuTxnId,
+        payuPaymentId: input.payuPaymentId || `payu_${Date.now()}`,
+        razorpayPaymentId: input.razorpayPaymentId || input.payuPaymentId || `pay_${Date.now()}`
       }
     });
 
@@ -754,7 +777,10 @@ export async function processSuccessfulPayment(input: {
       status: "PAID",
       invoiceDate: new Date(),
       paidAt: new Date(),
-      providerInvoiceId: input.razorpayPaymentId || `pay_${Date.now()}`,
+      providerInvoiceId: input.payuTxnId || input.payuPaymentId || input.razorpayPaymentId || `pay_${Date.now()}`,
+      payuTxnId: input.payuTxnId,
+      payuPaymentId: input.payuPaymentId,
+      payuStatus: input.payuStatus || "success",
       razorpayOrderId: input.razorpayOrderId,
       razorpayPaymentId: input.razorpayPaymentId,
       razorpaySignature: input.razorpaySignature,
@@ -781,7 +807,9 @@ export async function processSuccessfulPayment(input: {
         interval,
         amount: price,
         invoiceNumber: invoice.invoiceNumber,
-        paymentId: input.razorpayPaymentId
+        payuTxnId: input.payuTxnId,
+        payuPaymentId: input.payuPaymentId,
+        paymentId: input.payuPaymentId || input.razorpayPaymentId
       }
     });
 
@@ -819,7 +847,10 @@ export async function processSuccessfulPayment(input: {
       status: "PAID",
       invoiceDate: new Date(),
       paidAt: new Date(),
-      providerInvoiceId: input.razorpayPaymentId || `pay_${Date.now()}`,
+      providerInvoiceId: input.payuTxnId || input.payuPaymentId || input.razorpayPaymentId || `pay_${Date.now()}`,
+      payuTxnId: input.payuTxnId,
+      payuPaymentId: input.payuPaymentId,
+      payuStatus: input.payuStatus || "success",
       razorpayOrderId: input.razorpayOrderId,
       razorpayPaymentId: input.razorpayPaymentId,
       razorpaySignature: input.razorpaySignature,
@@ -847,7 +878,9 @@ export async function processSuccessfulPayment(input: {
         totalBonusCredits: updatedWorkspace.bonusAICredits,
         amount: pack.price,
         invoiceNumber: invoice.invoiceNumber,
-        paymentId: input.razorpayPaymentId
+        payuTxnId: input.payuTxnId,
+        payuPaymentId: input.payuPaymentId,
+        paymentId: input.payuPaymentId || input.razorpayPaymentId
       }
     });
 
