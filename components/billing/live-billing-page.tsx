@@ -57,16 +57,8 @@ export function LiveBillingPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [invoiceSearchQuery, setInvoiceSearchQuery] = useState("");
 
-  // PayU API Key Verification Popup Modal
+  // PayU Payment Confirmation Popup Modal
   const [payUCheckoutModal, setPayUCheckoutModal] = useState<any | null>(null);
-  const [showSalt, setShowSalt] = useState(false);
-  const [copiedField, setCopiedField] = useState<string | null>(null);
-
-  const handleCopy = (text: string, field: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedField(field);
-    setTimeout(() => setCopiedField(null), 2000);
-  };
 
   const proceedWithPayUSubmission = (payload: any) => {
     if (payload && payload.paymentUrl && payload.params) {
@@ -1342,7 +1334,7 @@ export function LiveBillingPage() {
                     </>
                   ) : (
                     <>
-                      <CreditCard size={13} /> Pay with PayU (Cards, UPI, Netbanking, Wallets)
+                      <CreditCard size={13} /> Pay with PayU
                     </>
                   )}
                 </button>
@@ -1431,7 +1423,7 @@ export function LiveBillingPage() {
                     </>
                   ) : (
                     <>
-                      <CreditCard size={13} /> Pay ${selectedCreditPack.price} with PayU
+                      <CreditCard size={13} /> Pay with PayU
                     </>
                   )}
                 </button>
@@ -1591,7 +1583,7 @@ export function LiveBillingPage() {
 
 
 
-        {/* PAYU API KEY VERIFICATION POPUP MODAL */}
+        {/* PAYU PAYMENT CONFIRMATION POPUP MODAL */}
         {payUCheckoutModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-200">
             <div className="relative w-full max-w-xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 my-8">
@@ -1606,12 +1598,12 @@ export function LiveBillingPage() {
               {/* Header */}
               <div className="flex items-start gap-3.5 mb-5">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
-                  <Key size={22} />
+                  <CreditCard size={22} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                      PayU Gateway API Key Verification
+                      PayU Payment Confirmation
                     </h3>
                     <span className={cn(
                       "rounded-full px-2 py-0.5 text-[10px] font-semibold",
@@ -1623,88 +1615,17 @@ export function LiveBillingPage() {
                     </span>
                   </div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    Review your active PayU merchant keys and transaction payload before proceeding to PayU.
+                    Review your order details before proceeding to PayU.
                   </p>
                 </div>
               </div>
 
-              {/* Warning banner if placeholder key is detected */}
-              {(payUCheckoutModal.params?.key === "payu_test_key" || payUCheckoutModal.key === "payu_test_key") && (
-                <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs text-red-700 dark:text-red-400 flex items-start gap-2.5">
-                  <AlertTriangle size={18} className="shrink-0 text-red-500 mt-0.5" />
-                  <div>
-                    <span className="font-bold">Invalid Placeholder Key Detected:</span> Your server is currently passing <code className="bg-red-500/20 px-1 py-0.5 rounded font-mono">payu_test_key</code>. PayU rejects this key. Please ensure your local code is pushed to Git and your Vercel deployment has updated environment variables.
-                  </div>
-                </div>
-              )}
-
-              {/* API Keys Card */}
-              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950/60 space-y-3.5 mb-4">
-                {/* Merchant Key */}
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                      <Key size={13} className="text-emerald-500" /> PayU Merchant Key:
-                    </span>
-                    <span className="text-[11px] text-zinc-400 font-mono">PAYU_MERCHANT_KEY</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 font-mono text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-3 py-2 rounded-lg text-zinc-900 dark:text-zinc-100 font-bold select-all truncate">
-                      {payUCheckoutModal.params?.key || payUCheckoutModal.key || "Not configured"}
-                    </div>
-                    <button
-                      onClick={() => handleCopy(payUCheckoutModal.params?.key || payUCheckoutModal.key || "", "key")}
-                      className="btn-secondary text-xs px-2.5 py-2 flex items-center gap-1 shrink-0"
-                      title="Copy Key"
-                    >
-                      {copiedField === "key" ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
-                      <span>{copiedField === "key" ? "Copied" : "Copy"}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Merchant Salt */}
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                      <Lock size={13} className="text-purple-500" /> PayU Merchant Salt:
-                    </span>
-                    <span className="text-[11px] text-zinc-400 font-mono">PAYU_MERCHANT_SALT</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 font-mono text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-3 py-2 rounded-lg text-zinc-900 dark:text-zinc-100 font-bold select-all truncate">
-                      {showSalt
-                        ? (payUCheckoutModal.salt || payUCheckoutModal.merchantSalt || "Not configured")
-                        : (payUCheckoutModal.salt || payUCheckoutModal.merchantSalt
-                            ? "••••••••••••••••••••••••••••••••"
-                            : "Not configured")}
-                    </div>
-                    <button
-                      onClick={() => setShowSalt(!showSalt)}
-                      className="btn-secondary text-xs px-2.5 py-2 flex items-center gap-1 shrink-0"
-                      title={showSalt ? "Hide Salt" : "Reveal Salt"}
-                    >
-                      {showSalt ? <EyeOff size={13} /> : <Eye size={13} />}
-                      <span>{showSalt ? "Hide" : "Show"}</span>
-                    </button>
-                    <button
-                      onClick={() => handleCopy(payUCheckoutModal.salt || payUCheckoutModal.merchantSalt || "", "salt")}
-                      className="btn-secondary text-xs px-2.5 py-2 flex items-center gap-1 shrink-0"
-                      title="Copy Salt"
-                    >
-                      {copiedField === "salt" ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
-                      <span>{copiedField === "salt" ? "Copied" : "Copy"}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
               {/* Transaction Summary Box */}
-              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950/60 space-y-2 mb-5 text-xs">
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950/60 space-y-2.5 mb-5 text-xs">
                 <div className="flex justify-between text-zinc-500 dark:text-zinc-400">
-                  <span>Target Gateway URL</span>
-                  <span className="font-mono text-zinc-800 dark:text-zinc-200 text-[11px] truncate max-w-[280px]">
-                    {payUCheckoutModal.paymentUrl}
+                  <span>Target Gateway</span>
+                  <span className="font-mono text-zinc-800 dark:text-zinc-200 text-[11px]">
+                    {payUCheckoutModal.paymentUrl?.includes("test.payu.in") ? "PayU Sandbox (test.payu.in)" : "PayU Production (secure.payu.in)"}
                   </span>
                 </div>
                 <div className="flex justify-between text-zinc-500 dark:text-zinc-400">
@@ -1721,7 +1642,7 @@ export function LiveBillingPage() {
                 </div>
                 <div className="flex justify-between font-bold text-sm text-zinc-900 dark:text-zinc-100 pt-2 border-t border-zinc-200 dark:border-zinc-800">
                   <span>Payable Amount</span>
-                  <span className="text-emerald-600 dark:text-emerald-400">${payUCheckoutModal.params?.amount} USD</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-mono">${payUCheckoutModal.params?.amount} USD</span>
                 </div>
               </div>
 
@@ -1737,7 +1658,8 @@ export function LiveBillingPage() {
                   onClick={() => proceedWithPayUSubmission(payUCheckoutModal)}
                   className="btn-primary text-xs px-5 py-2.5 flex items-center gap-2 shadow-lg shadow-emerald-500/20"
                 >
-                  <span>Proceed to PayU Platform</span>
+                  <CreditCard size={13} />
+                  <span>Pay with PayU</span>
                   <ExternalLink size={13} />
                 </button>
               </div>
