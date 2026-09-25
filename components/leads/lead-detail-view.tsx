@@ -50,20 +50,7 @@ export function LeadDetailView({ leadId }: { leadId: string }) {
         setLead(payload.data?.lead || payload.data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unable to load lead.");
-        setLead({
-          id: leadId,
-          name: "David Miller",
-          email: "david@acmecorp.example.com",
-          phone: "+1 (555) 345-6789",
-          company: "Acme Corporation",
-          jobTitle: "VP of Growth",
-          status: "QUALIFIED",
-          source: "Google Ads Search",
-          score: 85,
-          revenue: 18500,
-          owner: "Alex Harrison",
-          created: "2026-09-02"
-        });
+        setLead(null);
       } finally {
         setLoading(false);
       }
@@ -97,6 +84,14 @@ export function LeadDetailView({ leadId }: { leadId: string }) {
     return (
       <AppShell title="Lead Profile">
         <div className="flex h-64 items-center justify-center text-xs text-zinc-400">Loading lead profile…</div>
+      </AppShell>
+    );
+  }
+
+  if (error || !lead) {
+    return (
+      <AppShell title="Lead Profile">
+        <div className="p-8 text-center text-xs text-rose-500">{error || "Lead profile not found."}</div>
       </AppShell>
     );
   }

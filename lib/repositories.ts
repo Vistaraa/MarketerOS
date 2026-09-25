@@ -120,12 +120,62 @@ export async function archivePersistedCampaign(workspaceId: string, id: string) 
 }
 
 export async function listPersistedLeads(workspaceId: string, query = "") {
-  const rows = await prisma.lead.findMany({ where: { workspaceId, ...(query ? { OR: [{ firstName: { contains: query, mode: "insensitive" } }, { lastName: { contains: query, mode: "insensitive" } }, { company: { contains: query, mode: "insensitive" } }] } : {}) }, include: { owner: true }, orderBy: { createdAt: "desc" } });
+  const rows = await prisma.lead.findMany({
+    where: {
+      workspaceId,
+      ...(query
+        ? {
+            OR: [
+              { firstName: { contains: query, mode: "insensitive" } },
+              { lastName: { contains: query, mode: "insensitive" } },
+              { company: { contains: query, mode: "insensitive" } },
+              { email: { contains: query, mode: "insensitive" } }
+            ]
+          }
+        : {})
+    },
+    include: { owner: true },
+    orderBy: { createdAt: "desc" }
+  });
   return rows.map(leadFromRow);
 }
 
-function leadFromRow(row: { id: string; firstName: string; lastName: string; company: string | null; source: string; status: string; score: number; owner?: { firstName: string; lastName: string } | null; createdAt: Date; estimatedValue?: unknown; revenue?: unknown }): Lead {
-  return { id: row.id, name: `${row.firstName} ${row.lastName}`, company: row.company || "—", source: row.source.replaceAll("_", " "), status: row.status.replace("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) as Lead["status"], score: row.score, owner: row.owner ? `${row.owner.firstName} ${row.owner.lastName}` : "Unassigned", created: row.createdAt.toISOString(), revenue: Number(row.estimatedValue || row.revenue || 0) };
+function leadFromRow(row: {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string | null;
+  company: string | null;
+  jobTitle?: string | null;
+  source: string;
+  status: string;
+  score: number;
+  ownerId?: string | null;
+  owner?: { firstName: string; lastName: string } | null;
+  createdAt: Date;
+  estimatedValue?: unknown;
+  revenue?: unknown;
+  notes?: string | null;
+}): Lead {
+  return {
+    id: row.id,
+    name: `${row.firstName} ${row.lastName}`.trim(),
+    firstName: row.firstName,
+    lastName: row.lastName,
+    email: row.email,
+    phone: row.phone || undefined,
+    company: row.company || "—",
+    jobTitle: row.jobTitle || undefined,
+    source: row.source.replaceAll("_", " "),
+    status: row.status.replace("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) as Lead["status"],
+    score: row.score,
+    owner: row.owner ? `${row.owner.firstName} ${row.owner.lastName}` : "Unassigned",
+    ownerId: row.ownerId || undefined,
+    created: row.createdAt.toISOString(),
+    revenue: Number(row.estimatedValue || row.revenue || 0),
+    notes: row.notes || undefined
+  };
 }
 
 export async function getPersistedLead(workspaceId: string, id: string) {
@@ -133,8 +183,123 @@ export async function getPersistedLead(workspaceId: string, id: string) {
   return row ? { lead: leadFromRow(row), detail: row } : null;
 }
 
-export async function createPersistedLead(input: { workspaceId: string; firstName: string; lastName: string; email: string; company?: string; source?: string }) {
-  return prisma.lead.create({ data: { workspaceId: input.workspaceId, firstName: input.firstName, lastName: input.lastName, email: input.email, company: input.company, source: (input.source?.toUpperCase().replaceAll(" ", "_") as LeadSource) || LeadSource.MANUAL, status: LeadStatus.NEW } });
+export async function createPersistedLead(input: {
+  workspaceId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  jobTitle?: string;
+  source?: string;
+  status?: string;
+  score?: number;
+  estimatedValue?: number;
+  ownerId?: string;
+  notes?: string;
+}) {
+  const sourceEnum = input.source
+    ? (input.source.toUpperCase().replaceAll(" ", "_") as LeadSource)
+    : LeadSource.MANUAL;
+  const statusEnum = input.status
+    ? (input.status.toUpperCase().replaceAll(" ", "_") as LeadStatus)
+    : LeadStatus.NEW;
+
+  return prisma.lead.create({
+    data: {
+      workspaceId: input.workspaceId,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      email: input.email,
+      phone: input.phone || undefined,
+      company: input.company || undefined,
+      jobTitle: input.jobTitle || undefined,
+      source: sourceEnum,
+      status: statusEnum,
+      score: input.score ?? 0,
+      estimatedValue: input.estimatedValue ? Number(input.estimatedValue) : 0,
+      ownerId: input.ownerId || undefined,
+      notes: input.notes || undefined
+    },
+    include: { owner: true }
+  });
+}
+
+export async function updatePersistedLead(
+  workspaceId: string,
+  id: string,
+  data: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+    company?: string;
+    jobTitle?: string;
+    source?: string;
+    status?: string;
+    score?: number;
+    estimatedValue?: number;
+    ownerId?: string;
+    notes?: string;
+  }
+) {
+  const updateData: Record<string, unknown> = {};
+  if (data.firstName !== undefined) updateData.firstName = data.firstName;
+  if (data.lastName !== undefined) updateData.lastName = data.lastName;
+  if (data.email !== undefined) updateData.email = data.email;
+  if (data.phone !== undefined) updateData.phone = data.phone || null;
+  if (data.company !== undefined) updateData.company = data.company || null;
+  if (data.jobTitle !== undefined) updateData.jobTitle = data.jobTitle || null;
+  if (data.source !== undefined) updateData.source = data.source.toUpperCase().replaceAll(" ", "_") as LeadSource;
+  if (data.status !== undefined) updateData.status = data.status.toUpperCase().replaceAll(" ", "_") as LeadStatus;
+  if (data.score !== undefined) updateData.score = data.score;
+  if (data.estimatedValue !== undefined) updateData.estimatedValue = data.estimatedValue;
+  if (data.ownerId !== undefined) updateData.ownerId = data.ownerId || null;
+  if (data.notes !== undefined) updateData.notes = data.notes || null;
+
+  return prisma.lead.updateMany({
+    where: { id, workspaceId },
+    data: updateData as never
+  });
+}
+
+export async function deletePersistedLead(workspaceId: string, id: string) {
+  return prisma.lead.deleteMany({
+    where: { id, workspaceId }
+  });
+}
+
+export async function convertPersistedLeadToClient(workspaceId: string, leadId: string) {
+  const leadRow = await prisma.lead.findFirst({
+    where: { id: leadId, workspaceId }
+  });
+  if (!leadRow) throw new Error("Lead not found.");
+
+  const clientName = leadRow.company || `${leadRow.firstName} ${leadRow.lastName}`;
+  const slug = `${clientName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`;
+
+  const client = await prisma.client.create({
+    data: {
+      workspaceId,
+      name: clientName,
+      slug,
+      contactName: `${leadRow.firstName} ${leadRow.lastName}`,
+      contactEmail: leadRow.email,
+      contactPhone: leadRow.phone || undefined,
+      monthlyBudget: leadRow.estimatedValue || 5000,
+      status: "ACTIVE"
+    }
+  });
+
+  await prisma.lead.update({
+    where: { id: leadId },
+    data: {
+      status: LeadStatus.CONVERTED,
+      clientId: client.id
+    }
+  });
+
+  return client;
 }
 
 const integrationPlatform: Partial<Record<Platform, Integration["platform"]>> = { GOOGLE_ADS: "Google Ads", META_ADS: "Meta Ads", GOOGLE_ANALYTICS: "Google Analytics", INSTAGRAM: "Instagram", FACEBOOK: "Facebook", LINKEDIN: "LinkedIn", TIKTOK: "TikTok", YOUTUBE: "YouTube", X: "X", SHOPIFY: "Shopify", OTHER: "WordPress" };

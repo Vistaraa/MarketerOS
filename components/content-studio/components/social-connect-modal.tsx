@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   CheckCircle2,
@@ -171,11 +172,11 @@ export function SocialConnectModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-      <div className="w-full max-w-xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 text-xs">
+  return typeof document !== "undefined" ? createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 text-xs">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
+        <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3.5 shrink-0 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40">
           <div className="flex items-center gap-2.5">
             <PlatformIcon platform={selectedPlatform as any} className="w-5 h-5 text-zinc-900 dark:text-zinc-100" />
             <div>
@@ -189,14 +190,15 @@ export function SocialConnectModal({
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-200/60 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 transition"
           >
             <X size={16} />
           </button>
         </div>
 
-        {/* Platform Selection Tabs */}
-        <div className="mt-4 flex flex-wrap gap-1.5 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-900">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {/* Platform Selection Tabs */}
+          <div className="flex flex-wrap gap-1.5 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-900">
           {Object.entries(PLATFORM_CONFIGS).map(([key, cfg]) => {
             const isSelected = selectedPlatform === key;
             return (
@@ -353,7 +355,9 @@ export function SocialConnectModal({
             </div>
           </form>
         )}
+        </div>
       </div>
-    </div>
-  );
+    </div>,
+    document.body
+  ) : null;
 }

@@ -34,16 +34,7 @@ export function ReportDetailView({ reportId }: { reportId: string }) {
         setReport(payload.data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unable to load report.");
-        setReport({
-          id: reportId,
-          name: "Q3 Omnichannel ROAS & Performance Executive Summary",
-          title: "Q3 Omnichannel ROAS & Performance Executive Summary",
-          format: "PDF",
-          status: "READY",
-          createdAt: "2026-09-08",
-          client: { name: "Acme Retail Inc." },
-          createdBy: { name: "Alex Harrison" }
-        });
+        setReport(null);
       } finally {
         setLoading(false);
       }
@@ -55,6 +46,14 @@ export function ReportDetailView({ reportId }: { reportId: string }) {
     return (
       <AppShell title="Report Viewer">
         <div className="flex h-64 items-center justify-center text-xs text-zinc-400">Rendering report document…</div>
+      </AppShell>
+    );
+  }
+
+  if (error || !report) {
+    return (
+      <AppShell title="Report Viewer">
+        <div className="p-8 text-center text-xs text-rose-500">{error || "Report document not found."}</div>
       </AppShell>
     );
   }

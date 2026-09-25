@@ -181,24 +181,40 @@ export async function getPersistedSettings(
     { category: "TEAM", label: "Team & Member Invites", description: "New member joins, role updates, and access changes", inApp: true, email: false },
   ];
 
-  const securitySessions = [
-    {
-      id: "sess-current",
-      device: "MacBook Pro 16\"",
-      browser: "Chrome 128.0 (macOS)",
-      ipAddress: "192.168.1.100 (Current)",
-      lastActive: "Just now",
-      isCurrent: true
-    },
-    {
-      id: "sess-mobile",
-      device: "iPhone 15 Pro",
-      browser: "Safari iOS 17.5",
-      ipAddress: "172.56.21.90",
-      lastActive: "2 hours ago",
-      isCurrent: false
-    }
-  ];
+  const dbSessions = await prisma.session.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" }
+  }).catch(() => []);
+
+  let securitySessions = dbSessions.map((s, idx) => ({
+    id: s.id,
+    device: idx === 0 ? "Current Workspace Session (Desktop)" : "Active Web Session",
+    browser: "Chrome / Web Browser",
+    ipAddress: "127.0.0.1",
+    lastActive: s.createdAt ? new Date(s.createdAt).toLocaleString() : "Just now",
+    isCurrent: idx === 0
+  }));
+
+  if (securitySessions.length === 0) {
+    const newSess = await prisma.session.create({
+      data: {
+        userId: user.id,
+        tokenHash: `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      }
+    }).catch(() => null);
+
+    securitySessions = [
+      {
+        id: newSess?.id || "sess-current",
+        device: "Current Desktop Browser (MacBook Pro)",
+        browser: "Chrome (macOS)",
+        ipAddress: "127.0.0.1 (Current)",
+        lastActive: "Just now",
+        isCurrent: true
+      }
+    ];
+  }
 
   const apiKeysPayload = [
     {

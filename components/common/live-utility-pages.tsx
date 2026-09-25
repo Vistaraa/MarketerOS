@@ -138,15 +138,10 @@ export function NotificationsPage() {
       const payload = (await res.json()) as ApiResponse<{ items: Notice[] }>;
       if (!res.ok) throw new Error(payload.error?.message || "Unable to load notifications.");
       
-      const loaded = payload.data.items || [];
-      if (!loaded.length) {
-        setItems(DEMO_NOTICES);
-      } else {
-        setItems(loaded);
-      }
+      setItems(payload.data.items || []);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load notifications.");
-      setItems(DEMO_NOTICES);
+      setItems([]);
     }
   }
 
@@ -237,8 +232,4 @@ export function NotificationsPage() {
   );
 }
 
-const DEMO_NOTICES: Notice[] = [
-  { id: "n1", title: "Automation Triggered: Campaign Paused", message: "Rule 'Pause Google Ad if ROAS < 2.0' was triggered on Summer Sale search campaign.", read: false, createdAt: "10 mins ago", link: "/automation" },
-  { id: "n2", title: "New High-Value Lead Captured", message: "Lead David Miller ($18,500 value) was submitted from Google Ads Search.", read: false, createdAt: "1 hour ago", link: "/leads" },
-  { id: "n3", title: "AI Insight Generated", message: "New optimization available: Shift 15% budget from Facebook to Google Search.", read: true, createdAt: "Yesterday", link: "/ai-insights" }
-];
+

@@ -14,31 +14,26 @@ export async function GET(req: NextRequest) {
   );
 
   const isConnected = shopifyIntegration?.status === "Connected";
-  const accountId = shopifyIntegration?.account || "acme-brand.myshopify.com";
+  const accountId = shopifyIntegration?.account || "";
 
   return NextResponse.json({
     success: true,
     data: {
       account: {
         accountId,
-        accountName: shopifyIntegration?.account ? `Shopify (${shopifyIntegration.account})` : "Acme Store · Direct E-commerce",
-        status: isConnected ? "Connected" : "Sample Data Mode",
+        accountName: shopifyIntegration?.account ? `Shopify (${shopifyIntegration.account})` : "Shopify Store",
+        status: isConnected ? "Connected" : "Not Connected",
         currency: "USD"
       },
       summary: {
-        totalRevenue: 78940.00,
-        totalOrders: 942,
-        averageOrderValue: 83.80,
-        returningCustomerRate: 28.4,
-        conversionRate: 3.42,
-        topProduct: "Summer Premium Bundle"
+        totalRevenue: 0,
+        totalOrders: 0,
+        averageOrderValue: 0,
+        returningCustomerRate: 0,
+        conversionRate: 0,
+        topProduct: "—"
       },
-      recentOrders: [
-        { id: "#1094", customer: "Sarah Jenkins", total: 145.00, items: 3, status: "PAID" },
-        { id: "#1093", customer: "Michael Chang", total: 89.00, items: 1, status: "PAID" },
-        { id: "#1092", customer: "Emma Watson", total: 210.50, items: 4, status: "PAID" },
-        { id: "#1091", customer: "David Miller", total: 65.00, items: 1, status: "PAID" }
-      ]
+      recentOrders: []
     }
   });
 }

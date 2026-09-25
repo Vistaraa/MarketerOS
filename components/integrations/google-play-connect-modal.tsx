@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { RefreshCw, CheckCircle2, ShieldAlert, Sparkles, KeyRound, FileJson, Smartphone, Building2 } from "lucide-react";
 
 interface GooglePlayConnectModalProps {
@@ -15,6 +16,7 @@ interface GooglePlayConnectModalProps {
 }
 
 export function GooglePlayConnectModal({ isOpen, onClose, onSuccess, initialData }: GooglePlayConnectModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [accountLabel, setAccountLabel] = useState(initialData?.accountName || "Main Android App");
   const [packageName, setPackageName] = useState(initialData?.packageName || "com.marketeros.app");
   const [authMethod, setAuthMethod] = useState<"service_account" | "oauth">("service_account");
@@ -26,6 +28,10 @@ export function GooglePlayConnectModal({ isOpen, onClose, onSuccess, initialData
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -44,7 +50,7 @@ export function GooglePlayConnectModal({ isOpen, onClose, onSuccess, initialData
     loadClients();
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const handleTestConnection = async () => {
     setTesting(true);
@@ -109,30 +115,30 @@ export function GooglePlayConnectModal({ isOpen, onClose, onSuccess, initialData
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 dark:bg-black/85 p-3 sm:p-6 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden my-auto">
         {/* Header */}
-        <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30 flex items-center justify-between">
+        <div className="p-4 sm:p-6 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center shadow-2xs">
-              <Smartphone className="w-5 h-5" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center shrink-0 shadow-2xs">
+              <Smartphone className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-zinc-900 dark:text-white">Google Play Console (BYOK)</h3>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">Connect Google Play Developer API to access live KPIs & releases</p>
+              <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">Google Play Console (BYOK)</h3>
+              <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">Connect Google Play Developer API to access live KPIs & releases</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-sm font-bold p-1 cursor-pointer"
+            className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-sm font-bold p-1 cursor-pointer shrink-0"
           >
             ✕
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+        <form onSubmit={handleSave} className="p-4 sm:p-6 space-y-4 max-h-[85vh] overflow-y-auto">
           {error && (
             <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 shrink-0" />
@@ -203,30 +209,30 @@ export function GooglePlayConnectModal({ isOpen, onClose, onSuccess, initialData
             <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
               Authentication Method
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setAuthMethod("service_account")}
-                className={`p-3 rounded-xl border text-xs font-medium flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                className={`p-2.5 sm:p-3 rounded-xl border text-xs font-medium flex items-center justify-center gap-2 transition-all cursor-pointer ${
                   authMethod === "service_account"
                     ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-zinc-900 dark:border-zinc-100 font-bold"
                     : "bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400"
                 }`}
               >
-                <FileJson className="w-4 h-4" />
+                <FileJson className="w-4 h-4 shrink-0" />
                 <span>Service Account JSON</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setAuthMethod("oauth")}
-                className={`p-3 rounded-xl border text-xs font-medium flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                className={`p-2.5 sm:p-3 rounded-xl border text-xs font-medium flex items-center justify-center gap-2 transition-all cursor-pointer ${
                   authMethod === "oauth"
                     ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-zinc-900 dark:border-zinc-100 font-bold"
                     : "bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400"
                 }`}
               >
-                <KeyRound className="w-4 h-4" />
+                <KeyRound className="w-4 h-4 shrink-0" />
                 <span>OAuth2 Refresh Token</span>
               </button>
             </div>
@@ -247,18 +253,18 @@ export function GooglePlayConnectModal({ isOpen, onClose, onSuccess, initialData
             </div>
           )}
 
-          <div className="pt-2 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800">
+          <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-t border-zinc-100 dark:border-zinc-800">
             <button
               type="button"
               onClick={handleTestConnection}
               disabled={testing}
-              className="px-4 py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer w-full sm:w-auto"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${testing ? "animate-spin" : ""}`} />
               <span>{testing ? "Testing..." : "Test Live Connection"}</span>
             </button>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-end gap-2 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={onClose}
@@ -269,7 +275,7 @@ export function GooglePlayConnectModal({ isOpen, onClose, onSuccess, initialData
               <button
                 type="submit"
                 disabled={saving}
-                className="px-5 py-2 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
+                className="px-5 py-2 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-xl shadow-2xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                 <span>Save & Connect</span>
@@ -278,7 +284,8 @@ export function GooglePlayConnectModal({ isOpen, onClose, onSuccess, initialData
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

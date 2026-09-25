@@ -23,13 +23,20 @@ export type Campaign = {
 export type Lead = {
   id: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
   company: string;
+  jobTitle?: string;
   source: string;
   status: LeadStatus;
   score: number;
   owner: string;
+  ownerId?: string;
   created: string;
   revenue: number;
+  notes?: string;
 };
 
 export type Integration = {

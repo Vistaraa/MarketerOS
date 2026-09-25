@@ -139,7 +139,7 @@ export function CommandPalette({ open, onClose, role }: { open: boolean; onClose
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 pt-20 backdrop-blur-md sm:p-6 sm:pt-28">
+    <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/60 p-4 pt-20 backdrop-blur-md sm:p-6 sm:pt-28">
       <div
         className="w-full max-w-xl overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl transition-all dark:border-zinc-800 dark:bg-zinc-900"
         onClick={(e) => e.stopPropagation()}
@@ -444,6 +444,7 @@ export function ModernTopbar({
   const pathname = usePathname();
   const router = useRouter();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Array<{ id: string; title: string; message: string; read: boolean }>>([]);
   const [isDark, setIsDark] = useState(false);
 
   const isCampaignRoute = pathname.startsWith("/campaigns");
@@ -459,6 +460,33 @@ export function ModernTopbar({
       document.documentElement.classList.remove("dark");
     }
   }, []);
+
+  const loadNotifications = async () => {
+    try {
+      const res = await fetch("/api/v1/notifications");
+      const json = await res.json();
+      if (json.data?.items) {
+        setNotifications(json.data.items);
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await fetch("/api/v1/notifications/read-all", { method: "POST" });
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const toggleTheme = () => {
     if (isDark) {
@@ -520,28 +548,58 @@ export function ModernTopbar({
         {/* Notification Bell */}
         <div className="relative shrink-0">
           <button
-            onClick={() => setNotificationsOpen((prev) => !prev)}
+            onClick={() => {
+              setNotificationsOpen((prev) => !prev);
+              loadNotifications();
+            }}
             className="relative grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-600 shadow-2xs hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
           >
             <Bell size={13} />
-            <span className="absolute -right-0.5 -top-0.5 grid h-3.5 w-3.5 place-items-center rounded-full bg-zinc-900 text-[8px] font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
-              2
-            </span>
+            {unreadCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 grid h-3.5 w-3.5 place-items-center rounded-full bg-zinc-900 text-[8px] font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
           </button>
 
           {notificationsOpen && (
-            <div className="absolute right-0 top-9 z-30 w-72 rounded-xl border border-zinc-200 bg-white p-3 shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="absolute right-0 top-9 z-30 w-80 rounded-xl border border-zinc-200 bg-white p-3 shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-2 dark:border-zinc-800">
-                <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Notifications</span>
-                <span className="text-[10px] font-medium text-zinc-500 cursor-pointer hover:underline">Mark all read</span>
+                <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Notifications ({unreadCount} unread)</span>
+                {unreadCount > 0 && (
+                  <button onClick={handleMarkAllRead} className="text-[10px] font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:underline">
+                    Mark all read
+                  </button>
+                )}
               </div>
-              <div className="mt-2 space-y-1 text-xs">
-                <div className="rounded-lg bg-zinc-50 p-2 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                  Google Ads campaign synced successfully.
-                </div>
-                <div className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800">
-                  Instagram API token refreshed.
-                </div>
+              <div className="mt-2 space-y-1.5 text-xs max-h-64 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-zinc-400">No notifications.</div>
+                ) : (
+                  notifications.slice(0, 5).map((n) => (
+                    <div
+                      key={n.id}
+                      className={cn(
+                        "rounded-lg p-2 transition text-xs",
+                        !n.read
+                          ? "bg-indigo-50/60 text-zinc-900 dark:bg-indigo-950/40 dark:text-zinc-100 font-medium"
+                          : "bg-zinc-50 text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-400"
+                      )}
+                    >
+                      <div className="font-semibold text-xs">{n.title}</div>
+                      <div className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-2 mt-0.5">{n.message}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="mt-2 pt-2 border-t border-zinc-100 text-center dark:border-zinc-800">
+                <Link
+                  href="/notifications"
+                  onClick={() => setNotificationsOpen(false)}
+                  className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                  View All Notifications →
+                </Link>
               </div>
             </div>
           )}

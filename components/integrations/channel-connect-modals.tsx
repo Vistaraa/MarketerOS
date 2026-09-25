@@ -25,7 +25,7 @@ export function MetaAdsConnectModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const [accountName, setAccountName] = useState("Acme Corp · Meta Ads");
+  const [accountName, setAccountName] = useState("");
   const [accountId, setAccountId] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [pixelId, setPixelId] = useState("");
@@ -63,7 +63,7 @@ export function MetaAdsConnectModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
       <div className="w-full max-w-lg rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
         <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
           <div className="flex items-center gap-2.5">
@@ -160,7 +160,7 @@ export function LinkedinConnectModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const [accountName, setAccountName] = useState("Acme Corp · LinkedIn Ads");
+  const [accountName, setAccountName] = useState("");
   const [accountId, setAccountId] = useState("");
   const [accessToken, setAccessToken] = useState("");
 
@@ -197,7 +197,7 @@ export function LinkedinConnectModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
       <div className="w-full max-w-lg rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
         <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
           <div className="flex items-center gap-2.5">
@@ -283,7 +283,7 @@ export function TiktokConnectModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const [accountName, setAccountName] = useState("Acme Corp · TikTok Spark Ads");
+  const [accountName, setAccountName] = useState("");
   const [accountId, setAccountId] = useState("");
   const [accessToken, setAccessToken] = useState("");
 
@@ -320,7 +320,7 @@ export function TiktokConnectModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
       <div className="w-full max-w-lg rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
         <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
           <div className="flex items-center gap-2.5">
@@ -406,7 +406,7 @@ export function ShopifyConnectModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const [accountName, setAccountName] = useState("Acme Store · Shopify");
+  const [accountName, setAccountName] = useState("");
   const [accountId, setAccountId] = useState("");
   const [apiKey, setApiKey] = useState("");
 
@@ -443,7 +443,7 @@ export function ShopifyConnectModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
       <div className="w-full max-w-lg rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
         <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
           <div className="flex items-center gap-2.5">

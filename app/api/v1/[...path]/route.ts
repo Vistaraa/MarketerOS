@@ -14,7 +14,7 @@ import { validateYouTubeApiKey, validateYouTubeChannel, fetchChannelInfo, fetchR
 import { paged, parseListQuery } from "@/lib/api-contracts";
 import { cacheGetOrSet, cacheInvalidatePrefix } from "@/lib/cache";
 import { buildPersistedOverview, parseOverviewQuery } from "@/lib/overview-service";
-import { archivePersistedCampaign, connectPersistedIntegrationCredentials, createOrUpdatePersistedSocialAccount, createPersistedCampaign, createPersistedLead, disconnectPersistedIntegration, disconnectPersistedSocialAccount, getPersistedCampaign, getPersistedIntegration, getPersistedLead, listPersistedAutomations, listPersistedCampaigns, listPersistedClients, listPersistedContent, listPersistedInsights, listPersistedIntegrations, listPersistedLeads, listPersistedNotifications, listPersistedReports, listPersistedSocialAccountsMerged, listPersistedSocialPosts, listPersistedTeam, searchPersisted, updatePersistedCampaignStatus } from "@/lib/repositories";
+import { archivePersistedCampaign, connectPersistedIntegrationCredentials, convertPersistedLeadToClient, createOrUpdatePersistedSocialAccount, createPersistedCampaign, createPersistedLead, deletePersistedLead, disconnectPersistedIntegration, disconnectPersistedSocialAccount, getPersistedCampaign, getPersistedIntegration, getPersistedLead, listPersistedAutomations, listPersistedCampaigns, listPersistedClients, listPersistedContent, listPersistedInsights, listPersistedIntegrations, listPersistedLeads, listPersistedNotifications, listPersistedReports, listPersistedSocialAccountsMerged, listPersistedSocialPosts, listPersistedTeam, searchPersisted, updatePersistedCampaignStatus, updatePersistedLead } from "@/lib/repositories";
 
 export const runtime = "nodejs";
 
@@ -43,8 +43,15 @@ const leadInput = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   email: z.string().email(),
+  phone: z.string().optional(),
   company: z.string().optional(),
-  source: z.string().optional()
+  jobTitle: z.string().optional(),
+  source: z.string().optional(),
+  status: z.string().optional(),
+  score: z.coerce.number().optional(),
+  estimatedValue: z.coerce.number().optional(),
+  ownerId: z.string().optional(),
+  notes: z.string().optional()
 });
 const aiInput = z.object({ prompt: z.string().min(3).max(20000), kind: z.string().min(2).max(80).default("content") });
 const contentInput = z.object({ title: z.string().min(1), type: z.string().default("SOCIAL_POST"), body: z.string().optional(), platform: z.string().optional(), clientId: z.string().optional(), status: z.string().optional(), scheduledAt: z.string().optional().nullable(), publishedAt: z.string().optional().nullable(), keywords: z.array(z.string()).optional(), metadata: z.record(z.unknown()).optional() });
@@ -354,10 +361,10 @@ export async function POST(
     }).safeParse(body);
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid payment parameters.");
 
-    const { createPayUPaymentRequest, CREDIT_PACKS, getPayUSalt } = await import("@/lib/payu");
+    const { createPayUPaymentRequest, CREDIT_PACKS, getPayUSalt, convertUsdToInr, formatPriceForCurrency, USD_TO_INR_RATE } = await import("@/lib/payu");
     const { DEFAULT_PLANS } = await import("@/lib/billing-service");
 
-    let amount = 0;
+    let amountUsd = 0;
     let productinfo = "MarketerOS Purchase";
     const udf1 = auth.session.workspaceId;
     const udf2 = auth.session.userId;
@@ -367,13 +374,13 @@ export async function POST(
 
     if (parsed.data.type === "subscription") {
       const plan = DEFAULT_PLANS.find((p) => p.slug === parsed.data.planSlug) || DEFAULT_PLANS[1];
-      amount = parsed.data.interval === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
+      amountUsd = parsed.data.interval === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
       productinfo = `Subscription: ${plan.name} (${parsed.data.interval})`;
       udf4 = plan.slug;
       udf5 = parsed.data.interval;
     } else {
       const pack = CREDIT_PACKS.find((p) => p.id === parsed.data.packId) || CREDIT_PACKS[0];
-      amount = pack.price;
+      amountUsd = pack.price;
       productinfo = `Credits: ${pack.name}`;
       udf4 = pack.id;
     }
@@ -383,6 +390,13 @@ export async function POST(
       include: { owner: true }
     });
 
+    const currency = (ws?.currency || "USD").toUpperCase();
+    const amountInr = convertUsdToInr(amountUsd);
+    const formattedPrice = formatPriceForCurrency(amountUsd, currency);
+    const itemDescription = currency === "INR"
+      ? `${productinfo} - ${formattedPrice}`
+      : `${productinfo} - ${formattedPrice} (₹${amountInr.toLocaleString("en-IN")} INR)`;
+
     const rawOrigin = process.env.APP_URL || request.headers.get("origin") || request.headers.get("referer") || "http://localhost:3000";
     const origin = new URL(rawOrigin).origin;
     const surl = `${origin}/api/billing/payu/callback`;
@@ -390,8 +404,8 @@ export async function POST(
 
     try {
       const paymentPayload = await createPayUPaymentRequest({
-        amount,
-        productInfo: productinfo,
+        amount: amountInr,
+        productInfo: itemDescription,
         firstName: auth.session.name || ws?.owner?.firstName || "Customer",
         email: auth.session.email || ws?.owner?.email || "billing@marketeros.com",
         phone: "9999999999",
@@ -406,6 +420,11 @@ export async function POST(
       const salt = getPayUSalt();
       return ok({
         ...paymentPayload,
+        amountUsd,
+        amountInr,
+        exchangeRate: USD_TO_INR_RATE,
+        currencyUsd: "USD",
+        currencyInr: "INR",
         salt,
         merchantKey: paymentPayload.key,
         merchantSalt: salt,
@@ -426,10 +445,9 @@ export async function POST(
           udf4: paymentPayload.udf4,
           udf5: paymentPayload.udf5
         },
-        // Legacy compatibility fields if anything expects them
         id: paymentPayload.txnid,
         amount: Math.round(Number(paymentPayload.amount) * 100),
-        currency: "USD",
+        currency: "INR",
         receipt: paymentPayload.txnid
       });
     } catch (err) {
@@ -851,6 +869,12 @@ export async function POST(
     await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CREATE", module: "leads", entityType: "Lead", entityId: created.id, afterData: created });
     return ok(created, undefined, { status: 201 });
   }
+  if (path.startsWith("leads/") && path.endsWith("/convert")) {
+    const id = path.split("/")[1];
+    const client = await convertPersistedLeadToClient(auth.session.workspaceId, id);
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CONVERT_TO_CLIENT", module: "leads", entityType: "Lead", entityId: id, afterData: { clientId: client.id } });
+    return ok({ success: true, client, message: `Lead converted to client workspace ${client.name}!` });
+  }
   if (path.startsWith("integrations/") && path.endsWith("/sync")) { const integrationId = path.split("/")[1]; const integration = await prisma.integration.findFirst({ where: { id: integrationId, workspaceId: auth.session.workspaceId } }); if (!integration) return error("Integration not found.", 404); if (!integration.accessTokenEncrypted && !(integration as any).apiKeyEncrypted) return error("This integration is not connected. Configure credentials before syncing.", 409, "INTEGRATION_NOT_CONNECTED"); const job = await enqueueJob("integration.sync", { workspaceId: auth.session.workspaceId, integrationId }); await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "SYNC_REQUESTED", module: "integrations", entityType: "Integration", entityId: integrationId }); return ok({ status: "queued", jobId: job.id, message: "Sync queued for background processing." }, undefined, { status: 202 }); }
   if (path === "reports") { const parsed = reportInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid report."); const report = await prisma.report.create({ data: { workspaceId: auth.session.workspaceId, createdById: auth.session.userId, name: parsed.data.name, title: parsed.data.name || "Marketing Report", clientId: parsed.data.clientId, format: parsed.data.format as never, configuration: parsed.data.configuration as never, status: "GENERATING" } }); const job = await enqueueJob("report.generate", { workspaceId: auth.session.workspaceId, reportId: report.id, runAt: new Date().toISOString() }); return ok({ ...report, jobId: job.id }, undefined, { status: 202 }); }
 
@@ -1033,7 +1057,16 @@ export async function PATCH(request: Request, { params }: { params: { path: stri
   cacheInvalidatePrefix(`ws:${auth.session.workspaceId}`);
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (path.startsWith("notifications/")) { const id = path.split("/")[1]; const updated = await prisma.notification.updateMany({ where: { id, workspaceId: auth.session.workspaceId, userId: auth.session.userId }, data: { readAt: new Date() } }); return updated.count ? ok({ id, read: true }) : error("Notification not found.", 404); }
-  if (path.startsWith("leads/")) { const id = path.split("/")[1]; if (!body?.status) return error("A lead status is required."); const updated = await prisma.lead.updateMany({ where: { id, workspaceId: auth.session.workspaceId }, data: { status: String(body.status).toUpperCase().replaceAll(" ", "_") as never } }); if (!updated.count) return error("Lead not found.", 404); await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE_STATUS", module: "leads", entityType: "Lead", entityId: id, afterData: { status: body.status } }); return ok({ id, status: body.status }); }
+  if (path.startsWith("leads/")) {
+    const id = path.split("/")[1];
+    if (body && Object.keys(body).length > 0) {
+      const updated = await updatePersistedLead(auth.session.workspaceId, id, body as never);
+      if (!updated.count) return error("Lead not found.", 404);
+      await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE", module: "leads", entityType: "Lead", entityId: id, afterData: body });
+      return ok({ id, updated: true });
+    }
+    return error("No data provided to update lead.");
+  }
   if (path.startsWith("clients/")) {
     const id = path.split("/")[1];
     const { updatePersistedClient } = await import("@/lib/repositories");
@@ -1177,6 +1210,13 @@ export async function DELETE(request: Request, { params }: { params: { path: str
     return ok({ revoked: keyId });
   }
 
+  if (entity === "settings" && parts[1] === "sessions") {
+    const sessionId = parts[2];
+    await prisma.session.deleteMany({ where: { id: sessionId } });
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "REVOKE_SESSION", module: "settings", entityType: "Session", entityId: sessionId });
+    return ok({ revoked: sessionId });
+  }
+
   if ((entity === "social" && parts[1] === "accounts") || entity === "social-accounts") {
     const accountId = entity === "social-accounts" ? parts[1] : parts[2];
     if (!accountId) return error("Account ID is required.", 400);
@@ -1190,6 +1230,12 @@ export async function DELETE(request: Request, { params }: { params: { path: str
     const result = await deletePersistedClient(auth.session.workspaceId, id);
     if (!result.count) return error("Client not found.", 404);
     await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "DELETE", module: "clients", entityType: "Client", entityId: id });
+    return ok({ deleted: id });
+  }
+  if (entity === "leads") {
+    const result = await deletePersistedLead(auth.session.workspaceId, id);
+    if (!result.count) return error("Lead not found.", 404);
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "DELETE", module: "leads", entityType: "Lead", entityId: id });
     return ok({ deleted: id });
   }
   if (entity === "automation") {

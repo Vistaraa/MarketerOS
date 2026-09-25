@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Sparkles,
   X,
@@ -43,6 +44,11 @@ export function ContentEditorModal() {
     generateAiText,
     showToast
   } = useContentStudio();
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [platform, setPlatform] = useState<Platform>("instagram");
   const [contentType, setContentType] = useState<ContentType>("Post");
@@ -108,8 +114,6 @@ export function ContentEditorModal() {
       setSelectedHashtags([]);
     }
   }, [editorPrefill, isEditorOpen]);
-
-  if (!isEditorOpen) return null;
 
   const currentLimit = (PLATFORM_LIMITS[platform] || PLATFORM_LIMITS.instagram).charLimit;
   const isOverLimit = caption.length > currentLimit;
@@ -218,11 +222,15 @@ Platform requirements: Keep within character limit for ${platform}, use 3-5 rele
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
-      <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 text-xs">
+
+
+  if (!isEditorOpen || !mounted) return null;
+
+  return typeof document !== "undefined" ? createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 text-xs">
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
+        <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3.5 shrink-0 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40">
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-zinc-900 dark:text-zinc-100" />
             <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
@@ -231,13 +239,13 @@ Platform requirements: Keep within character limit for ${platform}, use 3-5 rele
           </div>
           <button
             onClick={() => setIsEditorOpen(false)}
-            className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-200/60 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 transition"
           >
             <X size={16} />
           </button>
         </div>
 
-        <div className="mt-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {/* Platform & Format Selectors */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -509,7 +517,7 @@ Platform requirements: Keep within character limit for ${platform}, use 3-5 rele
         </div>
 
         {/* Modal Actions */}
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 px-5 py-3.5 shrink-0 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40">
           <button
             type="button"
             onClick={() => setIsEditorOpen(false)}
@@ -539,6 +547,7 @@ Platform requirements: Keep within character limit for ${platform}, use 3-5 rele
           </div>
         </div>
       </div>
-    </div>
-  );
+    </div>,
+    document.body
+  ) : null;
 }

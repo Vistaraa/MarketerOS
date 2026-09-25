@@ -26,8 +26,8 @@ export function ModernOnboardingWizard({ initialStep = "brand" }: { initialStep?
   const [step, setStep] = useState<OnboardingStep>(initialStep);
 
   // Form State
-  const [brandName, setBrandName] = useState("Acme Corp");
-  const [website, setWebsite] = useState("https://acme.com");
+  const [brandName, setBrandName] = useState("");
+  const [website, setWebsite] = useState("");
   const [industry, setIndustry] = useState("E-commerce");
   const [monthlyBudget, setMonthlyBudget] = useState("$10,000 - $50,000");
 

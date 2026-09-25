@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Zap,
   Plus,
@@ -18,7 +19,8 @@ import {
   Sliders,
   ExternalLink,
   History,
-  Activity
+  Activity,
+  X
 } from "lucide-react";
 import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
 import { CustomDialog } from "@/components/ui/custom-dialog";
@@ -372,10 +374,11 @@ export function AutomationEnginePage() {
         </div>
 
         {/* Visual Rule Builder Modal */}
-        {isBuilderOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
-            <div className="w-full max-w-lg rounded-xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
-              <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
+        {isBuilderOpen && typeof document !== "undefined" && createPortal(
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 text-xs">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3.5 shrink-0 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40">
                 <div className="flex items-center gap-2">
                   <Zap size={16} className="text-indigo-600 dark:text-indigo-400" />
                   <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
@@ -383,102 +386,110 @@ export function AutomationEnginePage() {
                   </h2>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setIsBuilderOpen(false)}
-                  className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-200/60 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 transition"
                 >
-                  ✕
+                  <X size={16} />
                 </button>
               </div>
 
-              <form onSubmit={handleSaveRule} className="mt-4 space-y-4">
-                <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300">Rule Name *</label>
-                  <input
-                    required
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="e.g. Pause Google Ad if ROAS < 2.0 & Spend > $500"
-                    className="input-clean mt-1"
-                  />
-                </div>
-
-                {/* WHEN TRIGGER */}
-                <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3.5 dark:border-indigo-950 dark:bg-indigo-950/20 space-y-2">
-                  <div className="flex items-center gap-2 font-bold text-indigo-700 dark:text-indigo-300">
-                    <span className="rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] text-white">WHEN</span>
-                    <span>Trigger Event</span>
+              {/* Form Content */}
+              <form onSubmit={handleSaveRule} className="flex flex-col flex-1 overflow-hidden">
+                <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                  <div>
+                    <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                      Rule Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      required
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="e.g. Pause Google Ad if ROAS < 2.0 & Spend > $500"
+                      className="input-clean"
+                    />
                   </div>
-                  <select
-                    value={form.trigger}
-                    onChange={(e) => setForm({ ...form, trigger: e.target.value })}
-                    className="input-clean bg-white dark:bg-zinc-900"
-                  >
-                    <option value="campaign.roas_below">Campaign ROAS drops below threshold</option>
-                    <option value="campaign.cpa_above">Campaign CPA rises above target</option>
-                    <option value="campaign.budget_exceeded">Daily budget utilization reaches 90%</option>
-                    <option value="lead.created">New lead captured from form</option>
-                    <option value="schedule.daily">Scheduled daily audit (9:00 AM)</option>
-                  </select>
-                </div>
 
-                {/* IF CONDITIONS */}
-                <div className="rounded-lg border border-amber-100 bg-amber-50/40 p-3.5 dark:border-amber-950 dark:bg-amber-950/20 space-y-2">
-                  <div className="flex items-center gap-2 font-bold text-amber-700 dark:text-amber-300">
-                    <span className="rounded bg-amber-600 px-1.5 py-0.5 text-[10px] text-white">IF</span>
-                    <span>Condition Thresholds</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[11px] text-zinc-500">Metric Threshold</label>
-                      <input
-                        value={form.metricThreshold}
-                        onChange={(e) => setForm({ ...form, metricThreshold: e.target.value })}
-                        placeholder="2.0"
-                        className="input-clean bg-white dark:bg-zinc-900 mt-1"
-                      />
+                  {/* WHEN TRIGGER */}
+                  <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3.5 dark:border-indigo-900/40 dark:bg-indigo-950/30 space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-indigo-700 dark:text-indigo-300 text-xs">
+                      <span className="rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">WHEN</span>
+                      <span>Trigger Event</span>
                     </div>
-                    <div>
-                      <label className="block text-[11px] text-zinc-500">Min Spend ($)</label>
-                      <input
-                        value={form.spendThreshold}
-                        onChange={(e) => setForm({ ...form, spendThreshold: e.target.value })}
-                        placeholder="500"
-                        className="input-clean bg-white dark:bg-zinc-900 mt-1"
-                      />
+                    <select
+                      value={form.trigger || "campaign.roas_below"}
+                      onChange={(e) => setForm({ ...form, trigger: e.target.value })}
+                      className="input-clean bg-white dark:bg-zinc-900 font-medium"
+                    >
+                      <option value="campaign.roas_below">Campaign ROAS drops below threshold</option>
+                      <option value="campaign.cpa_above">Campaign CPA rises above target</option>
+                      <option value="campaign.budget_exceeded">Daily budget utilization reaches 90%</option>
+                      <option value="lead.created">New lead captured from form</option>
+                      <option value="schedule.daily">Scheduled daily audit (9:00 AM)</option>
+                    </select>
+                  </div>
+
+                  {/* IF CONDITIONS */}
+                  <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-3.5 dark:border-amber-900/40 dark:bg-amber-950/30 space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-amber-700 dark:text-amber-300 text-xs">
+                      <span className="rounded bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold text-white">IF</span>
+                      <span>Condition Thresholds</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Metric Threshold</label>
+                        <input
+                          value={form.metricThreshold}
+                          onChange={(e) => setForm({ ...form, metricThreshold: e.target.value })}
+                          placeholder="2.0"
+                          className="input-clean bg-white dark:bg-zinc-900 font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Min Spend ($)</label>
+                        <input
+                          value={form.spendThreshold}
+                          onChange={(e) => setForm({ ...form, spendThreshold: e.target.value })}
+                          placeholder="500"
+                          className="input-clean bg-white dark:bg-zinc-900 font-medium"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* THEN ACTION */}
-                <div className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3.5 dark:border-emerald-950 dark:bg-emerald-950/20 space-y-2">
-                  <div className="flex items-center gap-2 font-bold text-emerald-700 dark:text-emerald-300">
-                    <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] text-white">THEN</span>
-                    <span>Automated Action</span>
+                  {/* THEN ACTION */}
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3.5 dark:border-emerald-900/40 dark:bg-emerald-950/30 space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-emerald-700 dark:text-emerald-300 text-xs">
+                      <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">THEN</span>
+                      <span>Automated Action</span>
+                    </div>
+                    <select
+                      value={form.action || "campaign.pause_and_notify"}
+                      onChange={(e) => setForm({ ...form, action: e.target.value })}
+                      className="input-clean bg-white dark:bg-zinc-900 font-medium"
+                    >
+                      <option value="campaign.pause_and_notify">Pause Campaign & Send Alert</option>
+                      <option value="campaign.adjust_budget">Reduce Daily Budget by 25%</option>
+                      <option value="ai.generate_insight">Generate AI Insight Recommendation</option>
+                      <option value="notification.send">Send Email Notification to Manager</option>
+                      <option value="lead.assign_owner">Assign Lead to Sales Representative</option>
+                    </select>
                   </div>
-                  <select
-                    value={form.action}
-                    onChange={(e) => setForm({ ...form, action: e.target.value })}
-                    className="input-clean bg-white dark:bg-zinc-900"
-                  >
-                    <option value="campaign.pause_and_notify">Pause Campaign & Send Alert</option>
-                    <option value="campaign.adjust_budget">Reduce Daily Budget by 25%</option>
-                    <option value="ai.generate_insight">Generate AI Insight Recommendation</option>
-                    <option value="notification.send">Send Email Notification to Manager</option>
-                    <option value="lead.assign_owner">Assign Lead to Sales Representative</option>
-                  </select>
                 </div>
 
-                <div className="mt-6 flex items-center justify-end gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
-                  <button type="button" onClick={() => setIsBuilderOpen(false)} className="btn-secondary">
+                {/* Modal Footer */}
+                <div className="flex items-center justify-end gap-2 border-t border-zinc-100 px-5 py-3.5 shrink-0 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40">
+                  <button type="button" onClick={() => setIsBuilderOpen(false)} className="btn-secondary py-1.5 text-xs">
                     Cancel
                   </button>
-                  <button type="submit" disabled={submitting} className="btn-primary">
+                  <button type="submit" disabled={submitting} className="btn-primary py-1.5 text-xs">
                     {submitting ? "Saving Rule…" : editingRule ? "Save Changes" : "Activate Automation Rule"}
                   </button>
                 </div>
               </form>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
         <CustomDialog
           isOpen={dialogConfig.isOpen}
@@ -499,34 +510,4 @@ export function AutomationEnginePage() {
 const ruleTriggers = [
   { id: "campaign.roas_below", label: "Campaign ROAS drops below threshold" },
   { id: "campaign.cpa_above", label: "Campaign CPA rises above target" }
-];
-
-const DEMO_RULES: AutomationRule[] = [
-  {
-    id: "rule-1",
-    name: "Pause Campaign if ROAS < 2.0 & Spend > $500",
-    trigger: "campaign.roas_below",
-    action: "campaign.pause_and_notify",
-    isActive: true,
-    executionCount: 24,
-    lastRunAt: "2026-09-08T10:45:00Z"
-  },
-  {
-    id: "rule-2",
-    name: "Alert Manager on High Lead Value (> $10,000)",
-    trigger: "lead.created",
-    action: "notification.send",
-    isActive: true,
-    executionCount: 8,
-    lastRunAt: "2026-09-07T16:30:00Z"
-  },
-  {
-    id: "rule-3",
-    name: "Auto-Generate AI Insight for Spend Anomalies",
-    trigger: "campaign.budget_exceeded",
-    action: "ai.generate_insight",
-    isActive: false,
-    executionCount: 15,
-    lastRunAt: "2026-09-02T12:00:00Z"
-  }
 ];

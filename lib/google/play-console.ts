@@ -123,180 +123,6 @@ export async function ensurePlayConsoleData(workspaceId: string, clientId?: stri
     });
   }
 
-  // Ensure Daily KPIs exist for past 30 days
-  const existingKpis = await prisma.playConsoleKpiDaily.count({
-    where: { workspaceId, appId: app.id }
-  });
-
-  if (existingKpis === 0) {
-    const today = new Date();
-    const kpiRecords = [];
-
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      date.setHours(0, 0, 0, 0);
-
-      // Realistic trending curve calculations
-      const dayFactor = 1 + Math.sin(i * 0.4) * 0.12;
-      const baseAudience = 12000 + Math.floor(i * 45 * dayFactor);
-      const baseVisitors = 1400 + Math.floor(i * 10 * dayFactor) + (i === 0 ? 313 : 0);
-      const conversionRate = Number((4.2 + (i % 5) * 0.16).toFixed(1));
-      const crashes = Math.floor(1 + Math.random() * 3);
-      const anrs = Math.floor(Math.random() * 2);
-
-      kpiRecords.push({
-        workspaceId,
-        appId: app.id,
-        date,
-        totalAudienceSize: baseAudience,
-        storeListingVisitors: baseVisitors,
-        storeListingAcquisitions: Math.floor(baseVisitors * (conversionRate / 100)),
-        storeListingConversionRate: conversionRate,
-        activeDevices: Math.floor(baseAudience * 0.88),
-        uninstallsCount: Math.floor(15 + Math.random() * 8),
-        crashesCount: crashes,
-        anrsCount: anrs,
-        ratingAverage: 4.8,
-        ratingsCount: 1420 + i * 4,
-        revenue: Math.floor(3200 + i * 45)
-      });
-    }
-
-    await prisma.playConsoleKpiDaily.createMany({
-      data: kpiRecords,
-      skipDuplicates: true
-    });
-  }
-
-  // Ensure Release tracks exist
-  const existingReleases = await prisma.playConsoleRelease.count({
-    where: { workspaceId, appId: app.id }
-  });
-
-  if (existingReleases === 0) {
-    await prisma.playConsoleRelease.createMany({
-      data: [
-        {
-          workspaceId,
-          appId: app.id,
-          track: "PRODUCTION",
-          versionCode: 1120012345,
-          versionName: "112.0.123.45",
-          rolloutPercentage: 25.0,
-          status: "IN_PROGRESS",
-          targetDevices: ["Phones and tablets"],
-          releasedAt: new Date(Date.now() - 6 * 3600 * 1000), // 6 hours ago
-          notes: "Staged 25% rollout for performance & crash bug fixes"
-        },
-        {
-          workspaceId,
-          appId: app.id,
-          track: "PRODUCTION",
-          versionCode: 1120012344,
-          versionName: "112.0.123.44",
-          rolloutPercentage: 0,
-          status: "HALTED",
-          targetDevices: ["Phones and tablets"],
-          releasedAt: new Date(Date.now() - 24 * 3600 * 1000), // Yesterday
-          notes: "Halted due to minor memory allocation issue"
-        },
-        {
-          workspaceId,
-          appId: app.id,
-          track: "PRODUCTION",
-          versionCode: 1120012343,
-          versionName: "112.0.123.43",
-          rolloutPercentage: 100.0,
-          status: "COMPLETED",
-          targetDevices: ["Phones and tablets"],
-          releasedAt: new Date(Date.now() - 3 * 24 * 3600 * 1000), // 3 days ago
-          notes: "Full production launch with new analytical dashboard"
-        },
-        {
-          workspaceId,
-          appId: app.id,
-          track: "PRODUCTION",
-          versionCode: 1120012346,
-          versionName: "112.0.123.46",
-          rolloutPercentage: 100.0,
-          status: "COMPLETED",
-          targetDevices: ["Wear OS"],
-          releasedAt: new Date(Date.now() - 14 * 24 * 3600 * 1000), // 2 weeks ago
-          notes: "Wear OS companion release"
-        },
-        {
-          workspaceId,
-          appId: app.id,
-          track: "OPEN_TESTING",
-          versionCode: 1120012347,
-          versionName: "112.0.123.47",
-          rolloutPercentage: 100.0,
-          status: "COMPLETED",
-          targetDevices: ["Phones and tablets"],
-          releasedAt: new Date(Date.now() - 14 * 24 * 3600 * 1000), // 2 weeks ago
-          notes: "Beta track candidate"
-        }
-      ]
-    });
-  }
-
-  // Ensure Console Inbox messages exist
-  const existingInbox = await prisma.playConsoleInboxMessage.count({
-    where: { workspaceId }
-  });
-
-  if (existingInbox === 0) {
-    await prisma.playConsoleInboxMessage.createMany({
-      data: [
-        {
-          workspaceId,
-          appId: app.id,
-          category: "IMPORTANT",
-          title: "Reminder to submit your Data safety form",
-          summary: "Our records show you have not yet submitted your Data safety form. As a result, users see 'No information available' on your store page.",
-          body: "Complete all sections of the Data safety declaration form in Google Play Console to maintain policy compliance.",
-          severity: "WARNING",
-          actionUrl: "https://play.google.com/console",
-          receivedAt: new Date(Date.now() - 18 * 24 * 3600 * 1000)
-        },
-        {
-          workspaceId,
-          appId: app.id,
-          category: "EVERYTHING_ELSE",
-          title: "A new pre-launch report is ready",
-          summary: "You can now view your pre-launch report results for app version 123456. No issues were found.",
-          body: "Automated testing completed across 12 test devices. Zero crashes or ANRs detected.",
-          severity: "INFO",
-          actionUrl: "https://play.google.com/console",
-          receivedAt: new Date(Date.now() - 10 * 24 * 3600 * 1000)
-        },
-        {
-          workspaceId,
-          appId: app.id,
-          category: "EVERYTHING_ELSE",
-          title: "Questions about the latest policy updates?",
-          summary: "Watch our PolicyBytes video, read about how we're boosting trust and transparency on Google Play.",
-          body: "Learn about updated target API requirements and privacy declarations.",
-          severity: "INFO",
-          actionUrl: "https://play.google.com/console",
-          receivedAt: new Date(Date.now() - 12 * 24 * 3600 * 1000)
-        },
-        {
-          workspaceId,
-          appId: app.id,
-          category: "EVERYTHING_ELSE",
-          title: "Add license testers using email lists",
-          summary: "Application licensing allows you to set up a list of Google Accounts to test in-app billing.",
-          body: "Manage authorized license test accounts in License testing settings.",
-          severity: "INFO",
-          actionUrl: "https://play.google.com/console",
-          receivedAt: new Date(Date.now() - 13 * 24 * 3600 * 1000)
-        }
-      ]
-    });
-  }
-
   // Ensure default User Kpi Preference exists
   await prisma.userKpiPreference.upsert({
     where: { workspaceId },
@@ -308,5 +134,52 @@ export async function ensurePlayConsoleData(workspaceId: string, clientId?: stri
     update: {}
   });
 
+  // Seed 30 daily KPI snapshots if none exist for this app
+  const existingKpisCount = await prisma.playConsoleKpiDaily.count({
+    where: { workspaceId, appId: app.id }
+  });
+
+  if (existingKpisCount === 0) {
+    const dailyRecords = [];
+    const now = new Date();
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+
+      const baseAudience = 12500 + (30 - i) * 28 + Math.floor(Math.sin(i) * 45);
+      const storeVisitors = 1600 + Math.floor(Math.cos(i) * 120) + (30 - i) * 4;
+      const conversionRate = Number((4.8 + (i % 5) * 0.1).toFixed(2));
+      const acquisitions = Math.floor(storeVisitors * (conversionRate / 100));
+      const activeDevices = Math.floor(baseAudience * 0.86);
+      const uninstalls = 12 + Math.floor(Math.sin(i * 2) * 5);
+      const crashes = (i % 7 === 0) ? 3 : 1;
+      const anrs = (i % 11 === 0) ? 1 : 0;
+      const rev = Number((3800 + (30 - i) * 25 + Math.floor(Math.cos(i) * 150)).toFixed(2));
+
+      dailyRecords.push({
+        workspaceId,
+        appId: app.id,
+        date,
+        totalAudienceSize: baseAudience,
+        storeListingVisitors: storeVisitors,
+        storeListingAcquisitions: acquisitions,
+        storeListingConversionRate: conversionRate,
+        activeDevices,
+        uninstallsCount: uninstalls,
+        crashesCount: crashes,
+        anrsCount: anrs,
+        ratingAverage: 4.6,
+        ratingsCount: 420 + (30 - i) * 3,
+        revenue: rev
+      });
+    }
+
+    await prisma.playConsoleKpiDaily.createMany({
+      data: dailyRecords
+    });
+  }
+
   return app;
 }
+

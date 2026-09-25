@@ -99,16 +99,16 @@ export function GoogleAdsDashboard({
   }, [range]);
 
   const summary = data?.summary || {
-    totalSpend: 14850.40,
-    impressions: 489200,
-    clicks: 34120,
-    conversions: 1045,
-    conversionRate: 3.06,
-    ctr: 6.97,
-    averageCpc: 0.44,
-    costPerConversion: 14.21,
-    revenue: 62370.00,
-    roas: 4.20
+    totalSpend: 0,
+    impressions: 0,
+    clicks: 0,
+    conversions: 0,
+    conversionRate: 0,
+    ctr: 0,
+    averageCpc: 0,
+    costPerConversion: 0,
+    revenue: 0,
+    roas: 0
   };
 
   const campaigns = data?.campaigns || [];
@@ -128,7 +128,7 @@ export function GoogleAdsDashboard({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                {data?.account?.accountName || "Acme Corp · Search & Performance Max"}
+                {data?.account?.accountName || "Google Ads Account"}
               </h2>
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -136,7 +136,7 @@ export function GoogleAdsDashboard({
               </span>
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
-              <span>Customer ID: <strong className="font-mono text-zinc-700 dark:text-zinc-300">{data?.account?.customerId || "849-204-1839"}</strong></span>
+              <span>Customer ID: <strong className="font-mono text-zinc-700 dark:text-zinc-300">{data?.account?.customerId || "—"}</strong></span>
               <span>•</span>
               <span>Currency: <strong>USD ($)</strong></span>
               <span>•</span>

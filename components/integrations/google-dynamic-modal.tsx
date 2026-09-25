@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertCircle,
   CheckCircle2,
@@ -92,6 +93,7 @@ export function GoogleDynamicModal({
   initialAccountId = "",
   initialAccountName = ""
 }: GoogleDynamicModalProps) {
+  const [mounted, setMounted] = useState(false);
   const info = PLATFORM_INFO[platform];
 
   const [accountName, setAccountName] = useState(initialAccountName || "");
@@ -121,12 +123,16 @@ export function GoogleDynamicModal({
   const [testSuccess, setTestSuccess] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  useState(() => {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (initialAccountId) setAccountId(initialAccountId);
     if (initialAccountName) setAccountName(initialAccountName);
-  });
+  }, [initialAccountId, initialAccountName]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
   const buildPayload = (testOnly = false) => {
     const creds: Record<string, unknown> = {};
@@ -210,8 +216,8 @@ export function GoogleDynamicModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto">
+  return createPortal(
+    <div className="fixed -top-16 -bottom-16 -left-16 -right-16 z-[9999] flex items-center justify-center bg-black/75 dark:bg-black/85 p-16 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200">
       <div className="relative w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200/90 dark:border-zinc-800 overflow-hidden my-8 text-xs">
         {/* Header */}
         <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-start justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
@@ -536,6 +542,7 @@ export function GoogleDynamicModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

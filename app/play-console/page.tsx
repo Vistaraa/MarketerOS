@@ -109,14 +109,14 @@ export default function PlayConsolePage() {
           title="Google Play Console"
           description="Live Android app KPIs, 28-day rolling averages, production releases & developer inbox."
           action={
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
               {/* Agency Client Selector */}
-              <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs shadow-2xs">
+              <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs shadow-2xs w-full sm:w-auto">
                 <Building2 className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
                 <select
                   value={selectedClientId}
                   onChange={(e) => setSelectedClientId(e.target.value)}
-                  className="bg-transparent text-xs font-semibold text-zinc-800 dark:text-zinc-200 focus:outline-none cursor-pointer"
+                  className="bg-transparent text-xs font-semibold text-zinc-800 dark:text-zinc-200 focus:outline-none cursor-pointer w-full sm:w-auto"
                 >
                   <option value="">All Agency Clients</option>
                   {clients.map((c) => (
@@ -127,22 +127,24 @@ export default function PlayConsolePage() {
                 </select>
               </div>
 
-              <button
-                onClick={() => setShowConnectModal(true)}
-                className="px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <KeyRound className="w-3.5 h-3.5 text-zinc-500" />
-                <span>BYOK Keys</span>
-              </button>
+              <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  onClick={() => setShowConnectModal(true)}
+                  className="px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 shadow-2xs transition-all flex items-center justify-center gap-1.5 cursor-pointer w-full sm:w-auto"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-zinc-500" />
+                  <span>BYOK Keys</span>
+                </button>
 
-              <button
-                onClick={handleSyncLive}
-                disabled={syncing}
-                className="px-3.5 py-1.5 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
-                <span>{syncing ? "Syncing..." : "Sync Live"}</span>
-              </button>
+                <button
+                  onClick={handleSyncLive}
+                  disabled={syncing}
+                  className="px-3.5 py-1.5 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-xl shadow-2xs transition-all flex items-center justify-center gap-1.5 cursor-pointer w-full sm:w-auto"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+                  <span>{syncing ? "Syncing..." : "Sync Live"}</span>
+                </button>
+              </div>
             </div>
           }
         />
@@ -152,40 +154,40 @@ export default function PlayConsolePage() {
           <div className="grid grid-cols-3 bg-zinc-100/80 dark:bg-zinc-900/80 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl p-1 shadow-2xs">
             <button
               onClick={() => setActiveTab("kpis")}
-              className={`flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 py-2 px-1 sm:px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "kpis"
                   ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs"
                   : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
               }`}
             >
-              <LineChart className="w-4 h-4" />
+              <LineChart className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               <span>KPIs</span>
             </button>
 
             <button
               onClick={() => setActiveTab("releases")}
-              className={`flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 py-2 px-1 sm:px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "releases"
                   ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs"
                   : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
               }`}
             >
-              <Layers className="w-4 h-4" />
+              <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               <span>Releases</span>
             </button>
 
             <button
               onClick={() => setActiveTab("inbox")}
-              className={`flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer relative ${
+              className={`flex items-center justify-center gap-1.5 py-2 px-1 sm:px-3 rounded-xl text-xs font-bold transition-all cursor-pointer relative ${
                 activeTab === "inbox"
                   ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs"
                   : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
               }`}
             >
-              <Inbox className="w-4 h-4" />
+              <Inbox className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               <span>Inbox</span>
               {inboxData?.unreadCount > 0 && (
-                <span className="w-2 h-2 rounded-full bg-rose-500 absolute top-2 right-6 ring-2 ring-white dark:ring-zinc-900" />
+                <span className="w-2 h-2 rounded-full bg-rose-500 absolute top-2 right-2 sm:right-6 ring-2 ring-white dark:ring-zinc-900" />
               )}
             </button>
           </div>
@@ -201,7 +203,7 @@ export default function PlayConsolePage() {
           ) : (
             <>
               {activeTab === "kpis" && <PlayConsoleKpisTab data={kpiData} onRefresh={fetchAllData} />}
-              {activeTab === "releases" && <PlayConsoleReleasesTab data={releasesData} />}
+              {activeTab === "releases" && <PlayConsoleReleasesTab data={releasesData} onRefresh={fetchAllData} />}
               {activeTab === "inbox" && <PlayConsoleInboxTab data={inboxData} onRefresh={fetchAllData} />}
             </>
           )}

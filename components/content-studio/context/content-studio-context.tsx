@@ -213,10 +213,10 @@ export function ContentStudioProvider({ children }: { children: React.ReactNode 
 
   // Core Datasets
   const [contentItems, setContentItems] = useState<ContentItem[]>([]);
-  const [templates, setTemplates] = useState<Template[]>(DEFAULT_TEMPLATES);
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
   const [hashtags, setHashtags] = useState<Hashtag[]>([]);
-  const [hashtagGroups, setHashtagGroups] = useState<HashtagGroup[]>(DEFAULT_HASHTAG_GROUPS);
+  const [hashtagGroups, setHashtagGroups] = useState<HashtagGroup[]>([]);
   const [socialAccounts, setSocialAccounts] = useState<ConnectedSocialAccount[]>([]);
   const [settings, setSettings] = useState<ContentStudioSettingsState>(INITIAL_SETTINGS_STATE);
 
@@ -373,13 +373,25 @@ export function ContentStudioProvider({ children }: { children: React.ReactNode 
     // Load persisted local collections
     try {
       const savedTemplates = localStorage.getItem("cs_templates");
-      if (savedTemplates) setTemplates(JSON.parse(savedTemplates));
+      if (savedTemplates) {
+        setTemplates(JSON.parse(savedTemplates));
+      } else {
+        setTemplates([]);
+      }
 
       const savedMedia = localStorage.getItem("cs_media");
-      if (savedMedia) setMediaAssets(JSON.parse(savedMedia));
+      if (savedMedia) {
+        setMediaAssets(JSON.parse(savedMedia));
+      } else {
+        setMediaAssets([]);
+      }
 
       const savedHashtags = localStorage.getItem("cs_hashtag_groups");
-      if (savedHashtags) setHashtagGroups(JSON.parse(savedHashtags));
+      if (savedHashtags) {
+        setHashtagGroups(JSON.parse(savedHashtags));
+      } else {
+        setHashtagGroups([]);
+      }
 
       const savedSettings = localStorage.getItem("cs_settings");
       if (savedSettings) setSettings(JSON.parse(savedSettings));

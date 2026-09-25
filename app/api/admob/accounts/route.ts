@@ -59,24 +59,7 @@ export async function GET() {
       }
     }
 
-    const fallbackAccounts = [
-      {
-        publisherId: "pub-8492041839401823",
-        descriptiveName: "Acme Mobile Gaming · iOS & Android Apps",
-        currencyCode: "USD",
-        reportingTimeZone: "America/New_York",
-        resourceName: "accounts/pub-8492041839401823"
-      },
-      {
-        publisherId: "pub-3829104928174629",
-        descriptiveName: "Acme Utilities & Productivity Apps",
-        currencyCode: "USD",
-        reportingTimeZone: "America/Los_Angeles",
-        resourceName: "accounts/pub-3829104928174629"
-      }
-    ];
-
-    const resultAccounts = liveAccounts.length > 0 ? liveAccounts : fallbackAccounts;
+    const resultAccounts = liveAccounts;
     console.log(`[ADMOB_API] ✅ Accounts provided to client (${resultAccounts.length} total, isLive: ${liveAccounts.length > 0})`);
     console.log("=======================================================\n");
 

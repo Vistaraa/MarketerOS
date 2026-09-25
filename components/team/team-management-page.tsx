@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Users,
   UserPlus,
@@ -18,7 +19,8 @@ import {
   UserCheck,
   UserX,
   Copy,
-  ExternalLink
+  ExternalLink,
+  X
 } from "lucide-react";
 import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
 import { CustomDialog } from "@/components/ui/custom-dialog";
@@ -118,6 +120,7 @@ function RoleScopeBreakdown({ role }: { role: string }) {
 }
 
 export function TeamManagementPage() {
+  const [mounted, setMounted] = useState(false);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -154,6 +157,10 @@ export function TeamManagementPage() {
     onConfirm?: () => void;
   }>({ isOpen: false, message: "" });
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   async function loadTeam() {
     setLoading(true);
     setError(null);
@@ -164,7 +171,7 @@ export function TeamManagementPage() {
       setMembers(payload.data.items || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load team members.");
-      setMembers(DEMO_MEMBERS);
+      setMembers([]);
     } finally {
       setLoading(false);
     }
@@ -570,133 +577,145 @@ export function TeamManagementPage() {
         </div>
 
         {/* Invite Member Modal */}
-        {isInviteModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md">
-            <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
-              <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-                <div className="flex items-center gap-2">
-                  <UserPlus size={16} className="text-zinc-700 dark:text-zinc-300" />
-                  <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Invite Team Member</h2>
-                </div>
-                <button
-                  onClick={() => setIsInviteModalOpen(false)}
-                  className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <form onSubmit={handleInviteMember} className="mt-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">First Name</label>
-                    <input
-                      required
-                      value={inviteForm.firstName}
-                      onChange={(e) => setInviteForm({ ...inviteForm, firstName: e.target.value })}
-                      placeholder="Alex"
-                      className="input-clean mt-1"
-                    />
+        {isInviteModalOpen && mounted && typeof document !== "undefined"
+          ? createPortal(
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+                <div className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
+                  <div className="flex items-center justify-between border-b border-zinc-100 p-5 dark:border-zinc-800 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <UserPlus size={16} className="text-zinc-700 dark:text-zinc-300" />
+                      <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Invite Team Member</h2>
+                    </div>
+                    <button
+                      onClick={() => setIsInviteModalOpen(false)}
+                      className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    >
+                      <X size={15} />
+                    </button>
                   </div>
-                  <div>
-                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Last Name</label>
-                    <input
-                      required
-                      value={inviteForm.lastName}
-                      onChange={(e) => setInviteForm({ ...inviteForm, lastName: e.target.value })}
-                      placeholder="Morgan"
-                      className="input-clean mt-1"
-                    />
-                  </div>
-                </div>
 
-                <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300">Email Address *</label>
-                  <input
-                    required
-                    type="email"
-                    value={inviteForm.email}
-                    onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                    placeholder="alex@company.com"
-                    className="input-clean mt-1"
-                  />
-                </div>
+                  <form onSubmit={handleInviteMember} className="flex flex-col flex-1 overflow-hidden">
+                    <div className="overflow-y-auto p-5 space-y-4 flex-1">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-medium text-zinc-700 dark:text-zinc-300">First Name</label>
+                          <input
+                            required
+                            value={inviteForm.firstName}
+                            onChange={(e) => setInviteForm({ ...inviteForm, firstName: e.target.value })}
+                            placeholder="Alex"
+                            className="input-clean mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-medium text-zinc-700 dark:text-zinc-300">Last Name</label>
+                          <input
+                            required
+                            value={inviteForm.lastName}
+                            onChange={(e) => setInviteForm({ ...inviteForm, lastName: e.target.value })}
+                            placeholder="Morgan"
+                            className="input-clean mt-1"
+                          />
+                        </div>
+                      </div>
 
-                <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300">Job Title</label>
-                  <input
-                    value={inviteForm.jobTitle}
-                    onChange={(e) => setInviteForm({ ...inviteForm, jobTitle: e.target.value })}
-                    placeholder="Growth Marketer"
-                    className="input-clean mt-1"
-                  />
-                </div>
+                      <div>
+                        <label className="block font-medium text-zinc-700 dark:text-zinc-300">Email Address *</label>
+                        <input
+                          required
+                          type="email"
+                          value={inviteForm.email}
+                          onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                          placeholder="alex@company.com"
+                          className="input-clean mt-1"
+                        />
+                      </div>
 
-                <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300">Access Role</label>
-                  <select
-                    value={inviteForm.role}
-                    onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}
-                    className="input-clean mt-1"
-                  >
-                    <option value="ADMIN">Admin (Full Control)</option>
-                    <option value="MANAGER">Manager (Campaigns & Workspace Ops)</option>
-                    <option value="CONTENT_MANAGER">Content Manager (Content Studio & Social)</option>
-                    <option value="ANALYST">Analyst (Analytics & Performance Reports)</option>
-                    <option value="SALES">Sales (Leads Pipeline & Clients)</option>
-                    <option value="VIEWER">Viewer (Read Only)</option>
-                  </select>
+                      <div>
+                        <label className="block font-medium text-zinc-700 dark:text-zinc-300">Job Title</label>
+                        <input
+                          value={inviteForm.jobTitle}
+                          onChange={(e) => setInviteForm({ ...inviteForm, jobTitle: e.target.value })}
+                          placeholder="Growth Marketer"
+                          className="input-clean mt-1"
+                        />
+                      </div>
 
-                  <RoleScopeBreakdown role={inviteForm.role} />
-                </div>
+                      <div>
+                        <label className="block font-medium text-zinc-700 dark:text-zinc-300">Access Role</label>
+                        <select
+                          value={inviteForm.role}
+                          onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}
+                          className="input-clean mt-1"
+                        >
+                          <option value="ADMIN">Admin (Full Control)</option>
+                          <option value="MANAGER">Manager (Campaigns & Workspace Ops)</option>
+                          <option value="CONTENT_MANAGER">Content Manager (Content Studio & Social)</option>
+                          <option value="ANALYST">Analyst (Analytics & Performance Reports)</option>
+                          <option value="SALES">Sales (Leads Pipeline & Clients)</option>
+                          <option value="VIEWER">Viewer (Read Only)</option>
+                        </select>
 
-                <div className="mt-6 flex items-center justify-end gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
-                  <button type="button" onClick={() => setIsInviteModalOpen(false)} className="btn-secondary">
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={submitting} className="btn-primary">
-                    {submitting ? "Sending Invitation…" : "Send Invitation"}
-                  </button>
+                        <RoleScopeBreakdown role={inviteForm.role} />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 border-t border-zinc-100 p-4 dark:border-zinc-800 shrink-0">
+                      <button type="button" onClick={() => setIsInviteModalOpen(false)} className="btn-secondary">
+                        Cancel
+                      </button>
+                      <button type="submit" disabled={submitting} className="btn-primary">
+                        {submitting ? "Sending Invitation…" : "Send Invitation"}
+                      </button>
+                    </div>
+                  </form>
                 </div>
-              </form>
-            </div>
-          </div>
-        )}
+              </div>,
+              document.body
+            )
+          : null}
 
         {/* Edit Role Modal */}
-        {editingMember && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md">
-            <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
-              <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-                <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Edit Role - {editingMember.name}</h2>
-                <button onClick={() => setEditingMember(null)} className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100">✕</button>
-              </div>
+        {editingMember && mounted && typeof document !== "undefined"
+          ? createPortal(
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+                <div className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
+                  <div className="flex items-center justify-between border-b border-zinc-100 p-5 dark:border-zinc-800 shrink-0">
+                    <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Edit Role - {editingMember.name}</h2>
+                    <button onClick={() => setEditingMember(null)} className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                      <X size={15} />
+                    </button>
+                  </div>
 
-              <div className="mt-4 space-y-3">
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300">Select Role</label>
-                <select
-                  value={editRole}
-                  onChange={(e) => setEditRole(e.target.value)}
-                  className="input-clean"
-                >
-                  <option value="ADMIN">Admin</option>
-                  <option value="MANAGER">Manager</option>
-                  <option value="CONTENT_MANAGER">Content Manager</option>
-                  <option value="ANALYST">Analyst</option>
-                  <option value="SALES">Sales</option>
-                  <option value="VIEWER">Viewer</option>
-                </select>
+                  <div className="overflow-y-auto p-5 space-y-4 flex-1">
+                    <div>
+                      <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Select Role</label>
+                      <select
+                        value={editRole}
+                        onChange={(e) => setEditRole(e.target.value)}
+                        className="input-clean"
+                      >
+                        <option value="ADMIN">Admin</option>
+                        <option value="MANAGER">Manager</option>
+                        <option value="CONTENT_MANAGER">Content Manager</option>
+                        <option value="ANALYST">Analyst</option>
+                        <option value="SALES">Sales</option>
+                        <option value="VIEWER">Viewer</option>
+                      </select>
+                    </div>
 
-                <RoleScopeBreakdown role={editRole} />
-              </div>
+                    <RoleScopeBreakdown role={editRole} />
+                  </div>
 
-              <div className="mt-6 flex justify-end gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
-                <button onClick={() => setEditingMember(null)} className="btn-secondary">Cancel</button>
-                <button onClick={() => handleUpdateRole(editingMember.id, editRole)} className="btn-primary">Save Role</button>
-              </div>
-            </div>
-          </div>
-        )}
+                  <div className="flex justify-end gap-2 border-t border-zinc-100 p-4 dark:border-zinc-800 shrink-0">
+                    <button onClick={() => setEditingMember(null)} className="btn-secondary">Cancel</button>
+                    <button onClick={() => handleUpdateRole(editingMember.id, editRole)} className="btn-primary">Save Role</button>
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )
+          : null}
         <CustomDialog
           isOpen={dialogConfig.isOpen}
           title={dialogConfig.title}
@@ -713,9 +732,4 @@ export function TeamManagementPage() {
   );
 }
 
-const DEMO_MEMBERS: TeamMember[] = [
-  { id: "tm-1", name: "Alex Harrison", email: "alex@marketeros.local", role: "OWNER", status: "ACTIVE", jobTitle: "Chief Marketing Officer", lastLoginAt: "2026-09-08" },
-  { id: "tm-2", name: "Jessica Taylor", email: "jessica@marketeros.local", role: "ADMIN", status: "ACTIVE", jobTitle: "Head of Paid Acquisition", lastLoginAt: "2026-09-07" },
-  { id: "tm-3", name: "Michael Vance", email: "michael@marketeros.local", role: "CONTENT_MANAGER", status: "ACTIVE", jobTitle: "Content & Social Lead", lastLoginAt: "2026-09-05" },
-  { id: "tm-4", name: "Samantha Reed", email: "samantha@company.com", role: "ANALYST", status: "INVITED", jobTitle: "Data Analyst", lastLoginAt: null }
-];
+

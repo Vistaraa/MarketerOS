@@ -75,40 +75,7 @@ export function ClientWorkspaceDetail({ clientId }: { clientId: string }) {
       setClient(payload.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load client.");
-      // Demo fallback
-      setClient({
-        id: clientId,
-        name: "Acme Retail Inc.",
-        industry: "E-Commerce",
-        website: "https://acmeretail.example.com",
-        status: "ACTIVE",
-        contactName: "Sarah Jenkins",
-        contactEmail: "sarah@acmeretail.com",
-        contactPhone: "+1 (555) 234-5678",
-        currency: "USD",
-        timezone: "America/New_York",
-        monthlyBudget: 15000,
-        campaigns: [
-          { id: "c1", name: "Summer Promo 2026", platform: "Google Ads", status: "Active", budget: 5000, spend: 3200, conversions: 142, roas: 4.8 },
-          { id: "c2", name: "Retargeting Audience", platform: "Meta Ads", status: "Active", budget: 3000, spend: 2100, conversions: 89, roas: 3.9 }
-        ],
-        leads: [
-          { id: "l1", name: "David Miller", company: "Acme Corp", email: "david@example.com", status: "Qualified", source: "Google Ads", score: 85 },
-          { id: "l2", name: "Jessica Taylor", company: "Retail Supply", email: "jessica@example.com", status: "New", source: "Website", score: 72 }
-        ],
-        content: [
-          { id: "cnt1", title: "Summer Sale Launch Post", platform: "Instagram", status: "Scheduled", scheduledAt: "2026-09-15" }
-        ],
-        socialAccounts: [
-          { id: "sa1", username: "@acmeretail", platform: "Instagram", followerCount: 45200 }
-        ],
-        integrations: [
-          { id: "i1", platform: "Google Ads", status: "Connected", accountName: "Acme Ads (892-120-4412)" }
-        ],
-        reports: [
-          { id: "r1", name: "August Monthly ROAS Audit", format: "PDF", status: "READY", createdAt: "2026-09-01" }
-        ]
-      });
+      setClient(null);
     } finally {
       setLoading(false);
     }

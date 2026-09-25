@@ -61,42 +61,7 @@ export async function GET(request: Request) {
       }
     }
 
-    const fallbackAccounts = [
-      {
-        customerId: "849-204-1839",
-        descriptiveName: "Acme Corp · Search & Performance Max",
-        currencyCode: "USD",
-        timeZone: "America/New_York",
-        isManager: false,
-        resourceName: "customers/8492041839"
-      },
-      {
-        customerId: "612-938-4720",
-        descriptiveName: "Acme Global · Brand & Display Retargeting",
-        currencyCode: "USD",
-        timeZone: "America/Los_Angeles",
-        isManager: false,
-        resourceName: "customers/6129384720"
-      },
-      {
-        customerId: "389-105-8821",
-        descriptiveName: "Acme EMEA · Shopping & Search Ads",
-        currencyCode: "EUR",
-        timeZone: "Europe/London",
-        isManager: false,
-        resourceName: "customers/3891058821"
-      },
-      {
-        customerId: "991-820-3341",
-        descriptiveName: "Acme Agency MCC (Manager Account)",
-        currencyCode: "USD",
-        timeZone: "America/New_York",
-        isManager: true,
-        resourceName: "customers/9918203341"
-      }
-    ];
-
-    const resultAccounts = liveAccounts.length > 0 ? liveAccounts : fallbackAccounts;
+    const resultAccounts = liveAccounts;
 
     return NextResponse.json({
       success: true,

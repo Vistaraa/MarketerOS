@@ -222,7 +222,7 @@ export async function buildPersistedOverview(
   workspaceId: string,
   query: OverviewQuery
 ): Promise<OverviewPayload> {
-  const [rows, integrations, insights, metrics] = await Promise.all([
+  const [rows, integrations, insights, metrics, prevMetrics] = await Promise.all([
     prisma.campaign.findMany({
       where: {
         workspaceId,
@@ -272,6 +272,14 @@ export async function buildPersistedOverview(
         ...(query.platform ? { platform: query.platform.toUpperCase().replace(" ", "_") as never } : {})
       },
       orderBy: { date: "asc" }
+    }),
+    prisma.platformMetricDaily.findMany({
+      where: {
+        workspaceId,
+        date: { gte: dateOnly(query.compareFrom), lte: dateOnly(query.compareTo) },
+        ...(query.clientId ? { clientId: query.clientId } : {}),
+        ...(query.platform ? { platform: query.platform.toUpperCase().replace(" ", "_") as never } : {})
+      }
     })
   ]);
 
@@ -383,44 +391,65 @@ export async function buildPersistedOverview(
   const cpa = conversions > 0 ? Number((spend / conversions).toFixed(2)) : 0;
   const conversionRate = clicks > 0 ? Number(((conversions / clicks) * 100).toFixed(2)) : 0;
 
+  const prevSpend = prevMetrics.reduce((sum, row) => sum + Number(row.spend), 0);
+  const prevClicks = prevMetrics.reduce((sum, row) => sum + row.clicks, 0);
+  const prevConversions = prevMetrics.reduce((sum, row) => sum + row.conversions, 0);
+  const prevImpressions = prevMetrics.reduce((sum, row) => sum + row.impressions, 0);
+  const prevRevenue = prevMetrics.reduce((sum, row) => sum + Number(row.revenue), 0);
+  const prevRoas = prevSpend > 0 ? prevRevenue / prevSpend : 0;
+  const prevCtr = prevImpressions > 0 ? (prevClicks / prevImpressions) * 100 : 0;
+
+  const calcChangeStr = (curr: number, prev: number) => {
+    if (curr === 0 && prev === 0) return "0.0%";
+    if (prev === 0) return curr > 0 ? "+100.0%" : "0.0%";
+    const pct = ((curr - prev) / prev) * 100;
+    return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
+  };
+
+  const spendChange = calcChangeStr(spend, prevSpend);
+  const clicksChange = calcChangeStr(clicks, prevClicks);
+  const conversionsChange = calcChangeStr(conversions, prevConversions);
+  const roasChange = calcChangeStr(roas, prevRoas);
+  const ctrChange = calcChangeStr(ctr, prevCtr);
+
   const kpis: MetricKpi[] = [
     {
       label: "Total Spend",
       value: moneyValue(spend),
-      change: spend > 0 ? "+12.4%" : "0.0%",
-      trend: "up",
+      change: spendChange,
+      trend: spendChange.startsWith("-") ? "down" : "up",
       icon: "spend",
       tone: "purple"
     },
     {
       label: "Total Clicks",
       value: clicks.toLocaleString(),
-      change: clicks > 0 ? "+14.2%" : "0",
-      trend: "up",
+      change: clicksChange,
+      trend: clicksChange.startsWith("-") ? "down" : "up",
       icon: "clicks",
       tone: "blue"
     },
     {
       label: "Conversions",
       value: conversions.toLocaleString(),
-      change: conversions > 0 ? "+8.3%" : "0",
-      trend: "up",
+      change: conversionsChange,
+      trend: conversionsChange.startsWith("-") ? "down" : "up",
       icon: "conversions",
       tone: "green"
     },
     {
       label: "ROAS",
       value: `${roas.toFixed(2)}x`,
-      change: roas > 0 ? "+16.7%" : "0.00x",
-      trend: "up",
+      change: roasChange,
+      trend: roasChange.startsWith("-") ? "down" : "up",
       icon: "roas",
       tone: "orange"
     },
     {
       label: "CTR",
       value: `${ctr.toFixed(2)}%`,
-      change: ctr > 0 ? "+2.5%" : "0.0%",
-      trend: "up",
+      change: ctrChange,
+      trend: ctrChange.startsWith("-") ? "down" : "up",
       icon: "ctr",
       tone: "teal"
     }

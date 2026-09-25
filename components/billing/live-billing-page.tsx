@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   CreditCard,
   Check,
@@ -28,7 +29,7 @@ import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-s
 import { CustomDialog } from "@/components/ui/custom-dialog";
 import type { ApiResponse } from "@/lib/api-contracts";
 import type { BillingOverviewPayload } from "@/lib/billing-service";
-import { CREDIT_PACKS } from "@/lib/payu";
+import { CREDIT_PACKS, USD_TO_INR_RATE, formatPriceForCurrency, getCurrencyConfig } from "@/lib/payu";
 import { cn, money, safeFetchJson } from "@/lib/utils";
 
 type ActiveTab =
@@ -49,6 +50,11 @@ export function LiveBillingPage() {
   const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
   const [busy, setBusy] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Modals & Drawers
   const [selectedPlanToUpgrade, setSelectedPlanToUpgrade] = useState<any | null>(null);
@@ -273,11 +279,14 @@ export function LiveBillingPage() {
           checkoutDescription: options.description,
           checkoutAmount: options.amount
         });
+        setSelectedPlanToUpgrade(null);
+        setIsBuyCreditsModalOpen(false);
       } else {
         throw new Error("PayU payment gateway returned an invalid configuration.");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout initialization failed.");
+    } finally {
       setBusy(false);
     }
   };
@@ -562,7 +571,7 @@ export function LiveBillingPage() {
                 </div>
                 <div className="text-right">
                   <div className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-                    {money(data.subscription?.plan.monthlyPrice || 199)}/mo
+                    {formatPriceForCurrency(data.subscription?.plan.monthlyPrice || 199, data?.billingContact?.currency)}/mo
                   </div>
                   <span className="text-[11px] text-zinc-400">Renews on {data.kpis.nextBillingDate}</span>
                 </div>
@@ -685,7 +694,7 @@ export function LiveBillingPage() {
 
                       <div className="mt-4">
                         <span className="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100">
-                          {money(price)}
+                          {formatPriceForCurrency(price, data?.billingContact?.currency)}
                         </span>
                         <span className="text-xs text-zinc-400">
                           /{billingInterval === "monthly" ? "mo" : "yr"}
@@ -1131,7 +1140,7 @@ export function LiveBillingPage() {
         {/* TAB 8: BILLING SETTINGS */}
         {activeTab === "settings" && data && (
           <div className="space-y-6">
-            <div className="rounded-xl border border-zinc-200/90 bg-white p-6 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 max-w-2xl space-y-4">
+            <div className="rounded-2xl border border-zinc-200/80 bg-white/90 p-6 shadow-sm backdrop-blur-md dark:border-zinc-800/80 dark:bg-zinc-900/90 max-w-2xl space-y-4">
               <div className="border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
                   Billing Contact & Corporate Tax Information
@@ -1221,10 +1230,12 @@ export function LiveBillingPage() {
                       onChange={(e) => setContactForm({ ...contactForm, currency: e.target.value })}
                       className="input-clean mt-1 font-mono"
                     >
-                      <option value="USD">USD ($)</option>
-                      <option value="INR">INR (₹)</option>
-                      <option value="EUR">EUR (€)</option>
-                      <option value="GBP">GBP (£)</option>
+                      <option value="USD">USD ($) - United States Dollar</option>
+                      <option value="INR">INR (₹) - Indian Rupee</option>
+                      <option value="EUR">EUR (€) - Euro</option>
+                      <option value="GBP">GBP (£) - British Pound</option>
+                      <option value="CAD">CAD ($) - Canadian Dollar</option>
+                      <option value="AUD">AUD ($) - Australian Dollar</option>
                     </select>
                   </div>
                 </div>
@@ -1250,9 +1261,9 @@ export function LiveBillingPage() {
         )}
 
         {/* PLAN UPGRADE MODAL */}
-        {selectedPlanToUpgrade && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md animate-in fade-in">
-            <div className="w-full max-w-md bg-white p-6 rounded-xl border border-zinc-200 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 space-y-5 animate-in zoom-in-95">
+        {mounted && selectedPlanToUpgrade && createPortal(
+          <div className="fixed -top-16 -bottom-16 -left-16 -right-16 z-[9999] flex items-center justify-center bg-black/75 dark:bg-black/85 p-16 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200">
+            <div className="relative w-full max-w-md bg-white/95 dark:bg-zinc-900/95 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-2xl backdrop-blur-2xl space-y-5 animate-in zoom-in-95">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                   Upgrade to {selectedPlanToUpgrade.name}
@@ -1269,14 +1280,17 @@ export function LiveBillingPage() {
                 <div className="font-bold text-zinc-900 dark:text-zinc-100 text-base">
                   {selectedPlanToUpgrade.name} Tier
                 </div>
-                <div className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-100">
-                  {money(
-                    billingInterval === "monthly"
-                      ? selectedPlanToUpgrade.monthlyPrice
-                      : selectedPlanToUpgrade.yearlyPrice
-                  )}
-                  <span className="text-xs font-normal text-zinc-400">
-                    /{billingInterval === "monthly" ? "mo" : "yr"}
+                <div className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-100 flex items-baseline gap-2">
+                  <span>
+                    {formatPriceForCurrency(
+                      billingInterval === "monthly"
+                        ? selectedPlanToUpgrade.monthlyPrice
+                        : selectedPlanToUpgrade.yearlyPrice,
+                      data?.billingContact?.currency
+                    )}
+                    <span className="text-xs font-normal text-zinc-400">
+                      /{billingInterval === "monthly" ? "mo" : "yr"}
+                    </span>
                   </span>
                 </div>
                 <p className="text-xs text-zinc-500">{selectedPlanToUpgrade.description}</p>
@@ -1340,13 +1354,14 @@ export function LiveBillingPage() {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* BUY AI CREDITS MODAL */}
-        {isBuyCreditsModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md animate-in fade-in">
-            <div className="w-full max-w-lg bg-white p-6 rounded-xl border border-zinc-200 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 space-y-5 animate-in zoom-in-95">
+        {mounted && isBuyCreditsModalOpen && createPortal(
+          <div className="fixed -top-16 -bottom-16 -left-16 -right-16 z-[9999] flex items-center justify-center bg-black/75 dark:bg-black/85 p-16 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200">
+            <div className="relative w-full max-w-lg bg-white/95 dark:bg-zinc-900/95 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-2xl backdrop-blur-2xl space-y-5 animate-in zoom-in-95">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <div className="flex items-center gap-2">
                   <Sparkles size={18} className="text-amber-500" />
@@ -1386,7 +1401,7 @@ export function LiveBillingPage() {
                       </div>
                       <div className="text-[11px] text-zinc-400">credits</div>
                       <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 pt-1">
-                        ${pack.price}
+                        {formatPriceForCurrency(pack.price, data?.billingContact?.currency)}
                       </div>
                     </div>
                   );
@@ -1396,7 +1411,7 @@ export function LiveBillingPage() {
               <div className="rounded-xl border border-zinc-100 bg-zinc-50/80 p-3 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950/60 flex items-center justify-between">
                 <span>Selected: <strong>{selectedCreditPack.name}</strong></span>
                 <span className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
-                  Total: ${selectedCreditPack.price}
+                  Total: {formatPriceForCurrency(selectedCreditPack.price, data?.billingContact?.currency)}
                 </span>
               </div>
 
@@ -1429,13 +1444,14 @@ export function LiveBillingPage() {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* ITEMIZED INVOICE RECEIPT DRAWER */}
-        {selectedInvoice && (
-          <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-md animate-in fade-in">
-            <div className="w-full max-w-lg bg-white p-6 shadow-2xl dark:bg-zinc-900 overflow-y-auto space-y-6 animate-in slide-in-from-right">
+        {mounted && selectedInvoice && createPortal(
+          <div className="fixed -top-16 -bottom-16 -left-16 -right-16 z-[9999] flex justify-end bg-black/75 dark:bg-black/85 backdrop-blur-2xl backdrop-saturate-150 p-16 animate-in fade-in duration-200">
+            <div className="w-full max-w-lg bg-white/95 dark:bg-zinc-900/95 p-6 shadow-2xl border-l border-zinc-200/80 dark:border-zinc-800/80 backdrop-blur-2xl overflow-y-auto space-y-6 animate-in slide-in-from-right">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <div className="flex items-center gap-2">
                   <Receipt size={18} className="text-zinc-700 dark:text-zinc-300" />
@@ -1578,15 +1594,14 @@ export function LiveBillingPage() {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
-
-
         {/* PAYU PAYMENT CONFIRMATION POPUP MODAL */}
-        {payUCheckoutModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-200">
-            <div className="relative w-full max-w-xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 my-8">
+        {mounted && payUCheckoutModal && createPortal(
+          <div className="fixed -top-16 -bottom-16 -left-16 -right-16 z-[9999] flex items-center justify-center bg-black/75 dark:bg-black/85 backdrop-blur-2xl backdrop-saturate-150 p-16 overflow-y-auto animate-in fade-in duration-200">
+            <div className="relative w-full max-w-xl rounded-2xl border border-zinc-200/80 bg-white/95 p-6 shadow-2xl dark:border-zinc-800/80 dark:bg-zinc-900/95 backdrop-blur-2xl my-8">
               {/* Close button */}
               <button
                 onClick={() => setPayUCheckoutModal(null)}
@@ -1640,10 +1655,32 @@ export function LiveBillingPage() {
                   <span>Customer Email</span>
                   <span className="text-zinc-800 dark:text-zinc-200">{payUCheckoutModal.params?.email}</span>
                 </div>
-                <div className="flex justify-between font-bold text-sm text-zinc-900 dark:text-zinc-100 pt-2 border-t border-zinc-200 dark:border-zinc-800">
-                  <span>Payable Amount</span>
-                  <span className="text-emerald-600 dark:text-emerald-400 font-mono">${payUCheckoutModal.params?.amount} USD</span>
+                <div className="flex justify-between text-zinc-500 dark:text-zinc-400">
+                  <span>Selected Currency Price ({data?.billingContact?.currency || "USD"})</span>
+                  <span className="text-zinc-800 dark:text-zinc-200 font-mono">
+                    {formatPriceForCurrency(payUCheckoutModal.amountUsd || payUCheckoutModal.checkoutAmount, data?.billingContact?.currency)}
+                  </span>
                 </div>
+                {(data?.billingContact?.currency || "USD") !== "INR" && (
+                  <div className="flex justify-between text-zinc-500 dark:text-zinc-400">
+                    <span>PayU Exchange Rate</span>
+                    <span className="text-zinc-800 dark:text-zinc-200 font-mono">1 USD = ₹{payUCheckoutModal.exchangeRate || USD_TO_INR_RATE} INR</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-sm text-zinc-900 dark:text-zinc-100 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                  <span>Payable Amount on PayU</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-mono text-base">
+                    ₹{Number(payUCheckoutModal.params?.amount || payUCheckoutModal.amountInr).toLocaleString("en-IN")} INR
+                  </span>
+                </div>
+                {(data?.billingContact?.currency || "USD") !== "INR" && (
+                  <div className="mt-2 rounded-lg bg-emerald-500/10 p-2.5 text-[11px] text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 flex items-center gap-2">
+                    <Info size={14} className="shrink-0" />
+                    <span>
+                      PayU payment gateway processes transactions in Indian Rupees (INR). Your price of <strong>{formatPriceForCurrency(payUCheckoutModal.amountUsd || payUCheckoutModal.checkoutAmount, data?.billingContact?.currency)}</strong> is converted to <strong>₹{Number(payUCheckoutModal.params?.amount || payUCheckoutModal.amountInr).toLocaleString("en-IN")} INR</strong> for PayU checkout.
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -1664,7 +1701,8 @@ export function LiveBillingPage() {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* REUSABLE CONFIRMATION DIALOG */}

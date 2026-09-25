@@ -14,51 +14,28 @@ export async function GET(req: NextRequest) {
   );
 
   const isConnected = linkedinIntegration?.status === "Connected";
-  const accountId = linkedinIntegration?.account || "508291049";
+  const accountId = linkedinIntegration?.account || "";
 
   return NextResponse.json({
     success: true,
     data: {
       account: {
         accountId,
-        accountName: linkedinIntegration?.account ? `LinkedIn Ads (${linkedinIntegration.account})` : "Acme Corp · Enterprise B2B Ads",
-        status: isConnected ? "Connected" : "Sample Data Mode",
+        accountName: linkedinIntegration?.account ? `LinkedIn Ads (${linkedinIntegration.account})` : "LinkedIn Ads",
+        status: isConnected ? "Connected" : "Not Connected",
         currency: "USD"
       },
       summary: {
-        totalSpend: 12640.00,
-        impressions: 184500,
-        clicks: 8920,
-        leadFormFills: 284,
-        costPerLead: 44.50,
-        ctr: 4.83,
-        cpc: 1.41,
-        roas: 3.92
+        totalSpend: isConnected ? 0 : 0,
+        impressions: isConnected ? 0 : 0,
+        clicks: isConnected ? 0 : 0,
+        leadFormFills: isConnected ? 0 : 0,
+        costPerLead: 0,
+        ctr: 0,
+        cpc: 0,
+        roas: 0
       },
-      campaigns: [
-        {
-          id: "li-camp-1",
-          name: "B2B Enterprise Lead Gen — Sponsored Content",
-          status: "ACTIVE",
-          dailyBudget: 300,
-          spend: 6850.00,
-          clicks: 4820,
-          leads: 162,
-          cpl: 42.28,
-          ctr: 5.1
-        },
-        {
-          id: "li-camp-2",
-          name: "VP Marketing Thought Leadership Video Ads",
-          status: "ACTIVE",
-          dailyBudget: 200,
-          spend: 5790.00,
-          clicks: 4100,
-          leads: 122,
-          cpl: 47.45,
-          ctr: 4.5
-        }
-      ]
+      campaigns: []
     }
   });
 }

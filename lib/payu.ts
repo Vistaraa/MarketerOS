@@ -17,6 +17,50 @@ export type PayUPaymentOptions = {
   udf5?: string; // userId
 };
 
+export const CURRENCY_CONFIG: Record<string, { rate: number; symbol: string; code: string; label: string }> = {
+  USD: { rate: 1, symbol: "$", code: "USD", label: "USD ($) - United States Dollar" },
+  INR: { rate: 83, symbol: "₹", code: "INR", label: "INR (₹) - Indian Rupee" },
+  EUR: { rate: 0.92, symbol: "€", code: "EUR", label: "EUR (€) - Euro" },
+  GBP: { rate: 0.79, symbol: "£", code: "GBP", label: "GBP (£) - British Pound" },
+  CAD: { rate: 1.35, symbol: "CA$", code: "CAD", label: "CAD ($) - Canadian Dollar" },
+  AUD: { rate: 1.50, symbol: "A$", code: "AUD", label: "AUD ($) - Australian Dollar" }
+};
+
+export function getCurrencyConfig(currencyCode?: string) {
+  const code = (currencyCode || "USD").toUpperCase().trim();
+  return CURRENCY_CONFIG[code] || CURRENCY_CONFIG.USD;
+}
+
+export function formatPriceForCurrency(usdAmount: number, currencyCode?: string): string {
+  const cfg = getCurrencyConfig(currencyCode);
+  const converted = Math.round(usdAmount * cfg.rate);
+  return `${cfg.symbol}${converted.toLocaleString("en-US")}`;
+}
+
+export const USD_TO_INR_RATE = Number(
+  process.env.USD_TO_INR_RATE || process.env.NEXT_PUBLIC_USD_TO_INR_RATE || 83
+);
+
+export function convertUsdToInr(usdAmount: number): number {
+  return Math.round(usdAmount * USD_TO_INR_RATE * 100) / 100;
+}
+
+export function formatInr(inrAmount: number): string {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0
+  }).format(inrAmount);
+}
+
+export function formatUsd(usdAmount: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0
+  }).format(usdAmount);
+}
+
 export type PayUPaymentPayload = {
   key: string;
   txnid: string;

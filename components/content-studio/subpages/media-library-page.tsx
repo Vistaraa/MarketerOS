@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   Upload,
   FolderPlus,
@@ -437,8 +438,8 @@ export function MediaLibraryPage() {
       </div>
 
       {/* MEDIA PREVIEW DRAWER */}
-      {selectedMediaItem && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-md">
+      {selectedMediaItem && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[100] flex justify-end bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-white p-6 shadow-2xl dark:bg-zinc-900 overflow-y-auto space-y-5 animate-in slide-in-from-right duration-200 text-xs">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
               <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Media Preview</h3>
@@ -477,73 +478,77 @@ export function MediaLibraryPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* UPLOAD MEDIA MODAL */}
-      {isUploadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md">
-          <div className="w-full max-w-lg rounded-xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
+      {isUploadModalOpen && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
+            <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3.5 shrink-0 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40">
               <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Upload Media Assets</h3>
-              <button onClick={() => setIsUploadModalOpen(false)} className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+              <button onClick={() => setIsUploadModalOpen(false)} className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-200/60 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 transition">
                 <X size={16} />
               </button>
             </div>
 
-            {/* Drag & Drop Box */}
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragOver(false);
-                handleStartUpload({ name: e.dataTransfer.files[0]?.name });
-              }}
-              className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition ${
-                dragOver ? "border-zinc-900 bg-zinc-100/50 dark:border-zinc-100" : "border-zinc-300 bg-zinc-50/50 dark:border-zinc-700 dark:bg-zinc-950"
-              }`}
-            >
-              <Upload size={32} className="text-zinc-700 dark:text-zinc-300" />
-              <h4 className="mt-3 font-bold text-zinc-900 dark:text-zinc-100">Drag and drop files here</h4>
-              <p className="mt-1 text-[11px] text-zinc-400">Supports JPG, PNG, GIF, MP4, MOV up to 100MB</p>
-              <button
-                onClick={() => handleStartUpload()}
-                className="mt-4 btn-primary"
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {/* Drag & Drop Box */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  handleStartUpload({ name: e.dataTransfer.files[0]?.name });
+                }}
+                className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition ${
+                  dragOver ? "border-zinc-900 bg-zinc-100/50 dark:border-zinc-100" : "border-zinc-300 bg-zinc-50/50 dark:border-zinc-700 dark:bg-zinc-950"
+                }`}
               >
-                Choose File
-              </button>
-            </div>
+                <Upload size={32} className="text-zinc-700 dark:text-zinc-300" />
+                <h4 className="mt-3 font-bold text-zinc-900 dark:text-zinc-100">Drag and drop files here</h4>
+                <p className="mt-1 text-[11px] text-zinc-400">Supports JPG, PNG, GIF, MP4, MOV up to 100MB</p>
+                <button
+                  onClick={() => handleStartUpload()}
+                  className="mt-4 btn-primary"
+                >
+                  Choose File
+                </button>
+              </div>
 
-            {/* Duplicate Detection Warning */}
-            {duplicateWarning && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-800 flex items-start gap-2">
-                <AlertCircle size={16} className="shrink-0 mt-0.5 text-amber-600" />
-                <div className="flex-1">
-                  <div className="font-bold">Similar file already exists</div>
-                  <div className="text-[11px]">A file with the same name exists in Media Library. What would you like to do?</div>
-                  <div className="mt-2 flex gap-2">
-                    <button onClick={() => handleStartUpload({ name: `copy_${Date.now()}.png` })} className="rounded bg-amber-600 text-white px-2 py-1 font-bold">
-                      Keep Both
-                    </button>
-                    <button onClick={() => setIsUploadModalOpen(false)} className="rounded border border-amber-400 px-2 py-1">
-                      Cancel
-                    </button>
+              {/* Duplicate Detection Warning */}
+              {duplicateWarning && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-800 flex items-start gap-2">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5 text-amber-600" />
+                  <div className="flex-1">
+                    <div className="font-bold">Similar file already exists</div>
+                    <div className="text-[11px]">A file with the same name exists in Media Library. What would you like to do?</div>
+                    <div className="mt-2 flex gap-2">
+                      <button onClick={() => handleStartUpload({ name: `copy_${Date.now()}.png` })} className="rounded bg-amber-600 text-white px-2 py-1 font-bold">
+                        Keep Both
+                      </button>
+                      <button onClick={() => setIsUploadModalOpen(false)} className="rounded border border-amber-400 px-2 py-1">
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* CREATE FOLDER MODAL */}
-      {showCreateFolderModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md">
-          <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs space-y-4">
+      {showCreateFolderModal && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs space-y-4">
             <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Create New Folder</h3>
             <input
               type="text"
@@ -561,7 +566,8 @@ export function MediaLibraryPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

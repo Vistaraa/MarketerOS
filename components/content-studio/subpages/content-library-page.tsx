@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   BarChart2,
   Calendar as CalendarIcon,
@@ -452,8 +453,8 @@ export function ContentLibraryPage() {
       )}
 
       {/* CONTENT DETAIL DRAWER */}
-      {selectedContentItem && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-md">
+      {selectedContentItem && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[100] flex justify-end bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-white p-6 shadow-2xl dark:bg-zinc-900 overflow-y-auto space-y-5 animate-in slide-in-from-right duration-200">
             {/* Drawer Header */}
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
@@ -566,7 +567,8 @@ export function ContentLibraryPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

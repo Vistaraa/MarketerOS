@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Building2,
   Plus,
@@ -17,7 +18,8 @@ import {
   Edit3,
   Trash2,
   Archive,
-  RefreshCw
+  RefreshCw,
+  X
 } from "lucide-react";
 import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
 import { CustomDialog } from "@/components/ui/custom-dialog";
@@ -44,6 +46,7 @@ interface ClientRow {
 }
 
 export function ClientsListPage() {
+  const [mounted, setMounted] = useState(false);
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +80,10 @@ export function ClientsListPage() {
     confirmTone?: "primary" | "danger" | "warning";
     onConfirm?: () => void;
   }>({ isOpen: false, message: "" });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   async function loadClients() {
     setLoading(true);
@@ -456,116 +463,121 @@ export function ClientsListPage() {
         )}
 
         {/* Add / Edit Client Modal */}
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
-            <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
-              <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-                <div className="flex items-center gap-2">
-                  <Building2 size={16} className="text-zinc-700 dark:text-zinc-300" />
-                  <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                    {editingClient ? "Edit Client Workspace" : "Add New Client Workspace"}
-                  </h2>
-                </div>
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <form onSubmit={handleSaveClient} className="mt-4 space-y-3">
-                <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300">Client Name *</label>
-                  <input
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g. Acme Corporation"
-                    className="input-clean mt-1"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Industry</label>
-                    <input
-                      value={formData.industry}
-                      onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-                      placeholder="e.g. E-Commerce"
-                      className="input-clean mt-1"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Website</label>
-                    <input
-                      value={formData.website}
-                      onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                      placeholder="https://acme.com"
-                      className="input-clean mt-1"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Contact Name</label>
-                    <input
-                      value={formData.contactName}
-                      onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
-                      placeholder="John Doe"
-                      className="input-clean mt-1"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Contact Email</label>
-                    <input
-                      type="email"
-                      value={formData.contactEmail}
-                      onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-                      placeholder="john@acme.com"
-                      className="input-clean mt-1"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Monthly Budget ($)</label>
-                    <input
-                      type="number"
-                      value={formData.monthlyBudget}
-                      onChange={(e) => setFormData({ ...formData, monthlyBudget: e.target.value })}
-                      placeholder="5000"
-                      className="input-clean mt-1"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Status</label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      className="input-clean mt-1"
+        {isModalOpen && mounted && typeof document !== "undefined"
+          ? createPortal(
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+                <div className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
+                  <div className="flex items-center justify-between border-b border-zinc-100 p-5 dark:border-zinc-800 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <Building2 size={16} className="text-zinc-700 dark:text-zinc-300" />
+                      <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                        {editingClient ? "Edit Client Workspace" : "Add New Client Workspace"}
+                      </h2>
+                    </div>
+                    <button
+                      onClick={() => setIsModalOpen(false)}
+                      className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                     >
-                      <option value="ACTIVE">Active</option>
-                      <option value="INACTIVE">Inactive</option>
-                      <option value="ARCHIVED">Archived</option>
-                    </select>
+                      <X size={15} />
+                    </button>
                   </div>
-                </div>
 
-                <div className="mt-6 flex items-center justify-end gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary">
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={submitting} className="btn-primary">
-                    {submitting ? "Saving…" : editingClient ? "Save Changes" : "Create Workspace"}
-                  </button>
+                  <form onSubmit={handleSaveClient} className="flex flex-col flex-1 overflow-hidden">
+                    <div className="overflow-y-auto p-5 space-y-4 flex-1">
+                      <div>
+                        <label className="block font-medium text-zinc-700 dark:text-zinc-300">Client Name *</label>
+                        <input
+                          required
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          placeholder="e.g. Acme Corporation"
+                          className="input-clean mt-1"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-medium text-zinc-700 dark:text-zinc-300">Industry</label>
+                          <input
+                            value={formData.industry}
+                            onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                            placeholder="e.g. E-Commerce"
+                            className="input-clean mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-medium text-zinc-700 dark:text-zinc-300">Website</label>
+                          <input
+                            value={formData.website}
+                            onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                            placeholder="https://acme.com"
+                            className="input-clean mt-1"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-medium text-zinc-700 dark:text-zinc-300">Contact Name</label>
+                          <input
+                            value={formData.contactName}
+                            onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
+                            placeholder="John Doe"
+                            className="input-clean mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-medium text-zinc-700 dark:text-zinc-300">Contact Email</label>
+                          <input
+                            type="email"
+                            value={formData.contactEmail}
+                            onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                            placeholder="john@acme.com"
+                            className="input-clean mt-1"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-medium text-zinc-700 dark:text-zinc-300">Monthly Budget ($)</label>
+                          <input
+                            type="number"
+                            value={formData.monthlyBudget}
+                            onChange={(e) => setFormData({ ...formData, monthlyBudget: e.target.value })}
+                            placeholder="5000"
+                            className="input-clean mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-medium text-zinc-700 dark:text-zinc-300">Status</label>
+                          <select
+                            value={formData.status}
+                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                            className="input-clean mt-1"
+                          >
+                            <option value="ACTIVE">Active</option>
+                            <option value="INACTIVE">Inactive</option>
+                            <option value="ARCHIVED">Archived</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 border-t border-zinc-100 p-4 dark:border-zinc-800 shrink-0">
+                      <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary">
+                        Cancel
+                      </button>
+                      <button type="submit" disabled={submitting} className="btn-primary">
+                        {submitting ? "Saving…" : editingClient ? "Save Changes" : "Create Workspace"}
+                      </button>
+                    </div>
+                  </form>
                 </div>
-              </form>
-            </div>
-          </div>
-        )}
+              </div>,
+              document.body
+            )
+          : null}
         <CustomDialog
           isOpen={dialogConfig.isOpen}
           title={dialogConfig.title}
@@ -582,38 +594,4 @@ export function ClientsListPage() {
   );
 }
 
-const DEMO_CLIENTS: ClientRow[] = [
-  {
-    id: "client-1",
-    name: "Acme Retail Inc.",
-    industry: "E-Commerce",
-    website: "https://acmeretail.example.com",
-    status: "ACTIVE",
-    monthlyBudget: 15000,
-    contactName: "Sarah Jenkins",
-    contactEmail: "sarah@acmeretail.com",
-    campaigns: [{ id: "c1", name: "Summer Promo" }, { id: "c2", name: "Search Ads" }]
-  },
-  {
-    id: "client-2",
-    name: "Apex Global Tech",
-    industry: "SaaS & Software",
-    website: "https://apextech.example.com",
-    status: "ACTIVE",
-    monthlyBudget: 25000,
-    contactName: "Mark Robinson",
-    contactEmail: "mark@apextech.com",
-    campaigns: [{ id: "c3", name: "Enterprise Leads" }]
-  },
-  {
-    id: "client-3",
-    name: "Luxe Fashion House",
-    industry: "Apparel & Retail",
-    website: "https://luxefashion.example.com",
-    status: "ACTIVE",
-    monthlyBudget: 8000,
-    contactName: "Elena Vance",
-    contactEmail: "elena@luxefashion.com",
-    campaigns: [{ id: "c4", name: "Instagram Reels Campaign" }]
-  }
-];
+

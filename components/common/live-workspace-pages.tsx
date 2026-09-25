@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   BarChart3,
   Bot,
@@ -13,6 +14,7 @@ import {
   Search,
   Sparkles,
   Users,
+  X,
   Zap
 } from "lucide-react";
 import { AppShell, Card, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
@@ -49,6 +51,7 @@ async function getItems(path: string) {
    1. LIVE REPORTS PAGE
    ========================================================================= */
 export function LiveReportsPage() {
+  const [mounted, setMounted] = useState(false);
   const [items, setItems] = useState<Row[]>([]);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +63,10 @@ export function LiveReportsPage() {
     message: string;
     type?: "info" | "success" | "warning" | "error" | "confirm";
   }>({ isOpen: false, message: "" });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   async function load() {
     try {
@@ -209,98 +216,101 @@ export function LiveReportsPage() {
         </div>
 
         {/* Generate Report Modal */}
-        {openModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md">
-            <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
-              <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-                <div className="flex items-center gap-2">
-                  <FileBarChart size={16} className="text-zinc-700 dark:text-zinc-300" />
-                  <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Generate Report</h2>
-                </div>
-                <button
-                  onClick={() => setOpenModal(false)}
-                  className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="mt-4 space-y-4">
-                <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300">Report Name</label>
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Q2 Omnichannel Performance Summary"
-                    className="input-clean mt-1"
-                  />
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Report Type</label>
-                    <select className="input-clean mt-1">
-                      <option>Executive Summary</option>
-                      <option>Cross-Channel Attribution</option>
-                      <option>Ad Spend & ROAS Audit</option>
-                      <option>Lead Conversion Breakdown</option>
-                    </select>
+        {openModal && mounted && typeof document !== "undefined"
+          ? createPortal(
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+                <div className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
+                  <div className="flex items-center justify-between border-b border-zinc-100 p-5 dark:border-zinc-800 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <FileBarChart size={16} className="text-zinc-700 dark:text-zinc-300" />
+                      <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Generate Report</h2>
+                    </div>
+                    <button
+                      onClick={() => setOpenModal(false)}
+                      className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    >
+                      <X size={15} />
+                    </button>
                   </div>
 
-                  <div>
-                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Date Range</label>
-                    <select className="input-clean mt-1">
-                      <option>Last 30 Days</option>
-                      <option>Month to Date</option>
-                      <option>Last Quarter (Q1)</option>
-                      <option>Custom Date Range</option>
-                    </select>
+                  <div className="overflow-y-auto p-5 space-y-4 flex-1">
+                    <div>
+                      <label className="block font-medium text-zinc-700 dark:text-zinc-300">Report Name</label>
+                      <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g. Q2 Omnichannel Performance Summary"
+                        className="input-clean mt-1"
+                      />
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="block font-medium text-zinc-700 dark:text-zinc-300">Report Type</label>
+                        <select className="input-clean mt-1">
+                          <option>Executive Summary</option>
+                          <option>Cross-Channel Attribution</option>
+                          <option>Ad Spend & ROAS Audit</option>
+                          <option>Lead Conversion Breakdown</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block font-medium text-zinc-700 dark:text-zinc-300">Date Range</label>
+                        <select className="input-clean mt-1">
+                          <option>Last 30 Days</option>
+                          <option>Month to Date</option>
+                          <option>Last Quarter (Q1)</option>
+                          <option>Custom Date Range</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-medium text-zinc-700 dark:text-zinc-300">Included Channels</label>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-zinc-600 dark:text-zinc-400">
+                        <label className="flex items-center gap-2">
+                          <input type="checkbox" defaultChecked className="accent-zinc-900 dark:accent-zinc-100" />
+                          <span>Google Ads</span>
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input type="checkbox" defaultChecked className="accent-zinc-900 dark:accent-zinc-100" />
+                          <span>Meta Ads</span>
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input type="checkbox" defaultChecked className="accent-zinc-900 dark:accent-zinc-100" />
+                          <span>Google Analytics 4</span>
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input type="checkbox" defaultChecked className="accent-zinc-900 dark:accent-zinc-100" />
+                          <span>Instagram</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 border-t border-zinc-100 p-4 dark:border-zinc-800 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setOpenModal(false)}
+                      className="btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={create}
+                      disabled={busy}
+                      className="btn-primary"
+                    >
+                      {busy ? "Generating…" : "Generate & Export"}
+                    </button>
                   </div>
                 </div>
-
-                <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300">Included Channels</label>
-                  <div className="mt-2 grid grid-cols-2 gap-2 text-zinc-600 dark:text-zinc-400">
-                    <label className="flex items-center gap-2">
-                      <input type="checkbox" defaultChecked className="accent-zinc-900 dark:accent-zinc-100" />
-                      <span>Google Ads</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input type="checkbox" defaultChecked className="accent-zinc-900 dark:accent-zinc-100" />
-                      <span>Meta Ads</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input type="checkbox" defaultChecked className="accent-zinc-900 dark:accent-zinc-100" />
-                      <span>Google Analytics 4</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input type="checkbox" defaultChecked className="accent-zinc-900 dark:accent-zinc-100" />
-                      <span>Instagram</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 flex items-center justify-end gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
-                <button
-                  type="button"
-                  onClick={() => setOpenModal(false)}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={create}
-                  disabled={busy}
-                  className="btn-primary"
-                >
-                  {busy ? "Generating…" : "Generate & Export"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+              </div>,
+              document.body
+            )
+          : null}
       </div>
 
       <CustomDialog

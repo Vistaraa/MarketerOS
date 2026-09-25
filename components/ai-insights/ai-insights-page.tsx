@@ -264,15 +264,10 @@ export function AiInsightsPage() {
       const payload = (await res.json()) as ApiResponse<{ items: ExtendedInsight[] }>;
       if (!res.ok) throw new Error(payload.error?.message || "Failed to load AI Insights.");
       
-      const items = payload.data.items || [];
-      if (items.length === 0) {
-        setInsights(DEFAULT_DEMO_INSIGHTS);
-      } else {
-        setInsights(items);
-      }
+      setInsights(payload.data.items || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load insights.");
-      setInsights(DEFAULT_DEMO_INSIGHTS);
+      setInsights([]);
     } finally {
       setLoading(false);
     }
@@ -579,7 +574,7 @@ export function AiInsightsPage() {
         {/* Insight Detail Inspect Modal */}
         {selectedInsight && parsedModal && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-5 backdrop-blur-md"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-3 sm:p-5 backdrop-blur-md"
             onClick={() => setSelectedInsight(null)}
           >
             <div
@@ -774,7 +769,7 @@ export function AiInsightsPage() {
         {/* Generate AI Insights Modal */}
         {showGenerateModal && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-5 backdrop-blur-md"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-3 sm:p-5 backdrop-blur-md"
             onClick={() => setShowGenerateModal(false)}
           >
             <div
@@ -827,45 +822,4 @@ export function AiInsightsPage() {
   );
 }
 
-const DEFAULT_DEMO_INSIGHTS: ExtendedInsight[] = [
-  {
-    id: "insight-1",
-    category: "Budget",
-    title: "Shift 15% budget from Facebook to Google Search",
-    description: "Google Ads Search campaigns are converting at $18.40 CPA compared to $42.10 CPA on Facebook Ads for the same target demographic.",
-    impact: "+24% Conversions",
-    confidence: 94,
-    status: "NEW",
-    actionPayload: { action: "REALLOCATE_BUDGET", amountUsd: 1500, source: "Facebook Ads", target: "Google Ads Search" }
-  },
-  {
-    id: "insight-2",
-    category: "Keywords",
-    title: "Add 12 negative keywords to Performance Max",
-    description: "Detected $420 wasted spend on non-converting broad search queries like 'free marketing tools' in Google Ads.",
-    impact: "Save $680/mo",
-    confidence: 88,
-    status: "NEW",
-    actionPayload: { action: "ADD_NEGATIVE_KEYWORDS", keywords: ["free", "cheap", "diy", "jobs", "course"] }
-  },
-  {
-    id: "insight-3",
-    category: "Audience",
-    title: "Expand Retargeting Window from 14 to 30 Days",
-    description: "Analysis of buyer journey indicates 35% of high-value subscribers convert between day 15 and 28 after initial site visit.",
-    impact: "+14% ROAS",
-    confidence: 82,
-    status: "NEW",
-    actionPayload: { action: "UPDATE_AUDIENCE_LOOKBACK", currentDays: 14, targetDays: 30 }
-  },
-  {
-    id: "insight-4",
-    category: "Content",
-    title: "Publish Video Reels at 6:00 PM EST on Thursdays",
-    description: "Instagram engagement rate peaks at 6.4% on Thursday evenings, outperforming morning post times by 2.1x.",
-    impact: "+3.2x Reach",
-    confidence: 90,
-    status: "NEW",
-    actionPayload: { action: "OPTIMIZE_SCHEDULE", optimalTime: "18:00 EST", optimalDay: "Thursday" }
-  }
-];
+

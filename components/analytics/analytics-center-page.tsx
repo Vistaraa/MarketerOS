@@ -50,7 +50,26 @@ export function AnalyticsCenterPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/v1/analytics/overview");
+      const now = new Date();
+      const dateTo = now.toISOString().slice(0, 10);
+      let daysAgo = 30;
+      if (dateRange === "7d") daysAgo = 7;
+      else if (dateRange === "90d") daysAgo = 90;
+      else if (dateRange === "mtd") {
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        daysAgo = Math.max(1, Math.ceil((now.getTime() - startOfMonth.getTime()) / (24 * 3600 * 1000)));
+      }
+
+      const dateFrom = new Date(now.getTime() - daysAgo * 24 * 3600 * 1000).toISOString().slice(0, 10);
+      const platParam = selectedPlatform !== "ALL" ? selectedPlatform : "";
+      
+      const queryParams = new URLSearchParams({
+        dateFrom,
+        dateTo,
+        ...(platParam ? { platform: platParam } : {})
+      });
+
+      const res = await fetch(`/api/v1/analytics/overview?${queryParams.toString()}`);
       const payload = (await res.json()) as ApiResponse<OverviewPayload>;
       if (!res.ok) throw new Error(payload.error?.message || "Unable to load analytics.");
       setData(payload.data);
@@ -266,59 +285,61 @@ export function AnalyticsCenterPage() {
           <div className="rounded-xl border border-zinc-200/90 bg-white shadow-2xs overflow-hidden dark:border-zinc-800 dark:bg-zinc-950/60 text-xs">
             <div className="border-b border-zinc-100 p-5 dark:border-zinc-800">
               <h2 className="font-bold text-zinc-900 dark:text-zinc-100">
-                Hierarchical Drill-Down (Platform → Campaign → Ad Group → Keywords)
+                Hierarchical Campaign Performance Drill-Down
               </h2>
             </div>
 
             <div className="divide-y divide-zinc-100 dark:divide-zinc-800 font-medium">
-              {DRILLDOWN_DATA.map((campaign) => {
-                const isExpanded = expandedCampaigns[campaign.id];
-                return (
-                  <div key={campaign.id} className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                    <div
-                      onClick={() => toggleCampaign(campaign.id)}
-                      className="flex items-center justify-between p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
-                    >
-                      <div className="flex items-center gap-2 font-bold text-zinc-900 dark:text-zinc-100">
-                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                        <span>{campaign.name}</span>
-                        <span className="rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">
-                          {campaign.platform}
-                        </span>
+              {!data?.campaigns?.length ? (
+                <div className="p-8 text-center text-xs text-zinc-400">
+                  No active campaigns found in this workspace. Create a campaign or connect an ad integration to populate drill-down metrics.
+                </div>
+              ) : (
+                data.campaigns.map((campaign) => {
+                  const isExpanded = expandedCampaigns[campaign.id];
+                  return (
+                    <div key={campaign.id} className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                      <div
+                        onClick={() => toggleCampaign(campaign.id)}
+                        className="flex items-center justify-between p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
+                      >
+                        <div className="flex items-center gap-2 font-bold text-zinc-900 dark:text-zinc-100">
+                          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                          <span>{campaign.name}</span>
+                          <span className="rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">
+                            {campaign.platform}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-6">
+                          <div><span className="text-zinc-400">Spend:</span> {money(campaign.spend)}</div>
+                          <div><span className="text-zinc-400">Conversions:</span> {campaign.conversions}</div>
+                          <div className="font-bold text-emerald-600 dark:text-emerald-400">{campaign.roas}x ROAS</div>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-6">
-                        <div><span className="text-zinc-400">Spend:</span> {money(campaign.spend)}</div>
-                        <div><span className="text-zinc-400">Conversions:</span> {campaign.conversions}</div>
-                        <div className="font-bold text-emerald-600 dark:text-emerald-400">{campaign.roas}x ROAS</div>
-                      </div>
-                    </div>
-
-                    {isExpanded && (
-                      <div className="bg-zinc-50/50 p-4 dark:bg-zinc-900/30 space-y-3 pl-8">
-                        <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Ad Groups &amp; Keywords</div>
-                        {campaign.adGroups.map((ag) => (
-                          <div key={ag.name} className="rounded-lg border border-zinc-200/80 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900 space-y-2">
+                      {isExpanded && (
+                        <div className="bg-zinc-50/50 p-4 dark:bg-zinc-900/30 space-y-3 pl-8">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Campaign Metrics & Performance Breakdown</div>
+                          <div className="rounded-lg border border-zinc-200/80 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900 space-y-2">
                             <div className="flex justify-between font-semibold text-zinc-800 dark:text-zinc-200">
-                              <span>Ad Group: {ag.name}</span>
-                              <span className="text-zinc-500">CPA: ${ag.cpa}</span>
+                              <span>Objective: {campaign.objective}</span>
+                              <span className="text-zinc-500">CPA: ${campaign.cpa?.toFixed(2) || "0.00"}</span>
                             </div>
 
-                            <div className="space-y-1 pt-1">
-                              {ag.keywords.map((kw) => (
-                                <div key={kw.term} className="flex justify-between text-[11px] text-zinc-600 dark:text-zinc-400 font-mono">
-                                  <span>Keyword: &quot;{kw.term}&quot;</span>
-                                  <span>Clicks: {kw.clicks} · CTR: {kw.ctr}% · ROAS: {kw.roas}x</span>
-                                </div>
-                              ))}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 text-[11px]">
+                              <div><span className="text-zinc-400">Total Clicks:</span> <strong className="text-zinc-900 dark:text-zinc-100">{campaign.clicks}</strong></div>
+                              <div><span className="text-zinc-400">Average CTR:</span> <strong className="text-zinc-900 dark:text-zinc-100">{campaign.ctr}%</strong></div>
+                              <div><span className="text-zinc-400">Total Budget:</span> <strong className="text-zinc-900 dark:text-zinc-100">{money(campaign.budget)}</strong></div>
+                              <div><span className="text-zinc-400">Status:</span> <strong className="text-zinc-900 dark:text-zinc-100">{campaign.status}</strong></div>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         )}
@@ -340,41 +361,3 @@ export function AnalyticsCenterPage() {
     </AppShell>
   );
 }
-
-const DRILLDOWN_DATA = [
-  {
-    id: "c-1",
-    name: "Google Search - High Intent Core",
-    platform: "Google Ads",
-    spend: 4200,
-    conversions: 184,
-    roas: 5.2,
-    adGroups: [
-      {
-        name: "Brand & Core Terms",
-        cpa: 22.8,
-        keywords: [
-          { term: "marketing os software", clicks: 420, ctr: 8.4, roas: 6.1 },
-          { term: "all in one ad manager", clicks: 310, ctr: 6.2, roas: 4.5 }
-        ]
-      }
-    ]
-  },
-  {
-    id: "c-2",
-    name: "Meta Ads - Retargeting Audience",
-    platform: "Meta Ads",
-    spend: 2800,
-    conversions: 94,
-    roas: 3.8,
-    adGroups: [
-      {
-        name: "Website Visitors 30 Days",
-        cpa: 29.7,
-        keywords: [
-          { term: "Carousel Ad Variant A", clicks: 210, ctr: 3.8, roas: 3.9 }
-        ]
-      }
-    ]
-  }
-];

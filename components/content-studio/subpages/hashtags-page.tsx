@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   Hash,
   Search,
@@ -253,20 +254,20 @@ export function HashtagsPage() {
       )}
 
       {/* CREATE HASHTAG GROUP MODAL */}
-      {isHashtagGroupModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 text-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
+      {isHashtagGroupModalOpen && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 text-xs">
+            <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3.5 shrink-0 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40">
               <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Create Hashtag Group</h3>
               <button
                 onClick={() => setIsHashtagGroupModalOpen(false)}
-                className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-200/60 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 transition"
               >
                 <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateGroupSubmit} className="space-y-3">
+            <form onSubmit={handleCreateGroupSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
               <div>
                 <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Group Name</label>
                 <input
@@ -307,7 +308,8 @@ export function HashtagsPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

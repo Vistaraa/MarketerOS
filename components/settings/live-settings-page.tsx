@@ -350,6 +350,22 @@ export function LiveSettingsPage() {
     }
   };
 
+  const handleRevokeSession = async (sessionId: string) => {
+    if (!confirm("Are you sure you want to revoke this active session?")) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/v1/settings/sessions/${sessionId}`, { method: "DELETE" });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error?.message || "Failed to revoke session.");
+      triggerToast("Session revoked successfully.");
+      loadSettings();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to revoke session.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleTogglePermission = (role: string, idx: number, field: string) => {
     setPermissionsState((prev) => {
       const list = [...(prev[role] || [])];
@@ -1316,7 +1332,7 @@ export function LiveSettingsPage() {
                         </div>
 
                         {!sess.isCurrent && (
-                          <button onClick={() => triggerToast("Session revoked.")} className="text-rose-600 hover:underline">
+                          <button onClick={() => handleRevokeSession(sess.id)} className="text-rose-600 hover:underline">
                             Revoke
                           </button>
                         )}
@@ -1439,7 +1455,7 @@ export function LiveSettingsPage() {
 
         {/* INVITE TEAM MEMBER MODAL */}
         {isTeamModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in">
             <div className="w-full max-w-md bg-white p-6 rounded-xl border border-zinc-200 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Invite Workspace Team Member</h3>
@@ -1519,7 +1535,7 @@ export function LiveSettingsPage() {
 
         {/* API KEY CREATION MODAL */}
         {isApiKeyModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in">
             <div className="w-full max-w-md bg-white p-6 rounded-xl border border-zinc-200 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Generate Developer API Key</h3>

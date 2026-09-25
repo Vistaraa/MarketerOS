@@ -45,6 +45,8 @@ import {
   MetaAdsConnectModal,
   LinkedinConnectModal
 } from "@/components/integrations/channel-connect-modals";
+import { PlatformSetupGuideModal } from "@/components/integrations/platform-setup-guides";
+
 
 interface StepGuide {
   step: number;
@@ -481,17 +483,10 @@ export function LiveIntegrationsPage() {
   };
 
   const handleOpenGuide = (platform: PlatformConfig) => {
-    if (platform.id === "Google Ads") {
-      setGoogleAdsGuideOpen(true);
-      return;
-    }
-    if (platform.id === "Firebase" || platform.name.toLowerCase().includes("admob")) {
-      setAdMobGuideOpen(true);
-      return;
-    }
     setSelectedPlatform(platform);
     setGenericGuideModalOpen(true);
   };
+
 
   const handleOpenLiveDashboard = () => {
     setPageMode("live_dashboard");
@@ -768,7 +763,7 @@ export function LiveIntegrationsPage() {
           fetchIntegrations();
         }}
         currentAccountId={googleAdsIntegration?.account}
-        currentAccountName={googleAdsIntegration?.account || "Acme Primary Google Ads"}
+        currentAccountName={googleAdsIntegration?.account || ""}
       />
 
       {/* =========================================================================
@@ -815,35 +810,27 @@ export function LiveIntegrationsPage() {
       />
 
       {/* =========================================================================
-         GOOGLE ADS SETUP GUIDE MODAL / DRAWER
+         UNIVERSAL PLATFORM SETUP GUIDE MODAL
          ========================================================================= */}
-      {googleAdsGuideOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-              <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                Google Ads Setup Guide & Documentation
-              </h3>
-              <button
-                onClick={() => setGoogleAdsGuideOpen(false)}
-                className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              >
-                <X size={16} />
-              </button>
-            </div>
+      <PlatformSetupGuideModal
+        isOpen={genericGuideModalOpen}
+        onClose={() => setGenericGuideModalOpen(false)}
+        platformKey={selectedPlatform?.id || selectedPlatform?.name || null}
+      />
 
-            <div className="mt-4">
-              <GoogleAdsSetupGuide />
-            </div>
-          </div>
-        </div>
-      )}
+      <PlatformSetupGuideModal
+        isOpen={googleAdsGuideOpen}
+        onClose={() => setGoogleAdsGuideOpen(false)}
+        platformKey="google_ads"
+      />
+
+
 
       {/* =========================================================================
          GENERIC PLATFORM CONNECT MODAL
          ========================================================================= */}
       {genericConnectModalOpen && selectedPlatform && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-lg overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
             <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
               <div className="flex items-center gap-3">
@@ -925,7 +912,7 @@ export function LiveIntegrationsPage() {
 
       {/* Disconnect Modal */}
       {disconnectTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 space-y-4 text-xs">
             <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
               Disconnect {disconnectTarget.platformName}?
