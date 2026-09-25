@@ -1083,6 +1083,15 @@ export async function PATCH(request: Request, { params }: { params: { path: stri
     await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE", module: "automation", entityType: "Automation", entityId: id, afterData: body });
     return ok({ id, updated: true });
   }
+  if (path.startsWith("integrations/")) {
+    const id = path.split("/")[1];
+    const { updatePersistedIntegrationStatus } = await import("@/lib/repositories");
+    const status = String(body?.status || "CONNECTED");
+    const updated = await updatePersistedIntegrationStatus(auth.session.workspaceId, id, status);
+    if (!updated.count) return error("Integration not found.", 404);
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE_STATUS", module: "integrations", entityType: "Integration", entityId: id, afterData: { status } });
+    return ok({ id, updated: true, status });
+  }
   if (path.startsWith("team/")) {
     const id = path.split("/")[1];
     const { updatePersistedTeamMember } = await import("@/lib/repositories");

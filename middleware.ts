@@ -26,16 +26,7 @@ export function middleware(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const hasToken = Boolean(sessionCookie || (authHeader && authHeader.startsWith("Bearer ")));
 
-  // 1. If user is already logged in and tries to access /auth/login or /auth/signup (exclude set-password)
-  if (pathname.startsWith("/auth") && !pathname.startsWith("/auth/set-password") && hasToken) {
-    // Basic signature check: contains '.' format
-    if (sessionCookie && sessionCookie.includes(".")) {
-      const returnTo = request.nextUrl.searchParams.get("returnTo") || "/overview";
-      return NextResponse.redirect(new URL(returnTo, request.url));
-    }
-  }
-
-  // 2. Allow public routes
+  // 1. Allow public routes (/auth, /api/auth, etc.)
   if (isPublic(pathname)) {
     return NextResponse.next();
   }

@@ -44,7 +44,7 @@ export type Integration = {
   platform: Platform;
   description: string;
   category: string;
-  status: "Connected" | "Not connected" | "Needs attention";
+  status: "Connected" | "Not connected" | "Needs attention" | "Suspended";
   account?: string;
   synced?: string;
   color: string;

@@ -64,12 +64,24 @@ export async function getSession(explicitToken?: string) {
   if (!payload || !signature || sign(payload) !== signature) return null;
   const tokenHash = hashSession(raw);
   const cached = cacheGet<{ userId: string; workspaceId: string; role: string; email: string; name: string }>(sessionCacheKey(tokenHash));
-  if (cached) return cached;
+  if (cached) {
+    const userCheck = await prisma.user.findUnique({ where: { id: cached.userId }, select: { status: true } });
+    if (!userCheck || userCheck.status === "SUSPENDED") {
+      cacheInvalidateKey(sessionCacheKey(tokenHash));
+      return null;
+    }
+    return cached;
+  }
   const active = await prisma.session.findFirst({
     where: { tokenHash, expiresAt: { gt: new Date() } },
     include: { user: true }
   });
-  if (!active || active.user.status === "SUSPENDED") return null;
+  if (!active || active.user.status === "SUSPENDED") {
+    if (active) {
+      await prisma.session.deleteMany({ where: { userId: active.userId } });
+    }
+    return null;
+  }
   let sessionPayload: SessionInput | null = null;
   try {
     sessionPayload = JSON.parse(Buffer.from(payload, "base64url").toString("utf-8"));

@@ -559,6 +559,43 @@ export function LiveIntegrationsPage() {
     }
   };
 
+  const handleTogglePlatformStatus = async (integrationId: string, currentStatus: string, platformName: string) => {
+    const nextStatus = currentStatus === "Connected" ? "SUSPENDED" : "CONNECTED";
+    try {
+      const res = await fetch(`/api/v1/integrations/${integrationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus })
+      });
+      if (res.ok) {
+        setIntegrations((prev) =>
+          prev.map((item) =>
+            item.id === integrationId
+              ? { ...item, status: nextStatus === "CONNECTED" ? "Connected" : "Suspended" }
+              : item
+          )
+        );
+        if (nextStatus === "SUSPENDED") {
+          setDialogConfig({
+            isOpen: true,
+            title: "Platform Connection Suspended",
+            message: `${platformName} connection has been suspended. Data synchronization and automated actions for this platform are paused.`,
+            type: "warning"
+          });
+        } else {
+          setDialogConfig({
+            isOpen: true,
+            title: "Platform Activated & Live",
+            message: `${platformName} connection is now Active and Live. Synchronization and campaign operations have resumed.`,
+            type: "success"
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to toggle platform status:", err);
+    }
+  };
+
   const filteredPlatforms = useMemo(() => {
     return SUPPORTED_PLATFORMS.filter((p) => {
       const matchesTab = activeTab === "All" || p.ecosystem === activeTab;
@@ -649,13 +686,18 @@ export function LiveIntegrationsPage() {
             {filteredPlatforms.map((platform) => {
               const existing = getIntegrationForPlatform(platform.id);
               const isConnected = existing?.status === "Connected";
-              const isGoogleAds = platform.id === "Google Ads";
-              const isAdMob = platform.id === "Firebase" || platform.name.toLowerCase().includes("admob");
+              const isSuspended = existing?.status === "Suspended";
+              const isConfiguredOrActive = Boolean(existing && (isConnected || isSuspended));
 
               return (
                 <div
                   key={platform.id}
-                  className="group flex flex-col justify-between rounded-xl border border-zinc-200/90 bg-white p-5 shadow-sm transition-all hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950/60 dark:hover:border-zinc-700"
+                  className={cn(
+                    "group flex flex-col justify-between rounded-xl border p-5 shadow-sm transition-all",
+                    isSuspended
+                      ? "border-rose-200/80 bg-rose-50/30 dark:border-rose-900/40 dark:bg-rose-950/20"
+                      : "border-zinc-200/90 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950/60 dark:hover:border-zinc-700"
+                  )}
                 >
                   <div>
                     {/* Top Row: Logo & Status Badge */}
@@ -674,19 +716,26 @@ export function LiveIntegrationsPage() {
                             Direct API
                           </span>
                         )}
-                        <StatusBadge status={isConnected ? "Connected" : "Not connected"} />
+                        <StatusBadge status={existing?.status || "Not connected"} />
                       </div>
                     </div>
 
                     {/* Platform Name & Description */}
                     <div className="mt-3">
-                      <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{platform.name}</h2>
+                      <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                        <span>{platform.name}</span>
+                        {isSuspended && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                            Suspended
+                          </span>
+                        )}
+                      </h2>
                       <p className="mt-1 line-clamp-2 text-xs text-zinc-500 dark:text-zinc-400">
                         {platform.description}
                       </p>
                     </div>
 
-                    {isConnected && existing?.account && (
+                    {isConfiguredOrActive && existing?.account && (
                       <div className="mt-2 text-[11px] text-zinc-600 dark:text-zinc-400">
                         Account ID: <strong className="font-mono text-zinc-900 dark:text-zinc-200">{existing.account}</strong>
                       </div>
@@ -704,13 +753,24 @@ export function LiveIntegrationsPage() {
                     </button>
 
                     <div className="flex items-center gap-1.5">
-                      {isConnected ? (
+                      {isConfiguredOrActive && existing ? (
                         <>
                           <button
                             onClick={() => handleOpenConnect(platform, existing)}
                             className="rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
                           >
                             Configure
+                          </button>
+                          <button
+                            onClick={() => handleTogglePlatformStatus(existing.id, existing.status, platform.name)}
+                            className={cn(
+                              "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+                              isConnected
+                                ? "border border-amber-200/80 bg-amber-50/70 text-amber-700 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-400"
+                                : "bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow-2xs"
+                            )}
+                          >
+                            {isConnected ? "Suspend" : "Activate Platform"}
                           </button>
                           <button
                             onClick={() => setDisconnectTarget({ integrationId: existing.id, platformName: platform.name })}

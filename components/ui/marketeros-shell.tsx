@@ -742,7 +742,8 @@ export function AppShell({
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
-  const [session, setSession] = useState<{ user?: { role?: string } } | null>(null);
+  const [loadingSession, setLoadingSession] = useState(true);
+  const [session, setSession] = useState<{ authenticated?: boolean; suspended?: boolean; user?: { role?: string; name?: string; email?: string } } | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/session")
@@ -750,6 +751,8 @@ export function AppShell({
       .then((payload) => {
         const sess = payload.data || null;
         setSession(sess);
+        setLoadingSession(false);
+
         if (sess?.user?.role) {
           const userRole = sess.user.role;
           const targetDefault = getDefaultRouteForRoleUI(userRole);
@@ -758,7 +761,10 @@ export function AppShell({
           }
         }
       })
-      .catch(() => setSession(null));
+      .catch(() => {
+        setSession(null);
+        setLoadingSession(false);
+      });
   }, [pathname, router]);
 
   // Global Keyboard shortcut (Cmd+K / Ctrl+K)
@@ -772,6 +778,64 @@ export function AppShell({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  // Handle Suspended User Screen
+  if (session?.suspended) {
+    return (
+      <div className="fixed inset-0 z-[999] flex items-center justify-center bg-zinc-950 p-4 text-zinc-100 antialiased font-sans">
+        <div className="w-full max-w-md space-y-6 rounded-2xl border border-rose-900/50 bg-zinc-900/90 p-7 shadow-2xl backdrop-blur-xl text-center">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-rose-500/10 text-rose-500 border border-rose-500/20">
+            <Shield size={34} />
+          </div>
+
+          <div className="space-y-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-400 border border-rose-500/20">
+              <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+              Account Suspended
+            </span>
+            <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl">Access Revoked</h1>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Your account {session?.user?.email ? `(${session.user.email})` : ""} has been suspended by your workspace administrator. All workspace access, data, and dashboard features have been immediately revoked.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4 text-left text-xs space-y-2.5">
+            <div className="flex items-center justify-between text-zinc-400">
+              <span>Account Status:</span>
+              <span className="font-bold text-rose-400 uppercase tracking-wider">SUSPENDED</span>
+            </div>
+            <div className="flex items-center justify-between text-zinc-400">
+              <span>Workspace Action:</span>
+              <span className="text-zinc-300">Access Restricted</span>
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={() => {
+                fetch("/api/auth/logout", { method: "POST" }).finally(() => {
+                  window.location.href = "/auth/login";
+                });
+              }}
+              className="w-full rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-rose-600/20 transition hover:bg-rose-500"
+            >
+              Return to Sign In
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle Unauthenticated Session
+  if (!loadingSession && session && session.authenticated === false && !session.suspended) {
+    if (typeof window !== "undefined") {
+      fetch("/api/auth/logout", { method: "POST" }).finally(() => {
+        window.location.href = "/auth/login";
+      });
+    }
+    return null;
+  }
 
   const isAllowed = isNavAllowed(pathname, session?.user?.role);
   const role = session?.user?.role || "USER";
@@ -880,30 +944,49 @@ export function PageHeading({
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  const isOk = status === "Active" || status === "Connected" || status === "Ready";
-  const isPaused = status === "Paused" || status === "Needs attention" || status === "Draft";
+  const s = (status || "").toUpperCase();
+
+  const isOk = s === "ACTIVE" || s === "CONNECTED" || s === "READY" || s === "LIVE" || s === "COMPLETED";
+  const isPaused = s === "PAUSED" || s === "DRAFT" || s === "NEEDS ATTENTION" || s === "NEEDS_ATTENTION" || s === "PENDING" || s === "INVITED";
+  const isSuspended = s === "SUSPENDED" || s === "INACTIVE" || s === "DISCONNECTED" || s === "NOT CONNECTED" || s === "NOT_CONNECTED" || s === "FAILED";
+
+  const label =
+    s === "SUSPENDED"
+      ? "Suspended"
+      : s === "ACTIVE"
+      ? "Active"
+      : s === "CONNECTED"
+      ? "Connected"
+      : s === "NOT CONNECTED" || s === "NOT_CONNECTED" || s === "DISCONNECTED"
+      ? "Disconnected"
+      : s === "INVITED"
+      ? "Invited"
+      : status;
 
   return (
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium tracking-tight",
-        isOk && "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400",
-        isPaused && "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
-        !isOk && !isPaused && "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+        isOk && "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-900/40",
+        isPaused && "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200/60 dark:border-amber-900/40",
+        isSuspended && "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200/60 dark:border-rose-900/40",
+        !isOk && !isPaused && !isSuspended && "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700"
       )}
     >
       <span
         className={cn(
           "h-1.5 w-1.5 rounded-full",
-          isOk && "bg-emerald-500",
+          isOk && "bg-emerald-500 animate-pulse",
           isPaused && "bg-amber-500",
-          !isOk && !isPaused && "bg-zinc-400"
+          isSuspended && "bg-rose-500",
+          !isOk && !isPaused && !isSuspended && "bg-zinc-400"
         )}
       />
-      {status}
+      {label}
     </span>
   );
 }
+
 
 export function Tabs({
   items,

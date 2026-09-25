@@ -25,7 +25,7 @@ import {
 import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
 import { CustomDialog } from "@/components/ui/custom-dialog";
 import type { ApiResponse } from "@/lib/api-contracts";
-import { safeFetchJson } from "@/lib/utils";
+import { cn, safeFetchJson } from "@/lib/utils";
 
 interface TeamMember {
   id: string;
@@ -325,6 +325,14 @@ export function TeamManagementPage() {
             type: "warning",
             confirmText: "Understood"
           });
+        } else {
+          setDialogConfig({
+            isOpen: true,
+            title: "Member Activated",
+            message: `${targetMember?.name || "Member"}'s account is now Active. They can now access and log in to the workspace.`,
+            type: "success",
+            confirmText: "Got It"
+          });
         }
       }
     } catch (err) {
@@ -365,6 +373,7 @@ export function TeamManagementPage() {
   const totalMembers = members.length;
   const activeMembers = members.filter((m) => m.status.toUpperCase() === "ACTIVE").length;
   const pendingInvites = members.filter((m) => m.status.toUpperCase() === "INVITED").length;
+  const suspendedCount = members.filter((m) => m.status.toUpperCase() === "SUSPENDED").length;
   const adminCount = members.filter((m) => ["OWNER", "ADMIN"].includes(m.role.toUpperCase())).length;
 
   return (
@@ -424,13 +433,13 @@ export function TeamManagementPage() {
 
           <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Pending Invites</span>
+              <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Pending & Suspended</span>
               <div className="grid h-8 w-8 place-items-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
                 <Clock size={16} />
               </div>
             </div>
-            <div className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{pendingInvites}</div>
-            <div className="mt-1 text-xs text-zinc-400">Awaiting email verification</div>
+            <div className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{pendingInvites + suspendedCount}</div>
+            <div className="mt-1 text-xs text-zinc-400">{pendingInvites} Pending / {suspendedCount} Suspended</div>
           </div>
 
           <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60">
@@ -475,6 +484,19 @@ export function TeamManagementPage() {
                 <option value="VIEWER">Viewer</option>
               </select>
             </div>
+
+            <div className="flex items-center gap-1.5">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="input-clean py-1 text-xs"
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="ACTIVE">Active</option>
+                <option value="INVITED">Invited / Pending</option>
+                <option value="SUSPENDED">Suspended</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -494,14 +516,34 @@ export function TeamManagementPage() {
               </thead>
               <tbody className="divide-y divide-zinc-100 font-medium text-zinc-700 dark:divide-zinc-800 dark:text-zinc-300">
                 {filtered.map((member) => (
-                  <tr key={member.id} className="transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60">
+                  <tr
+                    key={member.id}
+                    className={cn(
+                      "transition",
+                      member.status === "SUSPENDED"
+                        ? "bg-rose-50/30 dark:bg-rose-950/20 hover:bg-rose-50/50"
+                        : "hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
+                    )}
+                  >
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="grid h-9 w-9 place-items-center rounded-full bg-indigo-100 font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                        <div className={cn(
+                          "grid h-9 w-9 place-items-center rounded-full font-bold text-xs",
+                          member.status === "SUSPENDED"
+                            ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                            : "bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
+                        )}>
                           {member.name.slice(0, 1).toUpperCase()}
                         </div>
                         <div>
-                          <div className="font-semibold text-zinc-900 dark:text-zinc-100">{member.name}</div>
+                          <div className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                            <span>{member.name}</span>
+                            {member.status === "SUSPENDED" && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                                Suspended
+                              </span>
+                            )}
+                          </div>
                           <div className="text-[11px] text-zinc-400">{member.email}</div>
                         </div>
                       </div>
@@ -547,9 +589,14 @@ export function TeamManagementPage() {
                           </button>
                           <button
                             onClick={() => handleToggleStatus(member.id, member.status)}
-                            className="btn-secondary py-1 text-[11px] text-amber-600"
+                            className={cn(
+                              "btn-secondary py-1 text-[11px] font-semibold transition-colors",
+                              member.status === "ACTIVE"
+                                ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                                : "text-emerald-600 dark:text-emerald-400 font-bold hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                            )}
                           >
-                            {member.status === "ACTIVE" ? "Suspend" : "Activate"}
+                            {member.status === "ACTIVE" ? "Suspend" : "Activate Member"}
                           </button>
                           <button
                             onClick={() => handleDeleteMember(member.id)}
@@ -563,6 +610,7 @@ export function TeamManagementPage() {
                     </td>
                   </tr>
                 ))}
+
 
                 {!filtered.length && (
                   <tr>

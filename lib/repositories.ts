@@ -377,6 +377,17 @@ export async function disconnectPersistedIntegration(workspaceId: string, integr
   });
 }
 
+export async function updatePersistedIntegrationStatus(workspaceId: string, integrationId: string, status: string) {
+  const statusEnum = status.toUpperCase() === "SUSPENDED" ? "SUSPENDED" : status.toUpperCase() === "CONNECTED" ? "CONNECTED" : "DISCONNECTED";
+  return prisma.integration.updateMany({
+    where: { id: integrationId, workspaceId },
+    data: {
+      status: statusEnum as never,
+      updatedAt: new Date()
+    }
+  });
+}
+
 export async function getPersistedIntegration(workspaceId: string, id: string) {
   const row = await prisma.integration.findFirst({
     where: { id, workspaceId },
@@ -884,8 +895,12 @@ export async function updatePersistedTeamMember(
   if (data.status !== undefined) updateData.status = data.status.toUpperCase() as never;
   if (data.jobTitle !== undefined) updateData.jobTitle = data.jobTitle;
 
+  if (data.status?.toUpperCase() === "SUSPENDED") {
+    await prisma.session.deleteMany({ where: { userId: id } });
+  }
+
   if (data.role && workspaceId) {
-    await prisma.oAuthState.updateMany({
+    const updated = await prisma.oAuthState.updateMany({
       where: {
         workspaceId,
         userId: id,
@@ -893,6 +908,18 @@ export async function updatePersistedTeamMember(
       },
       data: { returnTo: data.role.toUpperCase() }
     });
+    if (!updated.count) {
+      await prisma.oAuthState.create({
+        data: {
+          workspaceId,
+          userId: id,
+          providerKey: "WORKSPACE_MEMBER",
+          returnTo: data.role.toUpperCase(),
+          state: `member_${id}_${Date.now()}`,
+          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+        }
+      });
+    }
   }
 
   return prisma.user.update({

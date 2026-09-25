@@ -4,6 +4,8 @@ import { z } from "zod";
 import { authenticatePersistedUser, clearSession, createPersistedUser, getSession, setSession } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 
+import { cookies } from "next/headers";
+
 export const runtime = "nodejs";
 
 const credentials = z.object({ email: z.string().email(), password: z.string().min(8) });
@@ -46,10 +48,43 @@ export async function GET(
     const path = await resolvePath(request, params);
     if (path === "session") {
       const session = await getSession();
+      if (session) {
+        return NextResponse.json({
+          data: {
+            authenticated: true,
+            suspended: false,
+            user: { id: session.userId, name: session.name, email: session.email, workspaceId: session.workspaceId, role: session.role }
+          }
+        });
+      }
+
+      let isSuspended = false;
+      let suspendedUser: { email?: string; name?: string } | null = null;
+      try {
+        const store = await cookies();
+        const raw = store.get("marketeros_session")?.value;
+        if (raw) {
+          const [payload] = raw.split(".");
+          if (payload) {
+            const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf-8"));
+            if (parsed?.userId) {
+              const u = await prisma.user.findUnique({ where: { id: parsed.userId }, select: { status: true, email: true, firstName: true, lastName: true } });
+              if (u && u.status === "SUSPENDED") {
+                isSuspended = true;
+                suspendedUser = { email: u.email, name: `${u.firstName} ${u.lastName}`.trim() };
+              }
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+
       return NextResponse.json({
         data: {
-          authenticated: Boolean(session),
-          user: session ? { id: session.userId, name: session.name, email: session.email, workspaceId: session.workspaceId, role: session.role } : null
+          authenticated: false,
+          suspended: isSuspended,
+          user: suspendedUser
         }
       });
     }
