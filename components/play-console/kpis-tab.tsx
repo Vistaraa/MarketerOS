@@ -6,6 +6,18 @@ import { SlidersHorizontal, Check, RefreshCw, Smartphone, Search, Filter, Sparkl
 
 interface KpiData {
   app: { id: string; packageName: string; appTitle: string; category?: string };
+  googlePlayTelemetry?: {
+    connected: boolean;
+    accountName: string;
+    packageName: string;
+  };
+  googleAdsTelemetry?: {
+    connected: boolean;
+    accountName: string;
+    totalSpend: number;
+    totalConversions: number;
+    totalClicks: number;
+  };
   latestDateLabel: string;
   rolling28: {
     userAcquisitions?: number;
@@ -580,9 +592,28 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 leading-snug truncate">{data.app.appTitle}</h2>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 shrink-0">
-                16 Console KPIs Active
-              </span>
+              {data.googlePlayTelemetry?.connected ? (
+                <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 flex items-center gap-1 shrink-0">
+                  <Check className="w-3 h-3 text-emerald-500" />
+                  <span>Live Play API Connected</span>
+                </span>
+              ) : data.googleAdsTelemetry?.connected ? (
+                <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 flex items-center gap-1 shrink-0">
+                  <Check className="w-3 h-3 text-emerald-500" />
+                  <span>Google Ads Telemetry Active</span>
+                </span>
+              ) : (
+                <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800/40 shrink-0">
+                  Play API Ready
+                </span>
+              )}
+
+              {data.googleAdsTelemetry?.connected && (
+                <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/40 flex items-center gap-1 shrink-0">
+                  <Sparkles className="w-3 h-3 text-indigo-500 animate-pulse" />
+                  <span>Live Campaign Fused (${data.googleAdsTelemetry.totalSpend.toLocaleString()} Spend · {data.googleAdsTelemetry.totalConversions} Installs)</span>
+                </span>
+              )}
             </div>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 font-mono truncate">{data.app.packageName}</p>
           </div>
@@ -599,6 +630,42 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
           </span>
         </button>
       </div>
+
+      {/* Sleek Active Telemetry Banner when Google Ads is linked */}
+      {data.googleAdsTelemetry?.connected && !data.googlePlayTelemetry?.connected && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-900 dark:text-emerald-300 rounded-2xl p-4 text-xs">
+          <div className="flex items-start gap-2.5">
+            <Sparkles className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-zinc-900 dark:text-zinc-100">Live Google Ads Campaign Telemetry Connected</p>
+              <p className="text-zinc-600 dark:text-zinc-400 text-[11px] mt-0.5">
+                Your mobile app KPIs are fully fused with your active <strong>Google Ads Campaigns (${data.googleAdsTelemetry.totalSpend.toLocaleString()} ad spend · {data.googleAdsTelemetry.totalConversions} acquisitions)</strong>. Tracking live CPI, ROAS, and user acquisitions across MarketerOS.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Connection Alert Banner ONLY when NEITHER Google Play NOR Google Ads is linked */}
+      {!data.googlePlayTelemetry?.connected && !data.googleAdsTelemetry?.connected && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 rounded-2xl p-4 text-xs">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-zinc-900 dark:text-zinc-100">No Advertising or Developer Telemetry Connected</p>
+              <p className="text-zinc-600 dark:text-zinc-400 text-[11px] mt-0.5">
+                Connect your Google Ads account or Google Play Service Account JSON to start tracking live app store listing visitors, acquisitions, and campaign telemetry.
+              </p>
+            </div>
+          </div>
+          <a
+            href="/integrations"
+            className="btn-primary text-xs shrink-0 whitespace-nowrap bg-amber-600 hover:bg-amber-700 border-none text-white font-medium"
+          >
+            Connect Integration
+          </a>
+        </div>
+      )}
 
       {/* KPI Cards Feed */}
       <div className="space-y-4">

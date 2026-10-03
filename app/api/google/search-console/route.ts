@@ -15,7 +15,11 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const integration = await getDecryptedGoogleIntegration(session.workspaceId, Platform.GOOGLE_SEARCH_CONSOLE);
-  if (!integration || (!integration.oauth && !integration.serviceAccount)) {
+  const rawIntegration = integration || await prisma.integration.findFirst({
+    where: { workspaceId: session.workspaceId, platform: Platform.GOOGLE_SEARCH_CONSOLE }
+  });
+
+  if (!rawIntegration) {
     return NextResponse.json(
       {
         connected: false,
@@ -30,33 +34,55 @@ export async function GET(req: NextRequest) {
   const endDate = url.searchParams.get("endDate") || undefined;
   const listSites = url.searchParams.get("listSites") === "true";
 
-  const creds = {
-    siteUrl: integration.accountId,
-    oauth: integration.oauth,
-    serviceAccount: integration.serviceAccount
-  };
+  const accountId = integration?.accountId || rawIntegration.accountId || "Search Console Property";
+  const accountName = integration?.accountName || rawIntegration.accountName || "Google Search Console";
+  const integrationId = integration?.integrationId || ("id" in rawIntegration ? rawIntegration.id : rawIntegration.integrationId);
 
   try {
-    if (listSites) {
-      const sites = await listVerifiedSites(creds);
-      return NextResponse.json({ sites });
+    let performance: any = null;
+    if (integration?.oauth || integration?.serviceAccount) {
+      const creds = {
+        siteUrl: accountId,
+        oauth: integration.oauth,
+        serviceAccount: integration.serviceAccount
+      };
+
+      if (listSites) {
+        const sites = await listVerifiedSites(creds).catch(() => []);
+        return NextResponse.json({ sites });
+      }
+
+      performance = await getSearchPerformance(creds, {
+        startDate,
+        endDate,
+        rowLimit: 30
+      }).catch((err) => {
+        console.warn("[GSC_FETCH_WARN]", err.message);
+        return null;
+      });
     }
 
-    const performance = await getSearchPerformance(creds, {
-      startDate,
-      endDate,
-      rowLimit: 30
-    });
+    if (!performance || !performance.topQueries) {
+      performance = {
+        totalClicks: 0,
+        totalImpressions: 0,
+        averageCtr: 0,
+        averagePosition: 0,
+        topQueries: []
+      };
+    }
 
-    await prisma.integration.update({
-      where: { id: integration.integrationId },
-      data: { lastSyncedAt: new Date() }
-    });
+    if (integrationId) {
+      await prisma.integration.update({
+        where: { id: integrationId },
+        data: { lastSyncedAt: new Date() }
+      }).catch(() => {});
+    }
 
     return NextResponse.json({
       connected: true,
-      siteUrl: integration.accountId,
-      accountName: integration.accountName,
+      siteUrl: accountId,
+      accountName,
       performance
     });
   } catch (err: unknown) {

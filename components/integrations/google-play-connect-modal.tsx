@@ -56,6 +56,7 @@ export function GooglePlayConnectModal({ isOpen, onClose, onSuccess, initialData
     setTesting(true);
     setTestResult(null);
     setError(null);
+    console.log("[PLATFORM INTEGRATION UI] Testing Google Play Console connection...", { accountLabel, packageName, authMethod });
 
     try {
       const res = await fetch("/api/v1/integrations/google-play/test", {
@@ -71,11 +72,14 @@ export function GooglePlayConnectModal({ isOpen, onClose, onSuccess, initialData
       });
       const data = await res.json();
       if (!res.ok) {
+        console.error("[PLATFORM INTEGRATION UI] 🔴 Google Play connection test failed:", data);
         setTestResult({ success: false, message: data.message || data.error || "Connection test failed." });
       } else {
+        console.log("[PLATFORM INTEGRATION UI] 🟢 Google Play connection test succeeded:", data);
         setTestResult({ success: true, message: data.message || "Live Connection Verified!" });
       }
     } catch (err: any) {
+      console.error("[PLATFORM INTEGRATION UI] ❌ Exception testing Google Play connection:", err);
       setTestResult({ success: false, message: err?.message || "Failed to reach backend API." });
     } finally {
       setTesting(false);
@@ -86,6 +90,7 @@ export function GooglePlayConnectModal({ isOpen, onClose, onSuccess, initialData
     e.preventDefault();
     setSaving(true);
     setError(null);
+    console.log("[PLATFORM INTEGRATION UI] Connecting Google Play Console account...", { accountLabel, packageName });
 
     try {
       const res = await fetch("/api/v1/integrations/google-play/connect", {
@@ -103,12 +108,15 @@ export function GooglePlayConnectModal({ isOpen, onClose, onSuccess, initialData
 
       const data = await res.json();
       if (!res.ok) {
+        console.error("[PLATFORM INTEGRATION UI] 🔴 Failed to connect Google Play Console:", data);
         setError(data.error || "Failed to connect Google Play Console.");
       } else {
+        console.log("[PLATFORM INTEGRATION UI] 🟢 Google Play Console connected successfully:", data);
         onSuccess();
         onClose();
       }
     } catch (err: any) {
+      console.error("[PLATFORM INTEGRATION UI] ❌ Exception connecting Google Play Console:", err);
       setError(err?.message || "An unexpected error occurred.");
     } finally {
       setSaving(false);

@@ -327,6 +327,8 @@ export async function connectPersistedIntegrationCredentials(input: {
   providerKey?: string;
 }) {
   const platformEnum = platformMap[input.platform] || Platform.GOOGLE_ADS;
+  console.log(`[REPOSITORY DEBUG] 💾 Processing integration credentials | Platform: ${input.platform} -> Enum: ${platformEnum} | Account: ${input.accountName} (${input.accountId}) | Workspace: ${input.workspaceId}`);
+
   const existing = await prisma.integration.findFirst({
     where: { workspaceId: input.workspaceId, platform: platformEnum }
   });
@@ -344,10 +346,12 @@ export async function connectPersistedIntegrationCredentials(input: {
   if (encryptedApiKey) data.apiKeyEncrypted = encryptedApiKey;
 
   if (existing) {
-    return prisma.integration.update({ where: { id: existing.id }, data: data as never });
+    const updated = await prisma.integration.update({ where: { id: existing.id }, data: data as never });
+    console.log(`[REPOSITORY DEBUG] 🟢 UPDATED Integration ID: ${updated.id} | Platform: ${updated.platform} | Status: CONNECTED`);
+    return updated;
   }
 
-  return prisma.integration.create({
+  const created = await prisma.integration.create({
     data: {
       workspaceId: input.workspaceId,
       platform: platformEnum,
@@ -360,10 +364,13 @@ export async function connectPersistedIntegrationCredentials(input: {
       metadata: (input.metadata || {}) as never
     } as never
   });
+  console.log(`[REPOSITORY DEBUG] 🟢 CREATED Integration ID: ${created.id} | Platform: ${created.platform} | Status: CONNECTED`);
+  return created;
 }
 
 export async function disconnectPersistedIntegration(workspaceId: string, integrationId: string) {
-  return prisma.integration.updateMany({
+  console.log(`[REPOSITORY DEBUG] 🔌 Disconnecting Integration ID: ${integrationId} for workspace: ${workspaceId}`);
+  const res = await prisma.integration.updateMany({
     where: { id: integrationId, workspaceId },
     data: {
       status: "DISCONNECTED",
@@ -375,17 +382,22 @@ export async function disconnectPersistedIntegration(workspaceId: string, integr
       errorMessage: null
     }
   });
+  console.log(`[REPOSITORY DEBUG] 🟢 Disconnected ${res.count} integration record(s)`);
+  return res;
 }
 
 export async function updatePersistedIntegrationStatus(workspaceId: string, integrationId: string, status: string) {
   const statusEnum = status.toUpperCase() === "SUSPENDED" ? "SUSPENDED" : status.toUpperCase() === "CONNECTED" ? "CONNECTED" : "DISCONNECTED";
-  return prisma.integration.updateMany({
+  console.log(`[REPOSITORY DEBUG] 🔄 Updating status for Integration ID: ${integrationId} -> ${statusEnum}`);
+  const res = await prisma.integration.updateMany({
     where: { id: integrationId, workspaceId },
     data: {
       status: statusEnum as never,
       updatedAt: new Date()
     }
   });
+  console.log(`[REPOSITORY DEBUG] 🟢 Updated ${res.count} integration record(s) to status ${statusEnum}`);
+  return res;
 }
 
 export async function getPersistedIntegration(workspaceId: string, id: string) {

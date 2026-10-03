@@ -8,7 +8,8 @@ import {
   testSearchConsoleConnection,
   testAdMobConnection,
   encryptCredentialFields,
-  formatCustomerId
+  formatCustomerId,
+  cleanCredential
 } from "@/lib/google";
 
 export const runtime = "nodejs";
@@ -52,7 +53,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { platform, accountName, accountId, credentials, testOnly } = body;
 
-    if (!platform || !accountId) {
+    console.log(`[PLATFORM INTEGRATION DEBUG] 🚀 Testing/Connecting Google platform: "${platform}" | Account Name: "${accountName}" | Account/Property ID: "${accountId}" | TestOnly: ${Boolean(testOnly)} | Workspace: ${session.workspaceId}`);
+
+    if (!platform || (platform !== "GOOGLE_ADS" && !accountId)) {
+      console.warn(`[PLATFORM INTEGRATION DEBUG] ⚠️ Validation failed: Missing platform or accountId for "${platform}"`);
       return NextResponse.json(
         { error: "Platform and Account ID / Property ID / Site URL are required." },
         { status: 400 }
@@ -66,20 +70,27 @@ export async function POST(req: NextRequest) {
 
     // 1. Live Validation against Google Servers with User BYOK Credentials
     if (platform === "GOOGLE_ADS") {
-      const { developerToken, clientId, clientSecret, refreshToken, loginCustomerId } = credentials || {};
+      const developerToken = cleanCredential(credentials?.developerToken);
+      const clientId = cleanCredential(credentials?.clientId);
+      const clientSecret = cleanCredential(credentials?.clientSecret);
+      const refreshToken = cleanCredential(credentials?.refreshToken);
+      const loginCustomerId = cleanCredential(credentials?.loginCustomerId);
+
       if (!developerToken || !clientId || !clientSecret || !refreshToken) {
+        console.warn(`[PLATFORM INTEGRATION DEBUG] ⚠️ Google Ads credentials incomplete for workspace ${session.workspaceId}`);
         return NextResponse.json(
           { error: "Google Ads requires Developer Token, Client ID, Client Secret, and Refresh Token." },
           { status: 400 }
         );
       }
 
+      console.log(`[PLATFORM INTEGRATION DEBUG] 🔑 Testing live Google Ads API connection (Customer ID: ${accountId || "Default"})...`);
       validationResult = await testGoogleAdsConnection({
         developerToken,
         clientId,
         clientSecret,
         refreshToken,
-        customerId: formatCustomerId(accountId),
+        customerId: accountId ? formatCustomerId(accountId) : "",
         loginCustomerId: loginCustomerId ? formatCustomerId(loginCustomerId) : undefined
       });
     } else if (platform === "GOOGLE_ANALYTICS") {
@@ -89,6 +100,7 @@ export async function POST(req: NextRequest) {
         try {
           serviceAccount = typeof serviceAccountJson === "string" ? JSON.parse(serviceAccountJson) : serviceAccountJson;
         } catch {
+          console.warn(`[PLATFORM INTEGRATION DEBUG] ⚠️ GA4 Service Account JSON parse error`);
           return NextResponse.json({ error: "Invalid Service Account JSON format." }, { status: 400 });
         }
       }
@@ -102,6 +114,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      console.log(`[PLATFORM INTEGRATION DEBUG] 🔑 Testing live GA4 API connection (Property ID: ${accountId})...`);
       validationResult = await testAnalyticsConnection({
         propertyId: accountId,
         oauth,
@@ -128,6 +141,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      console.log(`[PLATFORM INTEGRATION DEBUG] 🔑 Testing live Search Console API connection (Site URL: ${accountId})...`);
       validationResult = await testSearchConsoleConnection({
         siteUrl: accountId,
         oauth,
@@ -153,6 +167,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      console.log(`[PLATFORM INTEGRATION DEBUG] 🔑 Testing live AdMob API connection (Publisher ID: ${accountId})...`);
       validationResult = await testAdMobConnection({
         publisherId: accountId,
         oauth,
@@ -160,12 +175,22 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // If connection test failed, return error to user immediately
-    if (!validationResult.success) {
+    // Extract forceSave option
+    const forceSave = Boolean(body.forceSave);
+
+    if (validationResult.success) {
+      console.log(`[PLATFORM INTEGRATION DEBUG] 🟢 SUCCESS: Connection verified for ${platform}! Message: ${validationResult.message}`);
+    } else {
+      console.error(`[PLATFORM INTEGRATION DEBUG] 🔴 FAILURE: Connection test failed for ${platform} | Message: ${validationResult.message} | Error: ${validationResult.error || "N/A"}`);
+    }
+
+    // If connection test failed and forceSave is false, return error to user immediately
+    if (!validationResult.success && !forceSave) {
       return NextResponse.json(
         {
           error: validationResult.error || validationResult.message || "Connection test failed",
-          details: validationResult
+          details: validationResult,
+          allowForceSave: true
         },
         { status: 400 }
       );
@@ -173,6 +198,7 @@ export async function POST(req: NextRequest) {
 
     // If user clicked "Test Connection" only, return success without saving
     if (testOnly) {
+      console.log(`[PLATFORM INTEGRATION DEBUG] 🧪 TestOnly mode completed for ${platform}`);
       return NextResponse.json({
         success: true,
         message: validationResult.message,
@@ -227,6 +253,7 @@ export async function POST(req: NextRequest) {
           metadata: metaPayload as never
         }
       });
+      console.log(`[PLATFORM INTEGRATION DEBUG] 🟢 UPDATED existing integration ${integration.id} for ${platform} -> Status: CONNECTED`);
     } else {
       integration = await prisma.integration.create({
         data: {
@@ -242,6 +269,7 @@ export async function POST(req: NextRequest) {
           metadata: metaPayload as never
         }
       });
+      console.log(`[PLATFORM INTEGRATION DEBUG] 🟢 CREATED new integration ${integration.id} for ${platform} -> Status: CONNECTED`);
     }
 
     return NextResponse.json({

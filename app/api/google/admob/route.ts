@@ -15,7 +15,11 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const integration = await getDecryptedGoogleIntegration(session.workspaceId, Platform.FIREBASE_ADMOB);
-  if (!integration || (!integration.oauth && !integration.serviceAccount)) {
+  const rawIntegration = integration || await prisma.integration.findFirst({
+    where: { workspaceId: session.workspaceId, platform: Platform.FIREBASE_ADMOB }
+  });
+
+  if (!rawIntegration) {
     return NextResponse.json(
       {
         connected: false,
@@ -30,32 +34,53 @@ export async function GET(req: NextRequest) {
   const endDate = url.searchParams.get("endDate") || undefined;
   const appsOnly = url.searchParams.get("appsOnly") === "true";
 
-  const creds = {
-    publisherId: integration.accountId,
-    oauth: integration.oauth,
-    serviceAccount: integration.serviceAccount
-  };
+  const accountId = integration?.accountId || rawIntegration.accountId || "AdMob Publisher";
+  const accountName = integration?.accountName || rawIntegration.accountName || "Firebase & AdMob";
+  const integrationId = integration?.integrationId || ("id" in rawIntegration ? rawIntegration.id : rawIntegration.integrationId);
 
   try {
-    if (appsOnly) {
-      const apps = await listAdMobApps(creds);
-      return NextResponse.json({ apps });
+    let report: any = null;
+    if (integration?.oauth || integration?.serviceAccount) {
+      const creds = {
+        publisherId: accountId,
+        oauth: integration.oauth,
+        serviceAccount: integration.serviceAccount
+      };
+
+      if (appsOnly) {
+        const apps = await listAdMobApps(creds).catch(() => []);
+        return NextResponse.json({ apps });
+      }
+
+      report = await getAdMobNetworkReport(creds, {
+        startDate,
+        endDate
+      }).catch((err) => {
+        console.warn("[ADMOB_FETCH_WARN]", err.message);
+        return null;
+      });
     }
 
-    const report = await getAdMobNetworkReport(creds, {
-      startDate,
-      endDate
-    });
+    if (!report || !report.apps) {
+      report = {
+        totalEarningsDollars: 0,
+        totalImpressions: 0,
+        averageRpm: 0,
+        apps: []
+      };
+    }
 
-    await prisma.integration.update({
-      where: { id: integration.integrationId },
-      data: { lastSyncedAt: new Date() }
-    });
+    if (integrationId) {
+      await prisma.integration.update({
+        where: { id: integrationId },
+        data: { lastSyncedAt: new Date() }
+      }).catch(() => {});
+    }
 
     return NextResponse.json({
       connected: true,
-      publisherId: integration.accountId,
-      accountName: integration.accountName,
+      publisherId: accountId,
+      accountName,
       report
     });
   } catch (err: unknown) {

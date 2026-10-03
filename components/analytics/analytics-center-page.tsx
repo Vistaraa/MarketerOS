@@ -345,7 +345,7 @@ export function AnalyticsCenterPage() {
         )}
 
         {["content", "leads"].includes(activeTab) && (
-          <div className="rounded-xl border border-zinc-200/90 bg-white p-8 text-center text-xs text-zinc-400 dark:border-zinc-800">
+          <div className="rounded-xl border border-zinc-200/90 bg-white p-8 text-center text-xs text-zinc-400 dark:border-zinc-800 dark:bg-zinc-950/60">
             Filtered performance view for <strong className="text-zinc-700 dark:text-zinc-300">{activeTab}</strong>.
           </div>
         )}

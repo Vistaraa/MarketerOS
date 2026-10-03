@@ -3,6 +3,19 @@ import { prisma } from "@/lib/prisma";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { Platform } from "@prisma/client";
 
+/**
+ * Clean and sanitize credential strings by trimming quotes, newlines, tabs, and non-breaking spaces.
+ */
+export function cleanCredential(val?: string | null): string {
+  if (!val) return "";
+  return val
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .replace(/[\r\n\t]/g, "")
+    .replace(/\u00A0/g, "")
+    .trim();
+}
+
 export interface UserOAuth2Credentials {
   clientId: string;
   clientSecret: string;
@@ -18,7 +31,7 @@ export interface UserServiceAccountCredentials {
 
 export interface GoogleAdsCredentials extends UserOAuth2Credentials {
   developerToken: string;
-  customerId: string;
+  customerId?: string;
   loginCustomerId?: string;
 }
 
@@ -132,9 +145,9 @@ export async function getDecryptedGoogleIntegration(
   const integration = await prisma.integration.findFirst({
     where: {
       workspaceId,
-      platform,
-      status: "CONNECTED"
-    }
+      platform
+    },
+    orderBy: { updatedAt: "desc" }
   });
 
   if (!integration) {

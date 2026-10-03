@@ -17,6 +17,7 @@ import {
   Search,
   Sparkles,
   Target,
+  Trash2,
   TrendingUp
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -25,6 +26,7 @@ import type { Campaign } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { AppShell, Card, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
 import { KpiCard, KpiGrid } from "@/components/ui/kpi-card";
+import { CustomDialog } from "@/components/ui/custom-dialog";
 
 export function LiveCampaignsPage() {
   const router = useRouter();
@@ -34,6 +36,8 @@ export function LiveCampaignsPage() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [objectiveFilter, setObjectiveFilter] = useState("All");
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchCampaigns = async () => {
     setLoading(true);
@@ -81,6 +85,24 @@ export function LiveCampaignsPage() {
       console.error(e);
     } finally {
       setTogglingId(null);
+    }
+  };
+
+  const handleDeleteCampaign = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/campaigns/${deleteTarget.id}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        setCampaigns((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+      }
+    } catch (e) {
+      console.error("Failed to delete campaign:", e);
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -306,6 +328,13 @@ export function LiveCampaignsPage() {
                             {campaign.status === "Active" ? <Pause size={13} /> : <Play size={13} />}
                           </button>
                           <button
+                            onClick={() => setDeleteTarget(campaign)}
+                            title="Delete / Archive Campaign"
+                            className="rounded-lg p-1.5 text-rose-500 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                          <button
                             onClick={() => router.push(`/campaigns/${campaign.id}`)}
                             className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
                           >
@@ -321,6 +350,19 @@ export function LiveCampaignsPage() {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <CustomDialog
+        isOpen={Boolean(deleteTarget)}
+        title="Delete Campaign?"
+        message={`Are you sure you want to delete "${deleteTarget?.name || "this campaign"}"? This will archive the campaign and stop active ad spending.`}
+        type="confirm"
+        confirmText={deleting ? "Deleting..." : "Delete Campaign"}
+        confirmTone="danger"
+        onConfirm={handleDeleteCampaign}
+        onCancel={() => setDeleteTarget(null)}
+        onClose={() => setDeleteTarget(null)}
+      />
     </AppShell>
   );
 }

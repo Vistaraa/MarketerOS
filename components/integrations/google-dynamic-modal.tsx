@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertCircle,
@@ -50,9 +50,9 @@ const PLATFORM_INFO: Record<
   GOOGLE_ADS: {
     title: "Google Ads (BYOK)",
     description: "Connect your personal or manager Google Ads account with your Developer Token and OAuth credentials.",
-    idLabel: "Customer ID",
+    idLabel: "Customer ID (Optional)",
     idPlaceholder: "123-456-7890",
-    idHelp: "10-digit Google Ads account ID found in the top right corner of ads.google.com.",
+    idHelp: "10-digit Google Ads account ID found in the top right corner of ads.google.com (Optional).",
     portalName: "Google Ads Console",
     portalUrl: "https://ads.google.com"
   },
@@ -123,6 +123,26 @@ export function GoogleDynamicModal({
   const [testSuccess, setTestSuccess] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const isFormValid = useMemo(() => {
+    if (platform === "GOOGLE_ADS") {
+      return Boolean(
+        developerToken.trim() &&
+        clientId.trim() &&
+        clientSecret.trim() &&
+        refreshToken.trim()
+      );
+    }
+    if (authMethod === "service_account") {
+      return Boolean(accountId.trim() && serviceAccountJson.trim());
+    }
+    return Boolean(
+      accountId.trim() &&
+      clientId.trim() &&
+      clientSecret.trim() &&
+      refreshToken.trim()
+    );
+  }, [platform, authMethod, accountId, developerToken, clientId, clientSecret, refreshToken, serviceAccountJson]);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -170,46 +190,61 @@ export function GoogleDynamicModal({
     setTestSuccess(null);
     setTesting(true);
 
+    const payload = buildPayload(true);
+    console.log(`[PLATFORM INTEGRATION UI] Testing connection for ${platform}:`, { accountId: payload.accountId, accountName: payload.accountName });
+
     try {
       const res = await fetch("/api/google/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildPayload(true))
+        body: JSON.stringify(payload)
       });
 
       const json = await res.json();
       if (res.ok && json.success) {
+        console.log(`[PLATFORM INTEGRATION UI] 🟢 Test successful for ${platform}:`, json);
         setTestSuccess(json.message || "Connection verified successfully with Google servers!");
       } else {
+        console.error(`[PLATFORM INTEGRATION UI] 🔴 Test failed for ${platform}:`, json);
         setErrorMsg(json.error || "Connection test failed. Please verify your credentials.");
       }
     } catch (err: unknown) {
+      console.error(`[PLATFORM INTEGRATION UI] ❌ Exception during test for ${platform}:`, err);
       setErrorMsg(err instanceof Error ? err.message : "Network error during connection test.");
     } finally {
       setTesting(false);
     }
   };
 
-  const handleSaveAndConnect = async () => {
+  const handleSaveAndConnect = async (force = false) => {
     setErrorMsg(null);
     setTestSuccess(null);
     setSaving(true);
+
+    const payload = {
+      ...buildPayload(false),
+      forceSave: force
+    };
+    console.log(`[PLATFORM INTEGRATION UI] Saving integration for ${platform} (forceSave: ${force}):`, { accountId: payload.accountId, accountName: payload.accountName });
 
     try {
       const res = await fetch("/api/google/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildPayload(false))
+        body: JSON.stringify(payload)
       });
 
       const json = await res.json();
       if (res.ok && json.success) {
-        onSuccess({ platform, message: json.message });
+        console.log(`[PLATFORM INTEGRATION UI] 🟢 Integration saved & connected for ${platform}:`, json);
+        onSuccess({ platform, message: json.message || "Integration saved successfully!" });
         onClose();
       } else {
+        console.error(`[PLATFORM INTEGRATION UI] 🔴 Save failed for ${platform}:`, json);
         setErrorMsg(json.error || "Failed to save integration. Please check credentials.");
       }
     } catch (err: unknown) {
+      console.error(`[PLATFORM INTEGRATION UI] ❌ Exception saving integration for ${platform}:`, err);
       setErrorMsg(err instanceof Error ? err.message : "Network error saving integration.");
     } finally {
       setSaving(false);
@@ -279,7 +314,7 @@ export function GoogleDynamicModal({
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
-                {info.idLabel} <span className="text-rose-500">*</span>
+                {info.idLabel} {platform !== "GOOGLE_ADS" && <span className="text-rose-500">*</span>}
               </label>
               <span className="text-[11px] text-zinc-400">{info.idHelp}</span>
             </div>
@@ -484,12 +519,22 @@ export function GoogleDynamicModal({
           )}
 
           {errorMsg && (
-            <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 flex items-start gap-2.5 text-xs text-rose-800 dark:text-rose-200">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold">Connection Error</p>
-                <p className="mt-0.5 font-mono">{errorMsg}</p>
+            <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 flex items-start justify-between gap-2.5 text-xs text-rose-800 dark:text-rose-200">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div className="space-y-1 w-full overflow-hidden">
+                  <p className="font-semibold">Connection Error</p>
+                  <div className="font-mono whitespace-pre-line leading-relaxed text-[11px] break-words">{errorMsg}</div>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => handleSaveAndConnect(true)}
+                disabled={saving}
+                className="shrink-0 px-3 py-1.5 bg-rose-700 hover:bg-rose-800 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
+              >
+                Save Credentials Anyway
+              </button>
             </div>
           )}
         </div>
@@ -505,7 +550,7 @@ export function GoogleDynamicModal({
             <button
               type="button"
               onClick={handleTestConnection}
-              disabled={testing || saving || !accountId}
+              disabled={testing || saving || !isFormValid}
               className="btn-secondary py-2 px-4"
             >
               {testing ? (
@@ -523,8 +568,8 @@ export function GoogleDynamicModal({
 
             <button
               type="button"
-              onClick={handleSaveAndConnect}
-              disabled={testing || saving || !accountId}
+              onClick={() => handleSaveAndConnect(false)}
+              disabled={testing || saving || !isFormValid}
               className="btn-primary py-2 px-5"
             >
               {saving ? (

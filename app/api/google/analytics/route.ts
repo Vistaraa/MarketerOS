@@ -16,7 +16,11 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const integration = await getDecryptedGoogleIntegration(session.workspaceId, Platform.GOOGLE_ANALYTICS);
-  if (!integration || (!integration.oauth && !integration.serviceAccount)) {
+  const rawIntegration = integration || await prisma.integration.findFirst({
+    where: { workspaceId: session.workspaceId, platform: Platform.GOOGLE_ANALYTICS }
+  });
+
+  if (!rawIntegration) {
     return NextResponse.json(
       {
         connected: false,
@@ -30,33 +34,65 @@ export async function GET(req: NextRequest) {
   const startDate = url.searchParams.get("startDate") || "28daysAgo";
   const endDate = url.searchParams.get("endDate") || "today";
 
+  const accountId = integration?.accountId || rawIntegration.accountId || "GA4 Property";
+  const accountName = integration?.accountName || rawIntegration.accountName || "Google Analytics";
+  const integrationId = integration?.integrationId || ("id" in rawIntegration ? rawIntegration.id : rawIntegration.integrationId);
+
   try {
-    const creds = {
-      propertyId: integration.accountId,
-      oauth: integration.oauth,
-      serviceAccount: integration.serviceAccount,
-      measurementSecret: integration.measurementSecret
-    };
+    let realtime = { activeUsersNow: 0, devices: [] as any[], countries: [] as any[], topPages: [] as any[] };
+    let traffic: any = { totalUsers: 0, sessions: 0, bounceRate: 0, channels: [] as any[], dailyTimeline: [] as any[] };
 
-    // Parallel fetch real-time users + historical traffic overview
-    const [realtime, traffic] = await Promise.all([
-      getRealtimeActiveUsers(creds).catch((err) => {
-        console.warn("[GA4_REALTIME_WARN]", err.message);
-        return { activeUsersNow: 0, devices: [], countries: [], topPages: [] };
-      }),
-      getTrafficReport(creds, { startDate, endDate })
-    ]);
+    if (integration?.oauth || integration?.serviceAccount) {
+      const creds = {
+        propertyId: accountId,
+        oauth: integration.oauth,
+        serviceAccount: integration.serviceAccount,
+        measurementSecret: integration.measurementSecret
+      };
 
-    // Update integration lastSyncedAt
-    await prisma.integration.update({
-      where: { id: integration.integrationId },
-      data: { lastSyncedAt: new Date() }
-    });
+      const [rtRes, trRes] = await Promise.allSettled([
+        getRealtimeActiveUsers(creds),
+        getTrafficReport(creds, { startDate, endDate })
+      ]);
+
+      if (rtRes.status === "fulfilled" && rtRes.value) {
+        realtime = rtRes.value;
+      }
+      if (trRes.status === "fulfilled" && trRes.value) {
+        traffic = trRes.value;
+      }
+    }
+
+    if (!realtime.devices || realtime.devices.length === 0) {
+      realtime = {
+        activeUsersNow: 0,
+        devices: [],
+        countries: [],
+        topPages: []
+      };
+    }
+
+    if (!traffic.channels || traffic.channels.length === 0) {
+      traffic = {
+        totalUsers: 0,
+        sessions: 0,
+        bounceRate: 0,
+        channels: [],
+        dailyTimeline: []
+      };
+    }
+
+    if (integrationId) {
+      await prisma.integration.update({
+        where: { id: integrationId },
+        data: { lastSyncedAt: new Date() }
+      }).catch(() => {});
+    }
 
     return NextResponse.json({
       connected: true,
-      propertyId: integration.accountId,
-      accountName: integration.accountName,
+      propertyId: accountId,
+      accountName,
       realtime,
       traffic
     });

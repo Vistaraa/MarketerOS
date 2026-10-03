@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertCircle,
   ArrowRight,
@@ -69,19 +70,23 @@ export function GoogleAdsConnectModal({
   const fetchAccessibleAccounts = async () => {
     setLoadingAccounts(true);
     setError(null);
+    console.log("[PLATFORM INTEGRATION UI] Fetching accessible Google Ads accounts...");
     try {
       const res = await fetch("/api/google-ads/accounts");
       const json = await res.json();
       if (res.ok && json.data) {
+        console.log(`[PLATFORM INTEGRATION UI] 🟢 Loaded ${json.data.length} accessible Google Ads accounts:`, json.data);
         setAccessibleAccounts(json.data);
         if (json.data.length > 0 && !selectedCustomerId) {
           setSelectedCustomerId(json.data[0].customerId);
         }
         setStep("select_account");
       } else {
+        console.error("[PLATFORM INTEGRATION UI] 🔴 Failed to fetch accessible Google Ads accounts:", json);
         setError(json.error || "Failed to load accessible Google Ads accounts.");
       }
     } catch (err) {
+      console.error("[PLATFORM INTEGRATION UI] ❌ Error fetching accessible Google Ads accounts:", err);
       setError("Network error fetching accounts. Please try again.");
     } finally {
       setLoadingAccounts(false);
@@ -91,10 +96,12 @@ export function GoogleAdsConnectModal({
   // Trigger OAuth Consent
   const handleInitiateOAuth = async () => {
     setError(null);
+    console.log("[PLATFORM INTEGRATION UI] Initiating Google Ads OAuth connection...");
     try {
       const res = await fetch("/api/google-ads/oauth-url");
       const json = await res.json();
       if (res.ok && json.url) {
+        console.log("[PLATFORM INTEGRATION UI] OAuth URL received:", json);
         if (json.configured) {
           // Redirect to real Google OAuth Consent screen
           window.location.href = json.url;
@@ -103,21 +110,19 @@ export function GoogleAdsConnectModal({
           await fetchAccessibleAccounts();
         }
       } else {
+        console.error("[PLATFORM INTEGRATION UI] 🔴 Failed to get Google Ads OAuth URL:", json);
         setError(json.error || "Failed to get Google OAuth URL.");
       }
     } catch (err) {
+      console.error("[PLATFORM INTEGRATION UI] ❌ Exception initiating OAuth:", err);
       setError("Could not initialize Google OAuth.");
     }
   };
 
-  // Save connection with selected Customer ID
   const handleSaveConnection = async () => {
-    if (!selectedCustomerId) {
-      setError("Please select a Google Ads Customer ID.");
-      return;
-    }
     setSaving(true);
     setError(null);
+    console.log("[PLATFORM INTEGRATION UI] Saving Google Ads connection for customerId:", selectedCustomerId);
     try {
       const res = await fetch("/api/google-ads/save-connection", {
         method: "POST",
@@ -130,27 +135,36 @@ export function GoogleAdsConnectModal({
       });
       const json = await res.json();
       if (res.ok && json.success) {
+        console.log("[PLATFORM INTEGRATION UI] 🟢 Google Ads connection saved:", json);
         setStep("success");
         setTimeout(() => {
           onSuccess(json.data);
           onClose();
         }, 1200);
       } else {
+        console.error("[PLATFORM INTEGRATION UI] 🔴 Failed to save Google Ads connection:", json);
         setError(json.error || "Failed to save Google Ads connection.");
       }
     } catch (err) {
+      console.error("[PLATFORM INTEGRATION UI] ❌ Network error while saving connection:", err);
       setError("Network error while saving connection.");
     } finally {
       setSaving(false);
     }
   };
 
-  if (!open) return null;
+  const [mounted, setMounted] = useState(false);
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!open || !mounted || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 w-screen h-screen z-[99999] flex items-center justify-center p-3 sm:p-6 bg-black/75 dark:bg-black/85 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200">
       <div
-        className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 sm:p-7"
+        className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 sm:p-7 my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -266,13 +280,14 @@ export function GoogleAdsConnectModal({
 
             <div>
               <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                Select Google Ads Account (Customer ID)
+                Select Google Ads Account (Customer ID - Optional)
               </label>
               <select
                 value={selectedCustomerId}
                 onChange={(e) => setSelectedCustomerId(e.target.value)}
                 className="input-clean mt-1.5"
               >
+                <option value="">-- None / Skip Customer ID (Optional) --</option>
                 {accessibleAccounts.map((acc) => (
                   <option key={acc.customerId} value={acc.customerId}>
                     {acc.descriptiveName} ({acc.customerId}) · {acc.currencyCode}
@@ -356,6 +371,7 @@ export function GoogleAdsConnectModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

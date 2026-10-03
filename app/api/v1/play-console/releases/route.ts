@@ -16,11 +16,17 @@ export async function GET(request: Request) {
     const clientIdParam = url.searchParams.get("clientId");
 
     const app = await ensurePlayConsoleData(workspaceId, clientIdParam || undefined);
-    const activeApp = clientIdParam
-      ? await prisma.playConsoleApp.findFirst({ where: { workspaceId, clientId: clientIdParam } }) || app
+    if (!app) {
+      return NextResponse.json({ error: "Play Console app not found." }, { status: 404 });
+    }
+
+    const targetApp = clientIdParam
+      ? await prisma.playConsoleApp.findFirst({ where: { workspaceId, clientId: clientIdParam } })
       : packageNameParam
-      ? await prisma.playConsoleApp.findFirst({ where: { workspaceId, packageName: packageNameParam } }) || app
-      : app;
+      ? await prisma.playConsoleApp.findFirst({ where: { workspaceId, packageName: packageNameParam } })
+      : null;
+
+    const activeApp = targetApp || app;
 
     const releases = await prisma.playConsoleRelease.findMany({
       where: { workspaceId, appId: activeApp.id },

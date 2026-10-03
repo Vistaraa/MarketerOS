@@ -29,8 +29,8 @@ export async function POST(request: Request) {
       });
     }
 
-    // Refresh Play Console data
-    await ensurePlayConsoleData(workspaceId);
+    // Refresh Play Console data & purge legacy demo sine wave records
+    await ensurePlayConsoleData(workspaceId, undefined, true);
 
     return NextResponse.json({
       success: true,

@@ -3,10 +3,15 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
   try {
-    const devToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+    const { getSession } = await import("@/lib/auth-server");
+    const { getDecryptedGoogleIntegration, fetchGoogleAccessToken } = await import("@/lib/google");
+    const { Platform } = await import("@prisma/client");
 
-    // Check if we have an active Google Ads integration with an access/refresh token in DB
-    const workspace = await prisma.workspace.findFirst({ orderBy: { createdAt: "desc" } });
+    const session = await getSession().catch(() => null);
+    const workspace = session?.workspaceId
+      ? { id: session.workspaceId }
+      : await prisma.workspace.findFirst({ orderBy: { createdAt: "desc" } });
+
     let liveAccounts: Array<{
       customerId: string;
       descriptiveName: string;
@@ -16,43 +21,44 @@ export async function GET(request: Request) {
       resourceName: string;
     }> = [];
 
-    if (workspace && devToken) {
-      const integration = await prisma.integration.findFirst({
-        where: {
-          workspaceId: workspace.id,
-          platform: "GOOGLE_ADS"
-        }
-      });
+    if (workspace) {
+      const integration = await getDecryptedGoogleIntegration(workspace.id, Platform.GOOGLE_ADS);
+      const devToken = integration?.developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
 
-      if (integration?.accessTokenEncrypted) {
+      if (integration?.oauth && devToken) {
         try {
-          const { decryptSecret } = await import("@/lib/crypto");
-          const accessToken = decryptSecret(integration.accessTokenEncrypted);
-
-          const googleRes = await fetch("https://googleads.googleapis.com/v17/customers:listAccessibleCustomers", {
-            headers: {
-              "Authorization": `Bearer ${accessToken}`,
-              "developer-token": devToken
-            }
+          const tokenRes = await fetchGoogleAccessToken({
+            clientId: integration.oauth.clientId,
+            clientSecret: integration.oauth.clientSecret,
+            refreshToken: integration.oauth.refreshToken
           });
 
-          if (googleRes.ok) {
-            const data = await googleRes.json();
-            if (data.resourceNames && Array.isArray(data.resourceNames)) {
-              liveAccounts = data.resourceNames.map((resName: string) => {
-                const rawId = resName.replace("customers/", "");
-                const formattedId = rawId.length === 10
-                  ? `${rawId.slice(0, 3)}-${rawId.slice(3, 6)}-${rawId.slice(6)}`
-                  : rawId;
-                return {
-                  customerId: formattedId,
-                  descriptiveName: `Google Ads Account (${formattedId})`,
-                  currencyCode: "USD",
-                  timeZone: "UTC",
-                  isManager: false,
-                  resourceName: resName
-                };
-              });
+          if (tokenRes.success && tokenRes.accessToken) {
+            const googleRes = await fetch("https://googleads.googleapis.com/v17/customers:listAccessibleCustomers", {
+              headers: {
+                "Authorization": `Bearer ${tokenRes.accessToken}`,
+                "developer-token": devToken
+              }
+            });
+
+            if (googleRes.ok) {
+              const data = await googleRes.json();
+              if (data.resourceNames && Array.isArray(data.resourceNames)) {
+                liveAccounts = data.resourceNames.map((resName: string) => {
+                  const rawId = resName.replace("customers/", "");
+                  const formattedId = rawId.length === 10
+                    ? `${rawId.slice(0, 3)}-${rawId.slice(3, 6)}-${rawId.slice(6)}`
+                    : rawId;
+                  return {
+                    customerId: formattedId,
+                    descriptiveName: `Google Ads Account (${formattedId})`,
+                    currencyCode: "USD",
+                    timeZone: "UTC",
+                    isManager: false,
+                    resourceName: resName
+                  };
+                });
+              }
             }
           }
         } catch (e) {

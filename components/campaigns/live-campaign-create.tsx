@@ -80,6 +80,12 @@ export function LiveCampaignCreate() {
       return;
     }
 
+    const roasVal = Number(targetRoas);
+    if (isNaN(roasVal) || roasVal <= 0) {
+      setError("Please enter a valid positive Target ROAS Goal (e.g. 3.5x for 350% return).");
+      return;
+    }
+
     setBusy(true);
     setError(null);
 
@@ -97,7 +103,7 @@ export function LiveCampaignCreate() {
           objective: objective.toUpperCase().replace(/\s+/g, "_"),
           budget: budgetNum,
           dailyBudget: dailyBudgetNum,
-          targetRoas: Number(targetRoas) || 3.0,
+          targetRoas: roasVal,
           biddingStrategy,
           metadata: {
             landingPage: landingPage.trim(),
@@ -292,8 +298,10 @@ export function LiveCampaignCreate() {
                       min="1"
                       value={dailyBudget}
                       onChange={(e) => {
-                        setDailyBudget(e.target.value);
-                        setTotalBudget(String(Number(e.target.value) * 30));
+                        const val = e.target.value;
+                        if (Number(val) < 0) return;
+                        setDailyBudget(val);
+                        setTotalBudget(String(Math.max(0, Number(val)) * 30));
                       }}
                       placeholder="100"
                       required
@@ -305,8 +313,13 @@ export function LiveCampaignCreate() {
                     <label className="block font-medium text-zinc-700 dark:text-zinc-300">Estimated Total Budget ($ / mo)</label>
                     <input
                       type="number"
+                      min="1"
                       value={totalBudget}
-                      onChange={(e) => setTotalBudget(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (Number(val) < 0) return;
+                        setTotalBudget(val);
+                      }}
                       placeholder="3000"
                       className="input-clean mt-1 font-mono"
                     />
@@ -319,23 +332,61 @@ export function LiveCampaignCreate() {
                       onChange={(e) => setBiddingStrategy(e.target.value)}
                       className="input-clean mt-1"
                     >
-                      <option>Maximize Conversions</option>
-                      <option>Target ROAS (Smart Bidding)</option>
-                      <option>Target CPA (Cost Cap)</option>
-                      <option>Maximize Clicks</option>
+                      <option value="Target ROAS (Smart Bidding)">Target ROAS (Smart Bidding)</option>
+                      <option value="Maximize Conversions">Maximize Conversions</option>
+                      <option value="Target CPA (Cost Cap)">Target CPA (Cost Cap)</option>
+                      <option value="Maximize Clicks">Maximize Clicks</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block font-medium text-zinc-700 dark:text-zinc-300">Target ROAS Goal (x)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={targetRoas}
-                      onChange={(e) => setTargetRoas(e.target.value)}
-                      placeholder="3.5"
-                      className="input-clean mt-1 font-mono"
-                    />
+                    <div className="flex items-center justify-between">
+                      <label className="block font-medium text-zinc-700 dark:text-zinc-300">Target ROAS Goal (x) *</label>
+                      <span className="text-[10px] text-zinc-400 font-medium">Multiplier (e.g. 3.5 = 350%)</span>
+                    </div>
+                    <div className="relative mt-1">
+                      <input
+                        type="number"
+                        min="0.1"
+                        max="100"
+                        step="0.1"
+                        value={targetRoas}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val.includes("-")) return; // Disallow typing minus sign
+                          setTargetRoas(val);
+                        }}
+                        placeholder="3.5"
+                        required
+                        className={cn(
+                          "input-clean font-mono pr-8",
+                          (Number(targetRoas) <= 0 || isNaN(Number(targetRoas))) && "border-rose-400 focus:border-rose-500"
+                        )}
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs font-bold text-zinc-400">
+                        x
+                      </span>
+                    </div>
+
+                    {/* Live ROAS Feedback & Revenue Forecast */}
+                    {Number(targetRoas) > 0 ? (
+                      <div className="mt-1.5 space-y-0.5 text-[11px]">
+                        <div className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                          <Sparkles size={11} />
+                          <span>{(Number(targetRoas) * 100).toFixed(0)}% Return on Spend</span>
+                          <span className="text-zinc-400 font-normal">(${(Number(targetRoas)).toFixed(2)} back per $1.00 spent)</span>
+                        </div>
+                        {Number(totalBudget) > 0 && (
+                          <div className="text-zinc-500 dark:text-zinc-400">
+                            Est. Target Monthly Revenue: <strong className="text-zinc-900 dark:text-zinc-100">${(Number(totalBudget) * Number(targetRoas)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="mt-1.5 text-[11px] font-medium text-rose-500">
+                        Target ROAS must be a positive multiplier (e.g. 3.5x).
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -426,14 +477,22 @@ export function LiveCampaignCreate() {
                   </div>
                   <div className="flex justify-between pt-2">
                     <span>Target ROAS:</span>
-                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">{targetRoas}x</span>
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                      {Number(targetRoas) > 0 ? `${targetRoas}x (${(Number(targetRoas) * 100).toFixed(0)}%)` : "Invalid"}
+                    </span>
                   </div>
+                  {Number(totalBudget) > 0 && Number(targetRoas) > 0 && (
+                    <div className="flex justify-between pt-2 text-emerald-600 dark:text-emerald-400 font-medium">
+                      <span>Est. Monthly Return:</span>
+                      <span>${(Number(totalBudget) * Number(targetRoas)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-3">
                   <button
                     type="submit"
-                    disabled={busy}
+                    disabled={busy || Number(targetRoas) <= 0 || isNaN(Number(targetRoas))}
                     className="btn-primary w-full py-2.5"
                   >
                     <Rocket size={14} />

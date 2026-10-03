@@ -85,9 +85,9 @@ const SUPPORTED_PLATFORMS: PlatformConfig[] = [
     description: "Search, Display, Shopping, YouTube, and Performance Max ad campaigns.",
     portalName: "Google Ads Manager",
     portalUrl: "https://ads.google.com",
-    idLabel: "Customer ID",
+    idLabel: "Customer ID (Optional)",
     idPlaceholder: "123-456-7890",
-    idHelp: "10-digit number formatted as XXX-XXX-XXXX.",
+    idHelp: "10-digit number formatted as XXX-XXX-XXXX (Optional).",
     keyLabel: "OAuth Authorization",
     keyPlaceholder: "Sign in with Google OAuth",
     keyHelp: "OAuth 2.0 with AdWords read/write scope.",
@@ -389,11 +389,15 @@ export function LiveIntegrationsPage() {
   const fetchIntegrations = async () => {
     try {
       setLoading(true);
+      console.log("[PLATFORM INTEGRATION UI] 🔄 Fetching active platform integrations...");
       const res = await fetch("/api/v1/integrations");
       const json = (await res.json()) as ApiResponse<{ items: Integration[] }>;
       if (!res.ok) throw new Error(json.error?.message || "Failed to load integrations");
-      setIntegrations(json.data.items || []);
+      const items = json.data.items || [];
+      console.log("[PLATFORM INTEGRATION UI] 📊 Loaded integrations:", items.map(i => ({ platform: i.platform, status: i.status, account: i.account })));
+      setIntegrations(items);
     } catch (err) {
+      console.error("[PLATFORM INTEGRATION UI] 🔴 Error fetching integrations:", err);
       setError(err instanceof Error ? err.message : "Failed to load integrations");
     } finally {
       setLoading(false);
@@ -407,6 +411,7 @@ export function LiveIntegrationsPage() {
       const params = new URLSearchParams(window.location.search);
       if (params.get("oauth") === "success") {
         const prov = params.get("provider");
+        console.log(`[PLATFORM INTEGRATION UI] 🟢 OAuth Success callback received for provider: ${prov}`);
         if (prov === "google_ads") {
           setGoogleAdsConnectOpen(true);
         } else if (prov === "admob" || prov === "google_admob") {
@@ -434,6 +439,7 @@ export function LiveIntegrationsPage() {
   };
 
   const handleOpenConnect = (platform: PlatformConfig, existing?: Integration) => {
+    console.log(`[PLATFORM INTEGRATION UI] 🚀 Initiating connect modal for: "${platform.name}" | Currently connected: ${Boolean(existing && existing.status === "Connected")}`);
     if (platform.id === "Google Ads") {
       setGoogleDynamicPlatform("GOOGLE_ADS");
       setGoogleDynamicInitialId(existing?.account || "");
@@ -499,6 +505,8 @@ export function LiveIntegrationsPage() {
     setError(null);
     setSuccessMsg(null);
 
+    console.log(`[PLATFORM INTEGRATION UI] ⚡ Submitting integration connection for "${selectedPlatform.name}" (Account ID: "${accountId}")`);
+
     try {
       const res = await fetch("/api/v1/integrations", {
         method: "POST",
@@ -516,15 +524,18 @@ export function LiveIntegrationsPage() {
 
       const json = await res.json();
       if (!res.ok) {
+        console.error(`[PLATFORM INTEGRATION UI] 🔴 Connection failed for "${selectedPlatform.name}":`, json.error);
         throw new Error(json.error?.message || "Failed to connect integration");
       }
 
+      console.log(`[PLATFORM INTEGRATION UI] 🟢 Connected successfully to "${selectedPlatform.name}"! Response:`, json);
       setSuccessMsg(`${selectedPlatform.name} connected successfully!`);
       await fetchIntegrations();
       setTimeout(() => {
         setGenericConnectModalOpen(false);
       }, 1000);
     } catch (err) {
+      console.error(`[PLATFORM INTEGRATION UI] 🔴 Exception saving "${selectedPlatform.name}":`, err);
       setError(err instanceof Error ? err.message : "Failed to connect platform");
     } finally {
       setBusy(false);
@@ -534,6 +545,7 @@ export function LiveIntegrationsPage() {
   const confirmDisconnect = async () => {
     if (!disconnectTarget) return;
 
+    console.log(`[PLATFORM INTEGRATION UI] 🔌 Disconnecting platform "${disconnectTarget.platformName}" (Integration ID: ${disconnectTarget.integrationId})`);
     try {
       setBusy(true);
       const res = await fetch("/api/v1/integrations/disconnect", {
@@ -543,8 +555,10 @@ export function LiveIntegrationsPage() {
       });
       if (!res.ok) {
         const json = await res.json();
+        console.error(`[PLATFORM INTEGRATION UI] 🔴 Disconnect error for "${disconnectTarget.platformName}":`, json.error);
         throw new Error(json.error?.message || "Disconnect failed");
       }
+      console.log(`[PLATFORM INTEGRATION UI] 🟢 Successfully disconnected "${disconnectTarget.platformName}"`);
       setDisconnectTarget(null);
       await fetchIntegrations();
     } catch (err) {
@@ -561,6 +575,7 @@ export function LiveIntegrationsPage() {
 
   const handleTogglePlatformStatus = async (integrationId: string, currentStatus: string, platformName: string) => {
     const nextStatus = currentStatus === "Connected" ? "SUSPENDED" : "CONNECTED";
+    console.log(`[PLATFORM INTEGRATION UI] 🔄 Toggling status for "${platformName}" (ID: ${integrationId}) from ${currentStatus} -> ${nextStatus}`);
     try {
       const res = await fetch(`/api/v1/integrations/${integrationId}`, {
         method: "PATCH",
@@ -568,6 +583,7 @@ export function LiveIntegrationsPage() {
         body: JSON.stringify({ status: nextStatus })
       });
       if (res.ok) {
+        console.log(`[PLATFORM INTEGRATION UI] 🟢 Platform status updated for "${platformName}": ${nextStatus}`);
         setIntegrations((prev) =>
           prev.map((item) =>
             item.id === integrationId
@@ -590,6 +606,8 @@ export function LiveIntegrationsPage() {
             type: "success"
           });
         }
+      } else {
+        console.error(`[PLATFORM INTEGRATION UI] 🔴 Failed to update status for "${platformName}"`);
       }
     } catch (err) {
       console.error("Failed to toggle platform status:", err);

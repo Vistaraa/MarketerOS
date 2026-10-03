@@ -244,6 +244,8 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
   }, [selectedPlatform]);
 
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleToggleStatus = async () => {
     if (!data?.campaign) return;
@@ -293,6 +295,31 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
     }
   };
 
+  const handleDeleteCampaign = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/campaigns/${encodeURIComponent(campaignId)}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        router.push("/campaigns");
+      } else {
+        const json = await res.json();
+        setDialogConfig({
+          isOpen: true,
+          title: "Delete Failed",
+          message: json.error || "Failed to delete campaign.",
+          type: "error"
+        });
+      }
+    } catch (err) {
+      console.error("Failed to delete campaign:", err);
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   const isCampaignActive = (data?.campaign?.status || "").toLowerCase() === "active";
 
   return (
@@ -330,6 +357,16 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
             )}
             <span>{isCampaignActive ? "Pause" : "Resume"}</span>
             <span className="hidden sm:inline"> Campaign</span>
+          </button>
+
+          {/* Delete Campaign Button */}
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="inline-flex h-7 sm:h-8 items-center gap-1 sm:gap-1.5 rounded-lg px-2 sm:px-3 text-xs font-semibold border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-400 transition whitespace-nowrap"
+            title="Delete Campaign"
+          >
+            <Trash2 size={13} />
+            <span className="hidden sm:inline">Delete</span>
           </button>
 
           <button className="hidden sm:inline-flex btn-secondary h-7 sm:h-8 px-2.5" title="Share Campaign">
@@ -778,6 +815,18 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
           </div>
         )}
       </div>
+      <CustomDialog
+        isOpen={showDeleteConfirm}
+        title="Delete Campaign?"
+        message={`Are you sure you want to delete "${data?.campaign?.name || "this campaign"}"? This will archive the campaign and halt active ad spending.`}
+        type="confirm"
+        confirmText={deleting ? "Deleting..." : "Delete Campaign"}
+        confirmTone="danger"
+        onConfirm={handleDeleteCampaign}
+        onCancel={() => setShowDeleteConfirm(false)}
+        onClose={() => setShowDeleteConfirm(false)}
+      />
+
       <CustomDialog
         isOpen={dialogConfig.isOpen}
         title={dialogConfig.title}

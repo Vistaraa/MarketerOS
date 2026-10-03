@@ -163,7 +163,7 @@ You will see the **Create your account** form. Enter the following:
 | Field Label in Modal | Example Value to Type / Paste | Notes |
 | :--- | :--- | :--- |
 | **Account Label / Friendly Name** | `My Main Google Ads` | Any nickname for this account. |
-| **Customer ID** <span style="color:red">*</span> | `123-456-7890` | Your 10-digit Google Ads ID (with or without dashes). |
+| **Customer ID (Optional)** | `123-456-7890` | Your 10-digit Google Ads ID (with or without dashes, optional). |
 | **Developer Token** <span style="color:red">*</span> | `QvCJmKacfFBA_M9U1whlZg` | From Google Ads MCC > API Center. *(Click the eye icon to reveal)*. |
 | **OAuth Client ID** <span style="color:red">*</span> | `668979121407-npcfjsh2ckhuvcbd2dtmk0dheh7aeb18.apps.googleusercontent.com` | From Google Cloud Console Credentials. |
 | **OAuth Client Secret** <span style="color:red">*</span> | `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` | Matching client secret from Google Cloud. |

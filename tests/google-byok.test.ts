@@ -12,6 +12,8 @@ describe("Google BYOK dynamic integration system", () => {
     expect(formatCustomerId("123-456-7890")).toBe("1234567890");
     expect(formatCustomerId(" 987-654-3210 ")).toBe("9876543210");
     expect(formatCustomerId("3049938456")).toBe("3049938456");
+    expect(formatCustomerId("")).toBe("");
+    expect(formatCustomerId(undefined)).toBe("");
   });
 
   it("formats AdMob publisher ID correctly", () => {

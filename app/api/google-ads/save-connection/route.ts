@@ -12,12 +12,9 @@ export async function POST(request: Request) {
       refreshToken
     } = body;
 
-    if (!customerId) {
-      return NextResponse.json(
-        { success: false, error: "Customer ID is required." },
-        { status: 400 }
-      );
-    }
+    const cleanCustomerId = customerId ? customerId.replaceAll("-", "").trim() : "default";
+
+    console.log(`[PLATFORM INTEGRATION DEBUG] 🚀 Saving Google Ads Connection | Customer ID: ${customerId} (Clean: ${cleanCustomerId}) | Account Name: ${accountName} | Login Customer ID: ${loginCustomerId || 'N/A'}`);
 
     // Determine target workspace
     const session = await getSession().catch(() => null);
@@ -41,8 +38,6 @@ export async function POST(request: Request) {
       });
       workspaceId = newWs.id;
     }
-
-    const cleanCustomerId = customerId.replaceAll("-", "").trim();
 
     // Check existing Google Ads integration in this workspace
     const existing = await prisma.integration.findFirst({
@@ -79,6 +74,7 @@ export async function POST(request: Request) {
           ...(tokenSource?.refreshTokenEncrypted ? { refreshTokenEncrypted: tokenSource.refreshTokenEncrypted } : {})
         }
       });
+      console.log(`[PLATFORM INTEGRATION DEBUG] 🟢 UPDATED Google Ads integration ${integration.id} for workspace ${workspaceId} -> Status: CONNECTED`);
     } else {
       integration = await prisma.integration.create({
         data: {
@@ -94,6 +90,7 @@ export async function POST(request: Request) {
           ...(tokenSource?.refreshTokenEncrypted ? { refreshTokenEncrypted: tokenSource.refreshTokenEncrypted } : {})
         }
       });
+      console.log(`[PLATFORM INTEGRATION DEBUG] 🟢 CREATED new Google Ads integration ${integration.id} for workspace ${workspaceId} -> Status: CONNECTED`);
     }
 
     // Ensure all GOOGLE_ADS integration records across active workspaces are synchronized
@@ -121,6 +118,8 @@ export async function POST(request: Request) {
       }
     }).catch(() => { });
 
+    console.log(`[PLATFORM INTEGRATION DEBUG] 🟢 Google Ads account (${customerId}) is LIVE and CONNECTED in workspace ${workspaceId}`);
+
     return NextResponse.json({
       success: true,
       data: {
@@ -134,6 +133,7 @@ export async function POST(request: Request) {
       }
     });
   } catch (error) {
+    console.error(`[PLATFORM INTEGRATION DEBUG] 🔴 FAILURE: Failed to save Google Ads connection | Error:`, error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Failed to save Google Ads connection" },
       { status: 500 }

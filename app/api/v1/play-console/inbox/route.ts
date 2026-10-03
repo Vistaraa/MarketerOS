@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     const messages = await prisma.playConsoleInboxMessage.findMany({
       where: {
         workspaceId,
-        ...(clientIdParam ? { appId: app.id } : {})
+        ...(clientIdParam && app ? { appId: app.id } : {})
       },
       orderBy: { receivedAt: "desc" }
     });
