@@ -123,18 +123,19 @@ export function LiveCampaignCreate() {
 
       // If Google Ads is selected, trigger live Google Ads API mutation immediately
       if (createdId && selectedPlatforms.includes("Google Ads")) {
-        fetch("/api/google-ads/publish-campaign", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ campaignId: createdId })
-        })
-          .then(async (r) => {
-            const rJson = await r.json();
-            if (!r.ok) {
-              console.warn("Google Ads mutate on create:", rJson.error);
-            }
-          })
-          .catch((err) => console.error("Google Ads publish error:", err));
+        try {
+          const r = await fetch("/api/google-ads/publish-campaign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ campaignId: createdId })
+          });
+          const rJson = await r.json();
+          if (!r.ok || !rJson.success) {
+            console.warn("[GOOGLE_ADS] Publish notice:", rJson.error);
+          }
+        } catch (err) {
+          console.error("[GOOGLE_ADS] Publish error:", err);
+        }
       }
 
       if (createdId) {

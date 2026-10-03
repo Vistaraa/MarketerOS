@@ -24,6 +24,7 @@ interface AdMobConnectModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  onOpenByok?: () => void;
   existingAccountId?: string;
   existingAccountName?: string;
 }
@@ -32,6 +33,7 @@ export function AdMobConnectModal({
   isOpen,
   onClose,
   onSuccess,
+  onOpenByok,
   existingAccountId,
   existingAccountName
 }: AdMobConnectModalProps) {
@@ -210,9 +212,25 @@ export function AdMobConnectModal({
 
           {/* Error Message */}
           {error && (
-            <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
-              <AlertCircle size={16} className="mt-0.5 shrink-0" />
-              <span>{error}</span>
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300 space-y-2">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+              {error.includes("Client ID") && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      if (onOpenByok) onOpenByok();
+                    }}
+                    className="inline-flex items-center gap-1 rounded-md bg-red-700 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-red-800 transition shadow-2xs"
+                  >
+                    <span>Configure Google BYOK Credentials &rarr;</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

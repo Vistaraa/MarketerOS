@@ -9,21 +9,36 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const returnTo = url.searchParams.get("returnTo") || "/integrations";
 
-    // Priority: ADMOB_OAUTH_CLIENT_ID -> GOOGLE_CLIENT_ID
-    const clientId = process.env.ADMOB_OAUTH_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+    const session = await getSession().catch(() => null);
+    const workspaceId = session?.workspaceId || "default-ws";
+
+    let clientId =
+      process.env.ADMOB_OAUTH_CLIENT_ID ||
+      process.env.GOOGLE_CLIENT_ID ||
+      process.env.GOOGLE_OAUTH_CLIENT_ID;
+
+    if (!clientId && workspaceId) {
+      try {
+        const { getDecryptedGoogleIntegration } = await import("@/lib/google/client");
+        const { Platform } = await import("@prisma/client");
+        const byokGAds = await getDecryptedGoogleIntegration(workspaceId, Platform.GOOGLE_ADS);
+        const byokAdMob = await getDecryptedGoogleIntegration(workspaceId, Platform.FIREBASE_ADMOB);
+        clientId = byokAdMob?.oauth?.clientId || byokGAds?.oauth?.clientId || "";
+      } catch {
+        // Fallback ignored
+      }
+    }
 
     if (!clientId) {
-      console.error("[ADMOB_OAUTH] ❌ Error: Google / AdMob Client ID missing in .env");
+      console.error("[ADMOB_OAUTH] ❌ Error: Google / AdMob Client ID missing in .env and database.");
       return NextResponse.json(
         {
           success: false,
-          error: "Google / AdMob Client ID is not configured in .env (GOOGLE_CLIENT_ID or ADMOB_OAUTH_CLIENT_ID)."
+          error: "Google / AdMob OAuth Client ID is missing. Please configure your Google Client ID & Secret in the BYOK Setup Modal or set GOOGLE_CLIENT_ID in .env."
         },
         { status: 400 }
       );
     }
-
-    const session = await getSession().catch(() => null);
     const statePayload = {
       workspaceId: session?.workspaceId || "default-ws",
       userId: session?.userId || "default-usr",

@@ -256,18 +256,24 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
     try {
       if (nextStatus === "ACTIVE") {
         // Trigger live Google Ads API mutate call with terminal logging
-        fetch("/api/google-ads/publish-campaign", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ campaignId })
-        })
-          .then(async (r) => {
-            const result = await r.json();
-            if (!r.ok) {
-              console.warn("Google Ads mutate response:", result.error);
-            }
-          })
-          .catch((err) => console.error("Google Ads push error:", err));
+        try {
+          const r = await fetch("/api/google-ads/publish-campaign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ campaignId })
+          });
+          const result = await r.json();
+          if (!r.ok || !result.success) {
+            setDialogConfig({
+              isOpen: true,
+              title: "Google Ads Account Notice",
+              message: result.error || "The target Google Ads customer account could not be accessed. Please verify account status in Google Ads Console or connect a new account in Integrations.",
+              type: "warning"
+            });
+          }
+        } catch (err) {
+          console.error("Google Ads push error:", err);
+        }
       }
 
       const res = await fetch(`/api/v1/campaigns/${encodeURIComponent(campaignId)}`, {

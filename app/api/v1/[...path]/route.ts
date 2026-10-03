@@ -755,10 +755,17 @@ export async function POST(
         : `Invitation refreshed for ${member.email}. Configure SMTP to enable automatic email delivery.`
     });
   }
-  if (path === "integrations/connect-credentials") {
+  if (path === "integrations" || path === "integrations/connect-credentials") {
     const auth = await context("settings.manage");
     if (auth.error) return auth.error;
-    const parsed = integrationCredentialInput.safeParse(body);
+    const normalizedBody = {
+      platform: body?.platform || "Google Ads",
+      accountName: body?.accountName || body?.account || body?.platform || "Account",
+      accountId: body?.accountId || body?.account || "account-1",
+      apiKey: body?.apiKey || body?.credentials?.apiKey || "connected_token",
+      metadata: body?.metadata || body?.credentials || {}
+    };
+    const parsed = integrationCredentialInput.safeParse(normalizedBody);
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid integration credentials.");
     const validation = await validateCredentials(parsed.data.platform, {
       apiKey: parsed.data.apiKey,

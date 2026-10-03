@@ -508,16 +508,17 @@ export function LiveIntegrationsPage() {
     console.log(`[PLATFORM INTEGRATION UI] ⚡ Submitting integration connection for "${selectedPlatform.name}" (Account ID: "${accountId}")`);
 
     try {
-      const res = await fetch("/api/v1/integrations", {
+      const res = await fetch("/api/v1/integrations/connect-credentials", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           platform: selectedPlatform.name,
-          providerKey: selectedPlatform.providerKey,
-          account: accountId || accountName || selectedPlatform.name,
-          credentials: {
-            apiKey,
-            secondaryId
+          accountName: accountName.trim() || selectedPlatform.name,
+          accountId: accountId.trim() || accountName.trim() || selectedPlatform.name,
+          apiKey: apiKey.trim() || "connected_token",
+          metadata: {
+            secondaryId: secondaryId.trim(),
+            providerKey: selectedPlatform.providerKey
           }
         })
       });
@@ -852,6 +853,10 @@ export function LiveIntegrationsPage() {
         onClose={() => setAdMobConnectOpen(false)}
         onSuccess={() => {
           fetchIntegrations();
+        }}
+        onOpenByok={() => {
+          setGoogleDynamicPlatform("FIREBASE_ADMOB");
+          setGoogleDynamicModalOpen(true);
         }}
         existingAccountId={getIntegrationForPlatform("Firebase")?.account}
         existingAccountName={getIntegrationForPlatform("Firebase")?.account}

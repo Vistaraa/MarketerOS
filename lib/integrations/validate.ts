@@ -300,14 +300,18 @@ export const PLATFORM_VALIDATORS_MAP: Record<string, Validator> = {
   "Google Search Console": platformValidators.GOOGLE_SEARCH_CONSOLE,
   "Search Console": platformValidators.GOOGLE_SEARCH_CONSOLE,
   "YouTube": platformValidators.YOUTUBE,
+  "YouTube Channel": platformValidators.YOUTUBE,
   "YouTube Ads": platformValidators.YOUTUBE,
   "Google Business Profile": platformValidators.GOOGLE_BUSINESS_PROFILE,
+  "Google Play Console": platformValidators.GOOGLE_BUSINESS_PROFILE,
   "Firebase & AdMob": platformValidators.FIREBASE_ADMOB,
   "Firebase": platformValidators.FIREBASE_ADMOB,
   "AdMob": platformValidators.FIREBASE_ADMOB,
   "Meta Ads": platformValidators.META_ADS,
+  "Meta Ads (Facebook & Instagram)": platformValidators.META_ADS,
   "Meta": platformValidators.META_ADS,
   "Instagram": platformValidators.INSTAGRAM,
+  "Instagram Professional": platformValidators.INSTAGRAM,
   "Facebook": platformValidators.FACEBOOK,
   "Messenger": platformValidators.MESSENGER,
   "Facebook Messenger": platformValidators.MESSENGER,
@@ -325,7 +329,24 @@ export async function validateCredentials(
   platform: string,
   fields: ValidationFields
 ): Promise<ValidationResult> {
-  const validator = platformValidators[platform] ?? PLATFORM_VALIDATORS_MAP[platform];
+  let validator = platformValidators[platform] ?? PLATFORM_VALIDATORS_MAP[platform];
+
+  if (!validator && typeof platform === "string") {
+    const pLower = platform.toLowerCase().trim();
+    if (pLower.includes("youtube")) validator = platformValidators.YOUTUBE;
+    else if (pLower.includes("analytics") || pLower.includes("ga4")) validator = platformValidators.GOOGLE_ANALYTICS;
+    else if (pLower.includes("search console")) validator = platformValidators.GOOGLE_SEARCH_CONSOLE;
+    else if (pLower.includes("google ads") || pLower.includes("gads")) validator = platformValidators.GOOGLE_ADS;
+    else if (pLower.includes("admob") || pLower.includes("firebase")) validator = platformValidators.FIREBASE_ADMOB;
+    else if (pLower.includes("play console")) validator = platformValidators.GOOGLE_BUSINESS_PROFILE;
+    else if (pLower.includes("meta")) validator = platformValidators.META_ADS;
+    else if (pLower.includes("instagram")) validator = platformValidators.INSTAGRAM;
+    else if (pLower.includes("linkedin")) validator = platformValidators.LINKEDIN;
+    else if (pLower.includes("facebook")) validator = platformValidators.FACEBOOK;
+    else if (pLower.includes("shopify")) validator = platformValidators.SHOPIFY;
+    else if (pLower.includes("tiktok")) validator = platformValidators.TIKTOK;
+  }
+
   if (!validator) {
     return { valid: false, error: `Unknown platform: ${platform}` };
   }
