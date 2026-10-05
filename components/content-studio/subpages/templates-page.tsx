@@ -139,7 +139,7 @@ export function TemplatesPage() {
                 className="group relative overflow-hidden rounded-xl border border-zinc-200/90 bg-white p-4 shadow-2xs transition hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950/60 dark:hover:border-zinc-700 cursor-pointer"
               >
                 <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-zinc-100 dark:bg-zinc-900">
-                  <img src={tpl.thumbnail} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
+                  {tpl.thumbnail ? <img src={tpl.thumbnail} alt="" className="h-full w-full object-cover transition group-hover:scale-105" /> : <div className="grid h-full w-full place-items-center text-[11px] font-semibold text-zinc-400 dark:text-zinc-500">No preview</div>}
                   <div className="absolute right-2 top-2 rounded-full bg-white/90 p-1.5 shadow-2xs dark:bg-zinc-900/90 text-zinc-700 dark:text-zinc-300">
                     <Sparkles size={12} />
                   </div>
@@ -243,7 +243,7 @@ export function TemplatesPage() {
               <div>
                 {/* Visual Thumbnail */}
                 <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-zinc-100 dark:bg-zinc-900">
-                  <img src={tpl.thumbnail} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
+                  {tpl.thumbnail ? <img src={tpl.thumbnail} alt="" className="h-full w-full object-cover transition group-hover:scale-105" /> : <div className="grid h-full w-full place-items-center text-[11px] font-semibold text-zinc-400 dark:text-zinc-500">No preview</div>}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -329,7 +329,7 @@ export function TemplatesPage() {
             </div>
 
             <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-zinc-100 dark:bg-zinc-800">
-              <img src={selectedTemplateItem.thumbnail} alt="" className="h-full w-full object-cover" />
+              {selectedTemplateItem.thumbnail ? <img src={selectedTemplateItem.thumbnail} alt="" className="h-full w-full object-cover" /> : <div className="grid h-full w-full place-items-center text-[11px] font-semibold text-zinc-400 dark:text-zinc-500">No preview</div>}
             </div>
 
             <div>

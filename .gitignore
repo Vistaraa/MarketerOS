@@ -55,3 +55,9 @@ __MACOSX/
 *.sln
 *.sw?
 
+
+# Local media uploads (STORAGE_DRIVER=local)
+storage/
+
+# Local AI-tool worktrees (full copies of the project)
+.kilo/

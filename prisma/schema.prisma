@@ -365,6 +365,10 @@ model Workspace {
   playConsoleReleases PlayConsoleRelease[]
   playConsoleMessages PlayConsoleInboxMessage[]
   userKpiPreferences  UserKpiPreference[]
+  contentTemplates    ContentTemplate[]
+  mediaAssets         MediaAsset[]
+  hashtagGroups       HashtagGroup[]
+  contentStudioSettings Json?
 
   @@index([ownerId])
   @@index([status])
@@ -1163,4 +1167,65 @@ model RateLimit {
   windowStart DateTime @default(now())
 
   @@index([windowStart])
+}
+
+// Content Studio templates (previously kept only in each browser's localStorage).
+model ContentTemplate {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  createdById     String?
+  name            String
+  category        String    @default("My Templates")
+  platforms       String[]  @default([])
+  thumbnailUrl    String?
+  width           Int?
+  height          Int?
+  headline        String?
+  subheadline     String?
+  captionTemplate String?
+  variables       String[]  @default([])
+  isFavorite      Boolean   @default(false)
+  usageCount      Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+// Uploaded media. The file itself lives in object storage under storageKey (see lib/storage.ts).
+model MediaAsset {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  uploadedById    String?
+  name            String
+  mimeType        String
+  sizeBytes       Int
+  storageKey      String    @unique
+  width           Int?
+  height          Int?
+  durationSeconds Float?
+  folder          String?
+  tags            String[]  @default([])
+  isFavorite      Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+}
+
+model HashtagGroup {
+  id          String    @id @default(cuid())
+  workspaceId String
+  name        String
+  hashtags    String[]  @default([])
+  category    String?
+  usageCount  Int       @default(0)
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
 }

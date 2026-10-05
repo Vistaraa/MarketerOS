@@ -1,3 +1,5 @@
+import { withSentryConfig } from "@sentry/nextjs";
+
 const isDev = process.env.NODE_ENV !== "production";
 
 // Next.js and the theme script in app/layout.tsx use inline scripts, so script-src needs 'unsafe-inline'
@@ -40,4 +42,16 @@ const nextConfig = {
   }
 };
 
-export default nextConfig;
+// Error monitoring (no-op until SENTRY_DSN / NEXT_PUBLIC_SENTRY_DSN are set). Source maps are uploaded only
+// when SENTRY_AUTH_TOKEN is available, e.g. in CI.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  telemetry: false,
+  // Browser events go through this app's own domain, so the CSP needs no Sentry hosts and ad blockers don't drop them.
+  tunnelRoute: "/monitoring",
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  disableLogger: true
+});

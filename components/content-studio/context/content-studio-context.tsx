@@ -93,7 +93,7 @@ interface ContentStudioContextType {
   deleteTemplate: (id: string) => void;
 
   // Actions: Media Assets
-  uploadMediaAsset: (file: { name: string; type: string; size: number; url?: string; folderId?: string }) => void;
+  uploadMediaAsset: (file: File, options?: { folder?: string; onProgress?: (percent: number) => void }) => Promise<MediaAsset | null>;
   toggleFavoriteMedia: (id: string) => void;
   deleteMediaAsset: (id: string) => void;
 
@@ -116,95 +116,124 @@ interface ContentStudioContextType {
 
 const ContentStudioContext = createContext<ContentStudioContextType | undefined>(undefined);
 
-const DEFAULT_TEMPLATES: Template[] = [
-  {
-    id: "tpl-1",
-    name: "Minimalist Product Spotlight",
-    category: "Social Posts",
-    platforms: ["instagram", "facebook"],
-    thumbnail: "/summer-sale-banner.png",
-    width: 1080,
-    height: 1080,
-    author: { id: "u-1", name: "Content Lead", role: "Creator", email: "team@marketeros.io" },
-    usageCount: 12,
-    isFavorite: true,
-    isFeatured: true,
-    updatedAt: "Today",
-    headline: "Transform Your Workflow Today",
-    subheadline: "Accelerate organic reach with our smart marketing engine.",
-    captionTemplate: "Elevate your strategy with {{headline}}! ✨\n\n{{subheadline}}\n\nLearn more via link in bio.",
-    variables: ["headline", "subheadline"],
-    version: "v1.2"
-  },
-  {
-    id: "tpl-2",
-    name: "B2B Carousel Slide Deck",
-    category: "Carousels",
-    platforms: ["linkedin"],
-    thumbnail: "/b2b-trends-carousel.png",
-    width: 1080,
-    height: 1350,
-    author: { id: "u-1", name: "Content Lead", role: "Creator", email: "team@marketeros.io" },
-    usageCount: 8,
-    isFavorite: false,
-    isFeatured: true,
-    updatedAt: "Yesterday",
-    headline: "5 Lessons in High-Growth Marketing",
-    subheadline: "Swipe through to discover key tactics from top CMOs.",
-    captionTemplate: "Here is what we learned scaling brand campaigns this quarter:\n\n1. Focus on core value\n2. Iterate quickly\n3. Engage authentic audiences\n\nFull breakdown below 👇",
-    variables: ["headline", "subheadline"],
-    version: "v1.0"
-  },
-  {
-    id: "tpl-3",
-    name: "Quick Tip Short Video",
-    category: "Reels",
-    platforms: ["tiktok", "instagram"],
-    thumbnail: "/tiktok-tip-video.mp4",
-    width: 1080,
-    height: 1920,
-    author: { id: "u-1", name: "Content Lead", role: "Creator", email: "team@marketeros.io" },
-    usageCount: 15,
-    isFavorite: true,
-    isFeatured: true,
-    updatedAt: "2 days ago",
-    headline: "Growth Hack #12",
-    subheadline: "30-second pattern interrupt strategy",
-    captionTemplate: "Stop scrolling! 🛑 Here is how to double retention in 30 seconds:\n\n{{subheadline}}\n\nTry this on your next post!",
-    variables: ["headline", "subheadline"],
-    version: "v1.0"
-  }
-];
 
-const DEFAULT_HASHTAG_GROUPS: HashtagGroup[] = [
-  {
-    id: "hg-1",
-    name: "Growth & Scaling",
-    hashtags: ["#GrowthMarketing", "#ScaleBusiness", "#MarketingTips", "#DigitalStrategy", "#B2BGrowth"],
-    usageCount: 42,
-    averagePerformance: 7.4,
-    lastUsed: "Today",
-    category: "Marketing"
-  },
-  {
-    id: "hg-2",
-    name: "E-commerce Boost",
-    hashtags: ["#EcommerceTips", "#ShopifyStore", "#OnlineSales", "#RetailMarketing", "#BrandGrowth"],
-    usageCount: 28,
-    averagePerformance: 6.8,
-    lastUsed: "Yesterday",
-    category: "E-commerce"
-  },
-  {
-    id: "hg-3",
-    name: "Social Media Strategy",
-    hashtags: ["#SocialMediaStrategy", "#ContentCreator", "#InstagramTips", "#LinkedInStrategy", "#OrganicGrowth"],
-    usageCount: 54,
-    averagePerformance: 8.2,
-    lastUsed: "3 days ago",
-    category: "Social"
+const errorText = (err: unknown) => (err instanceof Error ? err.message : "Something went wrong.");
+
+async function apiJson<T = unknown>(url: string, method: string, body?: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method,
+    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(json?.error?.message || `Request failed (${res.status}).`);
+  return json?.data as T;
+}
+
+/** Fields the templates API accepts, from a (possibly legacy) Template object. */
+function templatePayload(t: Partial<Template>) {
+  return {
+    name: t.name || "Untitled template",
+    category: t.category,
+    platforms: t.platforms,
+    // Legacy templates pointed at bundled demo images; only keep real thumbnails.
+    thumbnail: t.thumbnail && (t.thumbnail.startsWith("/api/media/") || t.thumbnail.startsWith("https://")) ? t.thumbnail : undefined,
+    width: t.width,
+    height: t.height,
+    headline: t.headline,
+    subheadline: t.subheadline,
+    captionTemplate: t.captionTemplate,
+    variables: t.variables,
+    isFavorite: t.isFavorite,
+    usageCount: t.usageCount
+  };
+}
+
+/** Uploads with real progress events (fetch can't report upload progress). */
+function uploadWithProgress(url: string, form: FormData, onProgress?: (percent: number) => void) {
+  return new Promise<{ status: number; json: any }>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      let json: any = null;
+      try { json = JSON.parse(xhr.responseText); } catch {}
+      resolve({ status: xhr.status, json });
+    };
+    xhr.onerror = () => reject(new Error("Network error during upload."));
+    xhr.send(form);
+  });
+}
+
+/** Reads real dimensions/duration in the browser; returns {} when the file can't be decoded. */
+async function measureMedia(file: File): Promise<{ width?: number; height?: number; duration?: number }> {
+  const url = URL.createObjectURL(file);
+  try {
+    if (file.type.startsWith("image/")) {
+      const img = new Image();
+      await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = url; });
+      return { width: img.naturalWidth, height: img.naturalHeight };
+    }
+    if (file.type.startsWith("video/")) {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      await new Promise((resolve, reject) => { video.onloadedmetadata = resolve; video.onerror = reject; video.src = url; });
+      return { width: video.videoWidth || undefined, height: video.videoHeight || undefined, duration: Number.isFinite(video.duration) ? Math.round(video.duration) : undefined };
+    }
+  } catch {
+    // Unreadable in this browser: leave measurements empty rather than guessing.
+  } finally {
+    URL.revokeObjectURL(url);
   }
-];
+  return {};
+}
+
+const LEGACY_KEYS = { templates: "cs_templates", media: "cs_media", groups: "cs_hashtag_groups", settings: "cs_settings" };
+
+function readLegacy<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Older versions stored templates, hashtag groups and settings only in localStorage. Copy them to the
+ * workspace once, then clear them. Templates and groups are always imported (clearing them unimported would
+ * lose work); settings are workspace-wide, so they're only imported if the workspace has none yet. Legacy
+ * "media" entries were placeholders that never held an uploaded file, so they are discarded.
+ */
+async function importLegacyBrowserData(settingsEmpty: boolean) {
+  const result: { templates: Template[]; groups: HashtagGroup[]; settings: ContentStudioSettingsState | null } = { templates: [], groups: [], settings: null };
+  if (typeof window === "undefined") return result;
+
+  const legacyTemplates = readLegacy<Template[]>(LEGACY_KEYS.templates);
+  if (Array.isArray(legacyTemplates) && legacyTemplates.length) {
+    for (const t of legacyTemplates.slice().reverse()) {
+      try { result.templates.unshift(await apiJson<Template>("/api/v1/content-studio/templates", "POST", templatePayload(t))); } catch {}
+    }
+  }
+  const legacyGroups = readLegacy<HashtagGroup[]>(LEGACY_KEYS.groups);
+  if (Array.isArray(legacyGroups) && legacyGroups.length) {
+    for (const g of legacyGroups.slice().reverse()) {
+      if (!g?.name || !Array.isArray(g.hashtags) || !g.hashtags.length) continue;
+      try { result.groups.unshift(await apiJson<HashtagGroup>("/api/v1/content-studio/hashtag-groups", "POST", { name: g.name, hashtags: g.hashtags, category: g.category, usageCount: g.usageCount })); } catch {}
+    }
+  }
+  const legacySettings = readLegacy<ContentStudioSettingsState>(LEGACY_KEYS.settings);
+  if (settingsEmpty && legacySettings && typeof legacySettings === "object") {
+    try {
+      await apiJson("/api/v1/content-studio/settings", "PUT", { settings: legacySettings });
+      result.settings = legacySettings;
+    } catch {}
+  }
+  try { Object.values(LEGACY_KEYS).forEach((key) => localStorage.removeItem(key)); } catch {}
+  return result;
+}
 
 export function ContentStudioProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<string>("Content Calendar");
@@ -364,39 +393,42 @@ export function ContentStudioProvider({ children }: { children: React.ReactNode 
   }, []);
 
   // Initialize on mount
+
+  // Templates, media, hashtag groups and settings are stored per workspace on the server.
+  const loadLibrary = useCallback(async () => {
+    try {
+      const [tplRes, mediaRes, groupRes, settingsRes] = await Promise.all([
+        fetch("/api/v1/content-studio/templates"),
+        fetch("/api/v1/content-studio/media"),
+        fetch("/api/v1/content-studio/hashtag-groups"),
+        fetch("/api/v1/content-studio/settings")
+      ]);
+      const [tplJson, mediaJson, groupJson, settingsJson] = await Promise.all([tplRes, mediaRes, groupRes, settingsRes].map((r) => r.json().catch(() => null)));
+      let serverTemplates: Template[] = tplRes.ok ? tplJson?.data?.items || [] : [];
+      let serverGroups: HashtagGroup[] = groupRes.ok ? groupJson?.data?.items || [] : [];
+      let serverSettings = settingsRes.ok ? settingsJson?.data?.settings ?? null : null;
+
+      // One-time import of data that older versions kept only in this browser.
+      const imported = await importLegacyBrowserData(serverSettings === null);
+      serverTemplates = [...imported.templates, ...serverTemplates];
+      serverGroups = [...imported.groups, ...serverGroups];
+      if (imported.settings) serverSettings = imported.settings;
+
+      setTemplates(serverTemplates);
+      setMediaAssets(mediaRes.ok ? mediaJson?.data?.items || [] : []);
+      setHashtagGroups(serverGroups);
+      if (serverSettings) setSettings({ ...INITIAL_SETTINGS_STATE, ...serverSettings });
+    } catch (err) {
+      console.error("[ContentStudio] Failed to load library:", err);
+    }
+  }, []);
+
   useEffect(() => {
     refreshContentItems();
     refreshSocialAccounts();
 
-    // Load persisted local collections
-    try {
-      const savedTemplates = localStorage.getItem("cs_templates");
-      if (savedTemplates) {
-        setTemplates(JSON.parse(savedTemplates));
-      } else {
-        setTemplates([]);
-      }
-
-      const savedMedia = localStorage.getItem("cs_media");
-      if (savedMedia) {
-        setMediaAssets(JSON.parse(savedMedia));
-      } else {
-        setMediaAssets([]);
-      }
-
-      const savedHashtags = localStorage.getItem("cs_hashtag_groups");
-      if (savedHashtags) {
-        setHashtagGroups(JSON.parse(savedHashtags));
-      } else {
-        setHashtagGroups([]);
-      }
-
-      const savedSettings = localStorage.getItem("cs_settings");
-      if (savedSettings) setSettings(JSON.parse(savedSettings));
-    } catch {
-      // ignore localStorage errors in non-browser environments
-    }
-  }, [refreshContentItems, refreshSocialAccounts]);
+    loadLibrary();
+  }, [refreshContentItems, refreshSocialAccounts, loadLibrary]);
 
   // Actions: Content Items
   const createContentItem = async (data: Partial<ContentItem>): Promise<ContentItem> => {
@@ -540,84 +572,62 @@ export function ContentStudioProvider({ children }: { children: React.ReactNode 
   };
 
   // Actions: Templates
-  const createTemplate = (data: Partial<Template>) => {
-    const newTpl: Template = {
-      id: `tpl-${Date.now()}`,
-      name: data.name || "Custom Post Template",
-      category: data.category || "Social Posts",
-      platforms: data.platforms || ["instagram", "facebook"],
-      thumbnail: data.thumbnail || "/summer-sale-banner.png",
-      width: data.width || 1080,
-      height: data.height || 1080,
-      author: { id: "u-curr", name: "You", role: "Creator", email: "" },
-      usageCount: 0,
-      isFavorite: false,
-      updatedAt: "Just now",
-      headline: data.headline || "Headline",
-      subheadline: data.subheadline || "Subheadline",
-      captionTemplate: data.captionTemplate || "Write caption template...",
-      variables: data.variables || ["headline", "subheadline"],
-      version: "v1.0"
-    };
-
-    setTemplates((prev) => {
-      const updated = [newTpl, ...prev];
-      try { localStorage.setItem("cs_templates", JSON.stringify(updated)); } catch {}
-      return updated;
-    });
-    showToast("Template Created", `"${newTpl.name}" saved to your templates.`);
+  const createTemplate = async (data: Partial<Template>) => {
+    try {
+      const created = await apiJson<Template>("/api/v1/content-studio/templates", "POST", templatePayload({ name: "Untitled template", ...data }));
+      setTemplates((prev) => [created, ...prev]);
+      showToast("Template Created", `"${created.name}" saved to your templates.`);
+    } catch (err) {
+      showToast("Template Not Saved", errorText(err), "error");
+    }
   };
 
-  const toggleFavoriteTemplate = (id: string) => {
-    setTemplates((prev) => {
-      const updated = prev.map((t) => (t.id === id ? { ...t, isFavorite: !t.isFavorite } : t));
-      try { localStorage.setItem("cs_templates", JSON.stringify(updated)); } catch {}
-      return updated;
-    });
+  const toggleFavoriteTemplate = async (id: string) => {
+    const current = templates.find((t) => t.id === id);
+    if (!current) return;
+    setTemplates((prev) => prev.map((t) => (t.id === id ? { ...t, isFavorite: !current.isFavorite } : t)));
+    try {
+      await apiJson(`/api/v1/content-studio/templates/${id}`, "PATCH", { isFavorite: !current.isFavorite });
+    } catch (err) {
+      setTemplates((prev) => prev.map((t) => (t.id === id ? { ...t, isFavorite: current.isFavorite } : t)));
+      showToast("Update Failed", errorText(err), "error");
+    }
   };
 
   const useTemplateToCreateContent = (template: Template) => {
-    setTemplates((prev) => {
-      const updated = prev.map((t) => (t.id === template.id ? { ...t, usageCount: t.usageCount + 1 } : t));
-      try { localStorage.setItem("cs_templates", JSON.stringify(updated)); } catch {}
-      return updated;
-    });
+    setTemplates((prev) => prev.map((t) => (t.id === template.id ? { ...t, usageCount: t.usageCount + 1 } : t)));
+    apiJson(`/api/v1/content-studio/templates/${template.id}`, "PATCH", { incrementUsage: true }).catch(() => {});
 
     openEditorWithPrefill({
       title: `${template.name} Post`,
       caption: template.captionTemplate || `${template.headline || ""}\n\n${template.subheadline || ""}`,
       platform: template.platforms[0] || "instagram",
-      mediaUrls: [template.thumbnail]
+      mediaUrls: template.thumbnail ? [template.thumbnail] : []
     });
     showToast("Template Loaded", `Loaded into Content Editor.`);
   };
 
-  const duplicateTemplate = (id: string) => {
+  const duplicateTemplate = async (id: string) => {
     const orig = templates.find((t) => t.id === id);
     if (!orig) return;
-    const copy: Template = {
-      ...orig,
-      id: `tpl-${Date.now()}`,
-      name: `${orig.name} (Copy)`,
-      usageCount: 0,
-      updatedAt: "Just now"
-    };
-    setTemplates((prev) => {
-      const updated = [copy, ...prev];
-      try { localStorage.setItem("cs_templates", JSON.stringify(updated)); } catch {}
-      return updated;
-    });
-    showToast("Template Duplicated", `Created a copy of "${orig.name}".`);
+    try {
+      const copy = await apiJson<Template>("/api/v1/content-studio/templates", "POST", templatePayload({ ...orig, name: `${orig.name} (Copy)`, isFavorite: false }));
+      setTemplates((prev) => [copy, ...prev]);
+      showToast("Template Duplicated", `Created a copy of "${orig.name}".`);
+    } catch (err) {
+      showToast("Duplicate Failed", errorText(err), "error");
+    }
   };
 
-  const deleteTemplate = (id: string) => {
-    setTemplates((prev) => {
-      const updated = prev.filter((t) => t.id !== id);
-      try { localStorage.setItem("cs_templates", JSON.stringify(updated)); } catch {}
-      return updated;
-    });
-    if (selectedTemplateItem?.id === id) setSelectedTemplateItem(null);
-    showToast("Template Deleted", "Template removed from library.");
+  const deleteTemplate = async (id: string) => {
+    try {
+      await apiJson(`/api/v1/content-studio/templates/${id}`, "DELETE");
+      setTemplates((prev) => prev.filter((t) => t.id !== id));
+      if (selectedTemplateItem?.id === id) setSelectedTemplateItem(null);
+      showToast("Template Deleted", "Template removed from library.");
+    } catch (err) {
+      showToast("Delete Failed", errorText(err), "error");
+    }
   };
 
   const openTemplateCreator = (tpl?: Template) => {
@@ -626,76 +636,60 @@ export function ContentStudioProvider({ children }: { children: React.ReactNode 
   };
 
   // Actions: Media Assets
-  const uploadMediaAsset = (file: { name: string; type: string; size: number; url?: string; folderId?: string }) => {
-    const isVid = file.type.includes("video") || file.name.endsWith(".mp4");
-    const isGif = file.name.endsWith(".gif");
-    const isDoc = file.name.endsWith(".pdf") || file.name.endsWith(".doc");
-    const mediaType = isVid ? "Video" : isGif ? "GIF" : isDoc ? "Document" : "Image";
+  const uploadMediaAsset = async (file: File, options?: { folder?: string; onProgress?: (percent: number) => void }) => {
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      if (options?.folder) form.append("folder", options.folder);
+      const measured = await measureMedia(file);
+      if (measured.width) form.append("width", String(measured.width));
+      if (measured.height) form.append("height", String(measured.height));
+      if (measured.duration) form.append("duration", String(measured.duration));
 
-    const newMedia: MediaAsset = {
-      id: `med-${Date.now()}`,
-      name: file.name,
-      type: mediaType,
-      url: file.url || (isVid ? "/tiktok-tip-video.mp4" : "/summer-sale-banner.png"),
-      thumbnail: isVid ? undefined : file.url || "/summer-sale-banner.png",
-      size: file.size,
-      width: isVid ? 1080 : 1200,
-      height: isVid ? 1920 : 1200,
-      duration: isVid ? 30 : undefined,
-      folderId: file.folderId || "fld-1",
-      folderName: "Campaign Assets",
-      tags: ["Uploaded", mediaType],
-      uploadedBy: { id: "u-curr", name: "You", role: "Creator", email: "" },
-      createdAt: "Just now",
-      updatedAt: "Just now",
-      isFavorite: false,
-      usedInPostsCount: 0
-    };
-
-    setMediaAssets((prev) => {
-      const updated = [newMedia, ...prev];
-      try { localStorage.setItem("cs_media", JSON.stringify(updated)); } catch {}
-      return updated;
-    });
-    showToast("Media Uploaded", `"${newMedia.name}" added to Media Library.`);
+      const { status, json } = await uploadWithProgress("/api/v1/content-studio/media", form, options?.onProgress);
+      if (status < 200 || status >= 300) throw new Error(json?.error?.message || `Upload failed (${status}).`);
+      const asset = json.data as MediaAsset;
+      setMediaAssets((prev) => [asset, ...prev]);
+      showToast("Media Uploaded", `"${asset.name}" added to Media Library.`);
+      return asset;
+    } catch (err) {
+      showToast("Upload Failed", errorText(err), "error");
+      return null;
+    }
   };
 
-  const toggleFavoriteMedia = (id: string) => {
-    setMediaAssets((prev) => {
-      const updated = prev.map((m) => (m.id === id ? { ...m, isFavorite: !m.isFavorite } : m));
-      try { localStorage.setItem("cs_media", JSON.stringify(updated)); } catch {}
-      return updated;
-    });
+  const toggleFavoriteMedia = async (id: string) => {
+    const current = mediaAssets.find((m) => m.id === id);
+    if (!current) return;
+    setMediaAssets((prev) => prev.map((m) => (m.id === id ? { ...m, isFavorite: !current.isFavorite } : m)));
+    try {
+      await apiJson(`/api/v1/content-studio/media/${id}`, "PATCH", { isFavorite: !current.isFavorite });
+    } catch (err) {
+      setMediaAssets((prev) => prev.map((m) => (m.id === id ? { ...m, isFavorite: current.isFavorite } : m)));
+      showToast("Update Failed", errorText(err), "error");
+    }
   };
 
-  const deleteMediaAsset = (id: string) => {
-    setMediaAssets((prev) => {
-      const updated = prev.filter((m) => m.id !== id);
-      try { localStorage.setItem("cs_media", JSON.stringify(updated)); } catch {}
-      return updated;
-    });
-    if (selectedMediaItem?.id === id) setSelectedMediaItem(null);
-    showToast("Media Deleted", "Asset removed from Media Library.");
+  const deleteMediaAsset = async (id: string) => {
+    try {
+      await apiJson(`/api/v1/content-studio/media/${id}`, "DELETE");
+      setMediaAssets((prev) => prev.filter((m) => m.id !== id));
+      if (selectedMediaItem?.id === id) setSelectedMediaItem(null);
+      showToast("Media Deleted", "Asset removed from Media Library.");
+    } catch (err) {
+      showToast("Delete Failed", errorText(err), "error");
+    }
   };
 
   // Actions: Hashtags & Groups
-  const createHashtagGroup = (name: string, hashtagsList: string[]) => {
-    const formatted = hashtagsList.map((tag) => (tag.startsWith("#") ? tag : `#${tag}`));
-    const newGroup: HashtagGroup = {
-      id: `hg-${Date.now()}`,
-      name,
-      hashtags: formatted,
-      usageCount: 0,
-      averagePerformance: 6.5,
-      lastUsed: "Just now",
-      category: "Custom"
-    };
-    setHashtagGroups((prev) => {
-      const updated = [newGroup, ...prev];
-      try { localStorage.setItem("cs_hashtag_groups", JSON.stringify(updated)); } catch {}
-      return updated;
-    });
-    showToast("Hashtag Group Created", `"${name}" with ${formatted.length} hashtags created.`);
+  const createHashtagGroup = async (name: string, hashtagsList: string[]) => {
+    try {
+      const group = await apiJson<HashtagGroup>("/api/v1/content-studio/hashtag-groups", "POST", { name, hashtags: hashtagsList });
+      setHashtagGroups((prev) => [group, ...prev]);
+      showToast("Hashtag Group Created", `"${name}" with ${group.hashtags.length} hashtags created.`);
+    } catch (err) {
+      showToast("Group Not Saved", errorText(err), "error");
+    }
   };
 
   const copyHashtagsToClipboard = (hashtagsText: string) => {
@@ -703,13 +697,14 @@ export function ContentStudioProvider({ children }: { children: React.ReactNode 
     showToast("Copied to Clipboard!", hashtagsText.slice(0, 60) + (hashtagsText.length > 60 ? "..." : ""));
   };
 
-  const deleteHashtagGroup = (id: string) => {
-    setHashtagGroups((prev) => {
-      const updated = prev.filter((g) => g.id !== id);
-      try { localStorage.setItem("cs_hashtag_groups", JSON.stringify(updated)); } catch {}
-      return updated;
-    });
-    showToast("Group Removed", "Hashtag group deleted.");
+  const deleteHashtagGroup = async (id: string) => {
+    try {
+      await apiJson(`/api/v1/content-studio/hashtag-groups/${id}`, "DELETE");
+      setHashtagGroups((prev) => prev.filter((g) => g.id !== id));
+      showToast("Group Removed", "Hashtag group deleted.");
+    } catch (err) {
+      showToast("Delete Failed", errorText(err), "error");
+    }
   };
 
   const openHashtagGroupModal = (group?: HashtagGroup) => {
@@ -718,10 +713,16 @@ export function ContentStudioProvider({ children }: { children: React.ReactNode 
   };
 
   // Actions: Settings
-  const updateSettings = (newSettings: ContentStudioSettingsState) => {
+  const updateSettings = async (newSettings: ContentStudioSettingsState) => {
+    const previous = settings;
     setSettings(newSettings);
-    try { localStorage.setItem("cs_settings", JSON.stringify(newSettings)); } catch {}
-    showToast("Settings Saved", "Content Studio configuration updated successfully.");
+    try {
+      await apiJson("/api/v1/content-studio/settings", "PUT", { settings: newSettings });
+      showToast("Settings Saved", "Content Studio configuration updated successfully.");
+    } catch (err) {
+      setSettings(previous);
+      showToast("Settings Not Saved", errorText(err), "error");
+    }
   };
 
   // AI Text Generation via live API

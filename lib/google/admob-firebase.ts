@@ -1,4 +1,4 @@
-import { google } from "googleapis";
+import { admob } from "@googleapis/admob";
 import { AdMobCredentials, createDynamicAuthClient } from "./client";
 
 const ADMOB_SCOPES = [
@@ -39,7 +39,7 @@ function getAdMobClient(creds: AdMobCredentials) {
     ADMOB_SCOPES
   );
 
-  return google.admob({
+  return admob({
     version: "v1",
     auth: auth as any
   });

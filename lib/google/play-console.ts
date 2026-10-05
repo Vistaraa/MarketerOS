@@ -1,4 +1,4 @@
-import { google } from "googleapis";
+import { androidpublisher } from "@googleapis/androidpublisher";
 import { prisma } from "@/lib/prisma";
 import { createDynamicAuthClient, getDecryptedGoogleIntegration } from "@/lib/google/client";
 import { Platform } from "@prisma/client";
@@ -52,7 +52,7 @@ export async function testGooglePlayConnection(credentials: GooglePlayCredential
       ]
     );
 
-    const androidPublisher = google.androidpublisher({ version: "v3", auth: authClient });
+    const androidPublisher = androidpublisher({ version: "v3", auth: authClient });
 
     // Live check: any API error (not found, permission denied, API disabled) means the connection does not work.
     await androidPublisher.reviews.list({

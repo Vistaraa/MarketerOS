@@ -1,4 +1,4 @@
-import { google } from "googleapis";
+import { analyticsdata } from "@googleapis/analyticsdata";
 import { GA4Credentials, createDynamicAuthClient } from "./client";
 
 const GA_SCOPES = [
@@ -41,7 +41,7 @@ function getAnalyticsDataClient(creds: GA4Credentials) {
     GA_SCOPES
   );
 
-  return google.analyticsdata({
+  return analyticsdata({
     version: "v1beta",
     auth: auth as any
   });

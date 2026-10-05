@@ -61,11 +61,15 @@ ENCRYPTION_KEY="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 ### 3. Initialize Database
 
 1. Ensure your PostgreSQL server is running and create the `marketeros` database if it does not already exist.
-2. Push the Prisma schema to create the tables:
+2. Apply the database migrations to create the tables:
 
 ```bash
-npx prisma db push
+npx prisma migrate deploy
 ```
+
+> **Changing the schema:** edit `prisma/schema.prisma`, then run `npx prisma migrate dev --name describe_the_change` to create and apply a migration. Commit the new folder in `prisma/migrations`; CI fails if the schema and migrations disagree. Don't use `prisma db push` against shared or production databases.
+>
+> **Databases created earlier with `db push`:** mark the baseline as already applied once with `npx prisma migrate resolve --applied 0_init`, then run `npx prisma migrate deploy`.
 
 *Note: The application is completely self-bootstrapping. Baseline plans and system configurations are automatically synchronized when the server boots—no manual seeding is required.*
 
@@ -103,13 +107,32 @@ Connect pgAdmin to `localhost:5432`, select database `marketeros`, and inspect t
 
 ---
 
-## ⚙️ Background Worker (Optional)
+## ⚙️ Background Jobs
 
-To process background synchronization, scheduled reports, and automation tasks:
+Report generation and integration syncs are queued as background jobs. Something must run them, or they stay queued:
 
-```bash
-npm run worker
-```
+- **Servers and containers:** run the worker alongside the app. It polls every few seconds, retries failed jobs with backoff, recovers jobs left running by a crashed worker, and shuts down cleanly on `SIGTERM`.
+
+  ```bash
+  npm run worker          # long-running
+  npm run worker:once     # process what's due, then exit
+  ```
+
+- **Vercel:** `vercel.json` calls `/api/cron/jobs` every minute. Set `CRON_SECRET` in the Vercel project; the endpoint is disabled without it. Per-minute crons need a paid Vercel plan.
+
+---
+
+## 🚀 Deploying to Production
+
+1. **Configuration:** set `DATABASE_URL`, `DIRECT_URL`, `SESSION_SECRET`, `ENCRYPTION_KEY` and `APP_URL`. The server refuses to start without them. See `.env.example` for email, storage, jobs and monitoring settings.
+2. **Database:** run `npx prisma migrate deploy` on every deploy.
+3. **One-time cleanup** of demo data that older versions generated: `npx tsx scripts/purge-synthetic-data.ts` (dry run), then add `--apply`.
+4. **Media storage:** set `STORAGE_DRIVER=s3` and the `S3_*` settings on serverless hosts. Local disk storage is lost on Vercel.
+5. **Error monitoring (optional):** set `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`; add `SENTRY_ORG`, `SENTRY_PROJECT` and `SENTRY_AUTH_TOKEN` to upload source maps.
+
+## ✅ Continuous Integration
+
+`.github/workflows/ci.yml` runs on every push and pull request to `main`: it applies migrations to a fresh PostgreSQL, checks that `schema.prisma` matches the migrations, then runs the typecheck, lint, unit tests and a production build.
 
 ---
 
@@ -123,8 +146,10 @@ npm run worker
 | `npm run typecheck` | Validates TypeScript types |
 | `npm run lint` | Runs ESLint |
 | `npm test` | Runs the Vitest test suite |
-| `npm run prisma:push` | Pushes the schema directly to PostgreSQL |
-| `npm run prisma:seed` | Seeds database with initial workspace & campaign data |
+| `npm run prisma:migrate:dev` | Creates and applies a migration after a schema change (development) |
+| `npm run prisma:migrate:deploy` | Applies pending migrations (production, CI) |
+| `npm run worker` | Runs the background job worker |
+| `npm run worker:once` | Processes due background jobs once, then exits |
 
 ---
 

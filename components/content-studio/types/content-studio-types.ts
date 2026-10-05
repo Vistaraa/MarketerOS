@@ -114,7 +114,8 @@ export interface HashtagGroup {
   name: string;
   hashtags: string[];
   usageCount: number;
-  averagePerformance: number;
+  /** Not measured yet; always null. */
+  averagePerformance: number | null;
   lastUsed?: string;
   category?: string;
 }

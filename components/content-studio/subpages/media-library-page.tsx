@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   Upload,
@@ -40,6 +40,14 @@ import {
   EmptyState
 } from "../components/common-ui";
 
+/** Human-readable file size (small files no longer show as "0.0 MB"). */
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
 export function MediaLibraryPage() {
   const {
     mediaAssets,
@@ -59,14 +67,16 @@ export function MediaLibraryPage() {
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name" | "size">("newest");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
-  const [folders, setFolders] = useState([
-    { id: "fld-1", name: "Campaigns" },
-    { id: "fld-2", name: "Social Posts" },
-    { id: "fld-3", name: "Product Images" },
-    { id: "fld-4", name: "Brand Assets" },
-    { id: "fld-5", name: "Videos" },
-    { id: "fld-6", name: "Logos" }
-  ]);
+  // Folders are stored as a name on each asset. A new folder stays listed for this visit and persists
+  // once something is uploaded into it.
+  const [createdFolders, setCreatedFolders] = useState<string[]>([]);
+  const folders = useMemo(() => {
+    const names = ["Campaigns", "Social Posts", "Product Images", "Brand Assets", "Videos", "Logos", ...createdFolders];
+    for (const asset of mediaAssets) if (asset.folderName) names.push(asset.folderName);
+    return Array.from(new Set(names)).map((name) => ({ id: name, name }));
+  }, [createdFolders, mediaAssets]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
 
@@ -82,7 +92,7 @@ export function MediaLibraryPage() {
     const videos = mediaAssets.filter((m) => m.type === "Video").length;
     const documents = mediaAssets.filter((m) => m.type === "Document").length;
     const totalBytes = mediaAssets.reduce((acc, m) => acc + m.size, 0);
-    const usedMb = (totalBytes / (1024 * 1024)).toFixed(1);
+    const usedMb = formatBytes(totalBytes);
     return {
       total: mediaAssets.length,
       images,
@@ -117,8 +127,8 @@ export function MediaLibraryPage() {
         return true;
       })
       .sort((a, b) => {
-        if (sortBy === "newest") return b.id.localeCompare(a.id);
-        if (sortBy === "oldest") return a.id.localeCompare(b.id);
+        if (sortBy === "newest") return b.createdAt.localeCompare(a.createdAt);
+        if (sortBy === "oldest") return a.createdAt.localeCompare(b.createdAt);
         if (sortBy === "name") return a.name.localeCompare(b.name);
         if (sortBy === "size") return b.size - a.size;
         return 0;
@@ -128,40 +138,31 @@ export function MediaLibraryPage() {
   // Folder Creation
   const handleCreateFolder = () => {
     if (!newFolderName.trim()) return;
-    const newFld = { id: `fld-${Date.now()}`, name: newFolderName.trim() };
-    setFolders([...folders, newFld]);
+    const newFld = { id: newFolderName.trim(), name: newFolderName.trim() };
+    setCreatedFolders((prev) => [...prev, newFld.name]);
     setNewFolderName("");
     setShowCreateFolderModal(false);
     showToast("Folder Created", `"${newFld.name}" added to Media Library.`);
   };
 
   // Upload Handling
-  const handleStartUpload = (fileObj?: any) => {
-    setIsUploading(true);
-    setUploadProgress(20);
+  const handleStartUpload = async (file: File | undefined, allowDuplicateName = false) => {
+    if (!file) return;
     setDuplicateWarning(false);
-
-    const fileName = fileObj?.name || "new-brand-asset.png";
-    const exists = mediaAssets.some((m) => m.name.toLowerCase() === fileName.toLowerCase());
-
-    if (exists) {
+    if (!allowDuplicateName && mediaAssets.some((m) => m.name.toLowerCase() === file.name.toLowerCase())) {
+      setPendingFile(file);
       setDuplicateWarning(true);
-      setIsUploading(false);
       return;
     }
-
-    setTimeout(() => setUploadProgress(60), 400);
-    setTimeout(() => {
-      setUploadProgress(100);
-      setIsUploading(false);
-      uploadMediaAsset({
-        name: fileName,
-        type: fileObj?.type || "image/png",
-        size: fileObj?.size || 2150000,
-        folderId: activeFolderId !== "all" ? activeFolderId : "fld-1"
-      });
-      setIsUploadModalOpen(false);
-    }, 900);
+    setPendingFile(null);
+    setIsUploading(true);
+    setUploadProgress(0);
+    const uploaded = await uploadMediaAsset(file, {
+      folder: activeFolderId !== "all" ? activeFolderId : undefined,
+      onProgress: setUploadProgress
+    });
+    setIsUploading(false);
+    if (uploaded) setIsUploadModalOpen(false);
   };
 
   const toggleSelectAsset = (id: string) => {
@@ -194,13 +195,7 @@ export function MediaLibraryPage() {
             <span>Storage Used</span>
             <HardDrive size={14} className="text-zinc-700 dark:text-zinc-300" />
           </div>
-          <div className="mt-2 text-xl font-bold text-zinc-900 dark:text-zinc-100">{storageMetrics.usedMb} MB</div>
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-            <div
-              className="h-full rounded-full bg-zinc-900 dark:bg-zinc-100"
-              style={{ width: `${Math.min(100, Math.max(5, (parseFloat(storageMetrics.usedMb) / 100) * 100))}%` }}
-            />
-          </div>
+          <div className="mt-2 text-xl font-bold text-zinc-900 dark:text-zinc-100">{storageMetrics.usedMb}</div>
         </div>
       </div>
 
@@ -361,14 +356,14 @@ export function MediaLibraryPage() {
                     <div className="mt-2.5">
                       <div className="font-bold text-zinc-900 truncate text-xs dark:text-zinc-100">{asset.name}</div>
                       <div className="flex items-center justify-between text-[10px] text-zinc-400 font-mono mt-0.5">
-                        <span>{(asset.size / (1024 * 1024)).toFixed(1)} MB</span>
+                        <span>{formatBytes(asset.size)}</span>
                         <span>{asset.folderName}</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-2 text-[10px] text-zinc-500 dark:border-zinc-800">
-                    <span className="font-semibold">{asset.usedInPostsCount || 0} posts</span>
+                    <span className="font-semibold">{new Date(asset.createdAt).toLocaleDateString()}</span>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -421,8 +416,8 @@ export function MediaLibraryPage() {
                       <td className="py-3.5 px-3 font-bold text-zinc-900 dark:text-zinc-100">{asset.name}</td>
                       <td className="py-3.5 px-3">{asset.type}</td>
                       <td className="py-3.5 px-3 text-zinc-500">{asset.folderName}</td>
-                      <td className="py-3.5 px-3 font-mono">{(asset.size / (1024 * 1024)).toFixed(1)} MB</td>
-                      <td className="py-3.5 px-3 text-zinc-400">{asset.createdAt}</td>
+                      <td className="py-3.5 px-3 font-mono">{formatBytes(asset.size)}</td>
+                      <td className="py-3.5 px-3 text-zinc-400">{new Date(asset.createdAt).toLocaleDateString()}</td>
                       <td className="py-3.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => deleteMediaAsset(asset.id)} className="text-rose-500 p-1 hover:bg-rose-50 rounded">
                           <Trash2 size={13} />
@@ -462,17 +457,17 @@ export function MediaLibraryPage() {
             <div>
               <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">{selectedMediaItem.name}</h2>
               <div className="mt-2 grid grid-cols-2 gap-2 text-zinc-500 font-mono">
-                <div>Dimensions: {selectedMediaItem.width || 1080} × {selectedMediaItem.height || 1080}</div>
-                <div>Size: {(selectedMediaItem.size / (1024 * 1024)).toFixed(1)} MB</div>
-                <div>Folder: {selectedMediaItem.folderName}</div>
-                <div>Used in: {selectedMediaItem.usedInPostsCount || 0} posts</div>
+                <div>Dimensions: {selectedMediaItem.width && selectedMediaItem.height ? `${selectedMediaItem.width} × ${selectedMediaItem.height}` : "—"}</div>
+                <div>Size: {formatBytes(selectedMediaItem.size)}</div>
+                <div>Folder: {selectedMediaItem.folderName || "—"}</div>
+                <div>Uploaded: {new Date(selectedMediaItem.createdAt).toLocaleDateString()}</div>
               </div>
             </div>
 
             <div className="flex gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
-              <button onClick={() => showToast("Download Started", selectedMediaItem.name)} className="flex-1 btn-primary py-2">
+              <a href={`${selectedMediaItem.url}?download=1`} className="flex-1 btn-primary py-2 text-center">
                 Download Asset
-              </button>
+              </a>
               <button onClick={() => deleteMediaAsset(selectedMediaItem.id)} className="btn-secondary py-2 text-rose-600">
                 <Trash2 size={14} />
               </button>
@@ -504,7 +499,7 @@ export function MediaLibraryPage() {
                 onDrop={(e) => {
                   e.preventDefault();
                   setDragOver(false);
-                  handleStartUpload({ name: e.dataTransfer.files[0]?.name });
+                  handleStartUpload(e.dataTransfer.files[0]);
                 }}
                 className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition ${
                   dragOver ? "border-zinc-900 bg-zinc-100/50 dark:border-zinc-100" : "border-zinc-300 bg-zinc-50/50 dark:border-zinc-700 dark:bg-zinc-950"
@@ -512,13 +507,29 @@ export function MediaLibraryPage() {
               >
                 <Upload size={32} className="text-zinc-700 dark:text-zinc-300" />
                 <h4 className="mt-3 font-bold text-zinc-900 dark:text-zinc-100">Drag and drop files here</h4>
-                <p className="mt-1 text-[11px] text-zinc-400">Supports JPG, PNG, GIF, MP4, MOV up to 100MB</p>
+                <p className="mt-1 text-[11px] text-zinc-400">Supports JPG, PNG, GIF, WEBP, MP4, MOV, WEBM and PDF up to 25MB</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp,video/mp4,video/quicktime,video/webm,application/pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    handleStartUpload(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
                 <button
-                  onClick={() => handleStartUpload()}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
                   className="mt-4 btn-primary"
                 >
-                  Choose File
+                  {isUploading ? `Uploading... ${uploadProgress}%` : "Choose File"}
                 </button>
+                {isUploading && (
+                  <div className="mt-3 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                    <div className="h-full rounded-full bg-zinc-900 transition-all dark:bg-zinc-100" style={{ width: `${uploadProgress}%` }} />
+                  </div>
+                )}
               </div>
 
               {/* Duplicate Detection Warning */}
@@ -529,7 +540,7 @@ export function MediaLibraryPage() {
                     <div className="font-bold">Similar file already exists</div>
                     <div className="text-[11px]">A file with the same name exists in Media Library. What would you like to do?</div>
                     <div className="mt-2 flex gap-2">
-                      <button onClick={() => handleStartUpload({ name: `copy_${Date.now()}.png` })} className="rounded bg-amber-600 text-white px-2 py-1 font-bold">
+                      <button onClick={() => handleStartUpload(pendingFile ?? undefined, true)} className="rounded bg-amber-600 text-white px-2 py-1 font-bold">
                         Keep Both
                       </button>
                       <button onClick={() => setIsUploadModalOpen(false)} className="rounded border border-amber-400 px-2 py-1">

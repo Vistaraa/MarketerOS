@@ -1,4 +1,4 @@
-import { google } from "googleapis";
+import { searchconsole } from "@googleapis/searchconsole";
 import { GSCCredentials, createDynamicAuthClient } from "./client";
 
 const GSC_SCOPES = [
@@ -48,7 +48,7 @@ function getSearchConsoleClient(creds: GSCCredentials) {
     GSC_SCOPES
   );
 
-  return google.searchconsole({
+  return searchconsole({
     version: "v1",
     auth: auth as any
   });

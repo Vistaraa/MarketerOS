@@ -1,4 +1,6 @@
-import { google } from "googleapis";
+// Per-API Google packages instead of the full `googleapis` bundle, whose ~176 MB of type definitions
+// exhausted the TypeScript/Next.js build heap. `auth` here shares google-auth-library with the API clients.
+import { auth as googleAuth } from "@googleapis/androidpublisher";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { Platform } from "@prisma/client";
@@ -55,7 +57,7 @@ export interface AdMobCredentials {
   serviceAccount?: UserServiceAccountCredentials;
 }
 
-export type DynamicAuthClient = InstanceType<typeof google.auth.OAuth2> | InstanceType<typeof google.auth.JWT>;
+export type DynamicAuthClient = InstanceType<typeof googleAuth.OAuth2> | InstanceType<typeof googleAuth.JWT>;
 
 /**
  * Creates an authenticated Google Auth instance (OAuth2 or Service Account JWT)
@@ -70,7 +72,7 @@ export function createDynamicAuthClient(
     const { client_email, private_key } = auth.serviceAccount;
     // Format private key properly if newlines were escaped
     const formattedKey = private_key.replace(/\\n/g, "\n");
-    const jwtClient = new google.auth.JWT({
+    const jwtClient = new googleAuth.JWT({
       email: client_email,
       key: formattedKey,
       scopes
@@ -80,7 +82,7 @@ export function createDynamicAuthClient(
 
   if (auth.oauth) {
     const { clientId, clientSecret, refreshToken, accessToken } = auth.oauth;
-    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+    const oauth2Client = new googleAuth.OAuth2(clientId, clientSecret);
     oauth2Client.setCredentials({
       refresh_token: refreshToken,
       access_token: accessToken

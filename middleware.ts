@@ -13,6 +13,10 @@ const PUBLIC_PREFIXES = [
   "/media",
   "/images",
   "/api/stripe/webhook",
+  // Vercel Cron; the route checks CRON_SECRET itself.
+  "/api/cron/",
+  // Sentry's browser event tunnel (see next.config.mjs); events arrive before/without a session.
+  "/monitoring",
   // PayU posts here cross-site, so no session cookie arrives; the handler verifies PayU's signed hash instead.
   "/api/billing/payu/callback"
 ];

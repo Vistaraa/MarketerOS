@@ -21,6 +21,11 @@ export function assertRequiredEnv() {
 
   if (isProduction && !process.env.APP_URL) problems.push("APP_URL must be set in production (used for password reset and email verification links).");
 
+  if (isProduction && process.env.STORAGE_DRIVER !== "s3") {
+    // A warning, not a failure: single-server hosts can keep files on disk, but serverless platforms discard them.
+    console.warn("[env] STORAGE_DRIVER is not \"s3\": media uploads are stored on local disk and will be lost on serverless hosts such as Vercel.");
+  }
+
   if (problems.length === 0) return;
   const message = `Missing or invalid configuration:\n  - ${problems.join("\n  - ")}`;
   if (isProduction) {
