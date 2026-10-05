@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Check, CheckCircle2, Eye, EyeOff, KeyRound, Lock, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ApiResponse } from "@/lib/api-contracts";
@@ -14,12 +14,13 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
   const queryEmail = searchParams.get("email") || "";
-  const resetToken = searchParams.get("token") || "";
+  const urlToken = searchParams.get("token") || "";
 
   const signup = mode === "signup";
   const login = mode === "login";
   const forgotPassword = mode === "forgot-password";
   const resetPassword = mode === "reset-password";
+  const verifyEmail = mode === "verify-email";
 
   const [email, setEmail] = useState(queryEmail);
   const [password, setPassword] = useState("");
@@ -31,7 +32,7 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const missingTokenMessage = "This reset link is invalid or incomplete. Please request a new one.";
-  const [error, setError] = useState<string | null>(resetPassword && !resetToken ? missingTokenMessage : null);
+  const [error, setError] = useState<string | null>(resetPassword && !urlToken ? missingTokenMessage : null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -53,7 +54,9 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
         ? "Enter your email address and we'll send you instructions to reset your password."
         : resetPassword
           ? "Create a new secure password for your account."
-          : "We sent a verification link to your email address.";
+          : urlToken
+            ? "Confirming your email address..."
+            : "We sent a verification link to your email address. Click it to confirm your account.";
 
   async function submit(event?: React.FormEvent) {
     if (event) event.preventDefault();
@@ -71,7 +74,7 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
       return;
     }
 
-    if (resetPassword && !resetToken) {
+    if (resetPassword && !urlToken) {
       setError(missingTokenMessage);
       return;
     }
@@ -100,7 +103,7 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
         const response = await fetch("/api/auth/reset-password", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ token: resetToken, password }),
+          body: JSON.stringify({ token: urlToken, password }),
         });
         const payload = (await response.json()) as ApiResponse<{ message?: string }>;
         if (!response.ok) {
@@ -241,6 +244,7 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
             <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{title}</h1>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{subtitle}</p>
 
+            {verifyEmail ? <VerifyEmailPanel token={urlToken} /> : <>
             {error && (
               <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50/70 p-3 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400">
                 {error}
@@ -417,9 +421,86 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
                 </div>
               )}
             </form>
+            </>}
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function VerifyEmailPanel({ token }: { token: string }) {
+  const router = useRouter();
+  const [state, setState] = useState<"idle" | "verifying" | "verified" | "failed">(token ? "verifying" : "idle");
+  const [message, setMessage] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const started = useRef(false);
+
+  useEffect(() => {
+    // Tokens are single-use, so guard against React running this effect twice.
+    if (!token || started.current) return;
+    started.current = true;
+    fetch("/api/auth/verify-email", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token })
+    })
+      .then(async (response) => {
+        const payload = (await response.json()) as ApiResponse<{ message?: string }>;
+        if (!response.ok) throw new Error(payload.error?.message || "Verification failed.");
+        setState("verified");
+        setMessage(payload.data?.message || "Your email address has been verified.");
+      })
+      .catch((cause) => {
+        setState("failed");
+        setMessage(cause instanceof Error ? cause.message : "Verification failed.");
+      });
+  }, [token]);
+
+  async function resend() {
+    setResending(true);
+    try {
+      const response = await fetch("/api/auth/resend-verification", { method: "POST" });
+      const payload = (await response.json()) as ApiResponse<{ message?: string }>;
+      if (response.status === 401) {
+        router.push(`/auth/login?returnTo=${encodeURIComponent("/auth/verify-email")}`);
+        return;
+      }
+      if (!response.ok) throw new Error(payload.error?.message || "Could not resend the verification email.");
+      setState("idle");
+      setMessage(payload.data?.message || "We've sent you a new verification link.");
+    } catch (cause) {
+      setState("failed");
+      setMessage(cause instanceof Error ? cause.message : "Could not resend the verification email.");
+    } finally {
+      setResending(false);
+    }
+  }
+
+  return (
+    <div className="mt-6 space-y-4 text-xs">
+      {state === "verifying" && <p className="text-zinc-500 dark:text-zinc-400">Verifying your email address...</p>}
+      {message && (
+        <div
+          className={cn(
+            "rounded-lg border p-3",
+            state === "failed"
+              ? "border-rose-200 bg-rose-50/70 text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400"
+              : "border-emerald-200 bg-emerald-50/80 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+          )}
+        >
+          {message}
+        </div>
+      )}
+      {state === "verified" ? (
+        <button type="button" onClick={() => router.push("/overview")} className="btn-primary w-full py-2.5">
+          Continue to MarketerOS
+        </button>
+      ) : state !== "verifying" && (
+        <button type="button" onClick={resend} disabled={resending} className="btn-secondary w-full py-2.5">
+          {resending ? "Sending..." : "Resend verification email"}
+        </button>
+      )}
     </div>
   );
 }

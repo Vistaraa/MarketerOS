@@ -1,43 +1,28 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth-server";
-import { prisma } from "@/lib/prisma";
-import { getDecryptedGooglePlayIntegration, ensurePlayConsoleData } from "@/lib/google/play-console";
-import { Platform } from "@prisma/client";
+import { getDecryptedGooglePlayIntegration } from "@/lib/google/play-console";
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { workspaceId } = session;
-    const decrypted = await getDecryptedGooglePlayIntegration(workspaceId);
-
-    // Update integration last synced timestamp
-    const integration = await prisma.integration.findFirst({
-      where: { workspaceId, platform: Platform.GOOGLE_PLAY }
-    });
-
-    if (integration) {
-      await prisma.integration.update({
-        where: { id: integration.id },
-        data: {
-          lastSyncedAt: new Date(),
-          lastSyncFinished: new Date()
-        }
-      });
+    const decrypted = await getDecryptedGooglePlayIntegration(session.workspaceId);
+    if (!decrypted) {
+      return NextResponse.json(
+        { error: "Google Play isn't connected yet. Add your Play Console credentials with BYOK Keys first." },
+        { status: 409 }
+      );
     }
 
-    // Refresh Play Console data & purge legacy demo sine wave records
-    await ensurePlayConsoleData(workspaceId, undefined, true);
-
+    // There is no importer for Play Console releases, inbox or KPIs yet. Say so instead of
+    // reporting a successful sync (this route used to regenerate synthetic metrics here).
     return NextResponse.json({
       success: true,
-      message: decrypted
-        ? `Live sync completed for ${decrypted.packageName}!`
-        : "Google Play Console metrics synced successfully.",
-      syncedAt: new Date().toISOString()
+      imported: false,
+      message: `Connected to ${decrypted.packageName || "your app"}. Importing releases, inbox messages and KPIs from Google Play isn't available yet, so no data was synced.`
     });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || "Failed to sync Google Play Console." }, { status: 500 });

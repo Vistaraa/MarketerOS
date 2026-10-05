@@ -8,8 +8,11 @@ import { recordAudit } from "@/lib/audit";
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 function getSecretKey(): string {
-  const secret = process.env.SESSION_SECRET || process.env.ENCRYPTION_KEY || "marketeros-default-invite-secret-key-at-least-32-chars";
-  return secret;
+  const secret = process.env.SESSION_SECRET || process.env.ENCRYPTION_KEY;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === "production") throw new Error("SESSION_SECRET must be configured in production.");
+  // Development-only fallback; it is public in the source code.
+  return "marketeros-default-invite-secret-key-at-least-32-chars";
 }
 
 function signPayload(payload: string): string {

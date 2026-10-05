@@ -22,6 +22,7 @@ export default function PlayConsolePage() {
 
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ tone: "info" | "error"; text: string } | null>(null);
   const [showConnectModal, setShowConnectModal] = useState(false);
 
   useEffect(() => {
@@ -66,12 +67,15 @@ export default function PlayConsolePage() {
 
   const handleSyncLive = async () => {
     setSyncing(true);
+    setSyncMessage(null);
     try {
       const clientQuery = selectedClientId ? `?clientId=${selectedClientId}` : "";
-      await fetch(`/api/v1/play-console/sync${clientQuery}`, { method: "POST" });
+      const res = await fetch(`/api/v1/play-console/sync${clientQuery}`, { method: "POST" });
+      const payload = await res.json().catch(() => ({}));
+      setSyncMessage(res.ok ? { tone: "info", text: payload.message || "Sync finished." } : { tone: "error", text: payload.error || "Sync failed." });
       await fetchAllData();
     } catch {
-      // ignore
+      setSyncMessage({ tone: "error", text: "Could not reach the server to sync Google Play." });
     } finally {
       setSyncing(false);
     }
@@ -148,6 +152,18 @@ export default function PlayConsolePage() {
             </div>
           }
         />
+
+        {syncMessage && (
+          <div
+            className={`max-w-4xl mx-auto rounded-xl border px-4 py-3 text-xs ${
+              syncMessage.tone === "error"
+                ? "border-rose-200 bg-rose-50/70 text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400"
+                : "border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+            }`}
+          >
+            {syncMessage.text}
+          </div>
+        )}
 
         {/* Console Navigation Tab Switcher matching MarketerOS Aesthetics */}
         <div className="max-w-4xl mx-auto">

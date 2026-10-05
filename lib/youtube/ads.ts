@@ -1,23 +1,8 @@
-import type { YouTubeAdCampaign, YouTubeAdGroup, YouTubeAd, YouTubeAdsDashboard, YouTubeAdsMetrics, YouTubeAdsConnectInput } from "./ads-types";
+import type { YouTubeAdCampaign, YouTubeAdsMetrics, YouTubeAdsConnectInput, YouTubeChannelPerformance } from "./ads-types";
 
-import { prisma } from "@/lib/prisma";
-
-async function getYouTubeApiKey(): Promise<string | null> {
-  try {
-    const { decryptSecret } = require("@/lib/crypto");
-    const integration = await prisma.integration.findFirst({ where: { platform: "YOUTUBE" } });
-    if (!integration) return null;
-    return decryptSecret(integration.apiKeyEncrypted || integration.apiKey || "");
-  } catch { return null; }
-}
-
-async function getYouTubeChannelId(): Promise<string | null> {
-  try {
-    const integration = await prisma.integration.findFirst({ where: { platform: "YOUTUBE" } });
-    if (!integration) return null;
-    return integration.accountId || null;
-  } catch { return null; }
-}
+// The YouTube Data API (API key + channel ID) only exposes organic channel and video statistics.
+// Ad metrics such as impressions, clicks, spend and conversions only exist in the Google Ads API, so
+// nothing here reports them; earlier versions estimated them from view counts.
 
 export async function validateYouTubeAdsCredentials(input: YouTubeAdsConnectInput): Promise<{ valid: boolean; error?: string }> {
   try {
@@ -29,52 +14,13 @@ export async function validateYouTubeAdsCredentials(input: YouTubeAdsConnectInpu
   } catch (e) { return { valid: false, error: "Network error" }; }
 }
 
-export async function fetchYouTubeAdCampaigns(apiKey: string, channelId: string): Promise<YouTubeAdCampaign[]> {
-  const channelsRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=contentDetails,statistics&id=${channelId}&key=${apiKey}`);
-  if (!channelsRes.ok) throw new Error("Failed to fetch channel");
-  const channelsData = await channelsRes.json();
-  const channel = channelsData.items?.[0];
-  if (!channel) throw new Error("Channel not found");
-
-  const uploadsPlaylistId = channel.contentDetails?.relatedPlaylists?.uploads;
-  if (!uploadsPlaylistId) return [];
-
-  const videosRes = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${uploadsPlaylistId}&maxResults=50&key=${apiKey}`);
-  if (!videosRes.ok) throw new Error("Failed to fetch videos");
-  const videosData = await videosRes.json();
-
-  const videoIds = videosData.items?.map((item: any) => item.contentDetails?.videoId).filter(Boolean) || [];
-  if (!videoIds.length) return [];
-
-  const statsRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=statistics,contentDetails&id=${videoIds.join(",")}&key=${apiKey}`);
-  if (!statsRes.ok) throw new Error("Failed to fetch video stats");
-  const statsData = await statsRes.json();
-
-  const totalViews = statsData.items?.reduce((sum: number, v: any) => sum + parseInt(v.statistics?.viewCount || "0"), 0) || 0;
-  const totalLikes = statsData.items?.reduce((sum: number, v: any) => sum + parseInt(v.statistics?.likeCount || "0"), 0) || 0;
-  const totalComments = statsData.items?.reduce((sum: number, v: any) => sum + parseInt(v.statistics?.commentCount || "0"), 0) || 0;
-
-  return [{
-    id: `yt-ads-${channelId}`,
-    name: `${channel.snippet?.title || "YouTube"} - Ads Performance`,
-    status: "ENABLED",
-    budget: 0,
-    budgetType: "DAILY",
-    startDate: new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0],
-    impressions: totalViews * 3,
-    views: totalViews,
-    clicks: Math.floor(totalViews * 0.02),
-    conversions: Math.floor(totalViews * 0.005),
-    spend: 0,
-    cpc: 0,
-    cpm: 0,
-    ctr: totalViews > 0 ? 2.0 : 0,
-    viewRate: totalViews > 0 ? 33.3 : 0,
-    CPV: 0
-  }];
+/** YouTube ad campaigns require a Google Ads connection; the Data API has none to return. */
+export async function fetchYouTubeAdCampaigns(_apiKey: string, _channelId: string): Promise<YouTubeAdCampaign[]> {
+  return [];
 }
 
-export async function fetchYouTubeAdsDashboard(apiKey: string, channelId: string): Promise<YouTubeAdsDashboard> {
+/** Real organic channel totals and the latest uploads' statistics. */
+export async function fetchYouTubeAdsDashboard(apiKey: string, channelId: string): Promise<YouTubeChannelPerformance> {
   const channelsRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,contentDetails&id=${channelId}&key=${apiKey}`);
   if (!channelsRes.ok) throw new Error("Failed to fetch channel");
   const channelsData = await channelsRes.json();
@@ -82,100 +28,45 @@ export async function fetchYouTubeAdsDashboard(apiKey: string, channelId: string
   if (!channel) throw new Error("Channel not found");
 
   const stats = channel.statistics || {};
-  const totalViews = parseInt(stats.viewCount || "0");
-  const totalSubscribers = parseInt(stats.subscriberCount || "0");
-  const totalVideos = parseInt(stats.videoCount || "0");
+  const toCount = (value: unknown) => (value == null ? null : Number(value));
 
+  let recentVideos: YouTubeChannelPerformance["recentVideos"] = [];
   const uploadsPlaylistId = channel.contentDetails?.relatedPlaylists?.uploads;
-  let recentAds: YouTubeAd[] = [];
-
   if (uploadsPlaylistId) {
     const videosRes = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${uploadsPlaylistId}&maxResults=10&key=${apiKey}`);
     if (videosRes.ok) {
       const videosData = await videosRes.json();
       const videoIds = videosData.items?.map((item: any) => item.contentDetails?.videoId).filter(Boolean) || [];
-
       if (videoIds.length) {
-        const statsRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=statistics,contentDetails&id=${videoIds.join(",")}&key=${apiKey}`);
+        const statsRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${videoIds.join(",")}&key=${apiKey}`);
         if (statsRes.ok) {
           const statsData = await statsRes.json();
-          recentAds = statsData.items?.map((video: any, index: number) => ({
+          recentVideos = (statsData.items || []).map((video: any) => ({
             id: video.id,
-            adGroupId: `adgroup-${index}`,
-            name: video.snippet?.title || "Untitled Video",
-            status: "ENABLED" as const,
-            videoId: video.id,
-            videoTitle: video.snippet?.title || "Untitled",
+            title: video.snippet?.title || "Untitled",
             thumbnailUrl: video.snippet?.thumbnails?.default?.url || "",
-            headline: video.snippet?.title || "",
-            description: video.snippet?.description?.substring(0, 100) || "",
-            callToAction: "Learn More",
-            impressions: parseInt(video.statistics?.viewCount || "0") * 3,
-            views: parseInt(video.statistics?.viewCount || "0"),
-            clicks: Math.floor(parseInt(video.statistics?.viewCount || "0") * 0.02),
-            spend: 0,
-            viewRate: 33.3
-          })) || [];
+            publishedAt: video.snippet?.publishedAt || null,
+            views: toCount(video.statistics?.viewCount),
+            likes: toCount(video.statistics?.likeCount),
+            comments: toCount(video.statistics?.commentCount)
+          }));
         }
       }
     }
   }
 
   return {
-    totalSpend: 0,
-    totalImpressions: totalViews * 3,
-    totalViews,
-    totalClicks: Math.floor(totalViews * 0.02),
-    totalConversions: Math.floor(totalViews * 0.005),
-    averageCPV: 0,
-    averageCPM: 0,
-    averageCTR: totalViews > 0 ? 2.0 : 0,
-    averageViewRate: totalViews > 0 ? 33.3 : 0,
-    campaigns: [{
-      id: `campaign-${channelId}`,
-      name: `${channel.snippet?.title || "YouTube"} Campaign`,
-      status: "ENABLED",
-      budget: 0,
-      budgetType: "DAILY",
-      startDate: new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0],
-      impressions: totalViews * 3,
-      views: totalViews,
-      clicks: Math.floor(totalViews * 0.02),
-      conversions: Math.floor(totalViews * 0.005),
-      spend: 0,
-      cpc: 0,
-      cpm: 0,
-      ctr: totalViews > 0 ? 2.0 : 0,
-      viewRate: totalViews > 0 ? 33.3 : 0,
-      CPV: 0
-    }],
-    recentAds
+    channelTitle: channel.snippet?.title || "YouTube channel",
+    totalViews: toCount(stats.viewCount),
+    // YouTube hides subscriber counts for some channels.
+    subscribers: stats.hiddenSubscriberCount ? null : toCount(stats.subscriberCount),
+    videoCount: toCount(stats.videoCount),
+    recentVideos,
+    adMetricsAvailable: false
   };
 }
 
-export async function fetchYouTubeAdsMetrics(apiKey: string, channelId: string, days: number = 30): Promise<YouTubeAdsMetrics[]> {
-  const channelsRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${apiKey}`);
-  if (!channelsRes.ok) throw new Error("Failed to fetch channel");
-  const channelsData = await channelsRes.json();
-  const channel = channelsData.items?.[0];
-  if (!channel) throw new Error("Channel not found");
-
-  const totalViews = parseInt(channel.statistics?.viewCount || "0");
-  const dailyAvg = Math.floor(totalViews / 30);
-
-  const metrics: YouTubeAdsMetrics[] = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const date = new Date(Date.now() - i * 86400000);
-    const variance = 0.7 + Math.random() * 0.6;
-    metrics.push({
-      date: date.toISOString().split("T")[0],
-      impressions: Math.floor(dailyAvg * 3 * variance),
-      views: Math.floor(dailyAvg * variance),
-      clicks: Math.floor(dailyAvg * 0.02 * variance),
-      spend: 0,
-      conversions: Math.floor(dailyAvg * 0.005 * variance)
-    });
-  }
-
-  return metrics;
+/** Daily ad metrics are not available from the Data API; returns no rows rather than estimates. */
+export async function fetchYouTubeAdsMetrics(_apiKey: string, _channelId: string, _days: number = 30): Promise<YouTubeAdsMetrics[]> {
+  return [];
 }

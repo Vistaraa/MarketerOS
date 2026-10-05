@@ -15,9 +15,7 @@ import {
   ContentStatus,
   User
 } from "../types/content-studio-types";
-import {
-  INITIAL_SETTINGS_STATE
-} from "../data/mock-content-studio-data";
+import { INITIAL_SETTINGS_STATE } from "../data/default-settings";
 
 interface ToastMessage {
   id: string;

@@ -18,6 +18,7 @@ import {
   Layers,
   LayoutDashboard,
   LogOut,
+  Mail,
   Menu,
   Moon,
   MoreHorizontal,
@@ -742,7 +743,7 @@ export function AppShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [loadingSession, setLoadingSession] = useState(true);
-  const [session, setSession] = useState<{ authenticated?: boolean; suspended?: boolean; user?: { role?: string; name?: string; email?: string } } | null>(null);
+  const [session, setSession] = useState<{ authenticated?: boolean; suspended?: boolean; user?: { role?: string; name?: string; email?: string; emailVerified?: boolean } } | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/session")
@@ -858,6 +859,8 @@ export function AppShell({
           onMobileMenuOpen={() => setMobileOpen(true)}
         />
 
+        {session?.authenticated && session.user?.emailVerified === false && <VerifyEmailBanner email={session.user.email} />}
+
         <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 pb-24 lg:pb-8">
           <div className="mx-auto max-w-[1550px] w-full">
             {isAllowed ? (
@@ -893,6 +896,44 @@ export function AppShell({
       </div>
 
       <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} role={session?.user?.role} />
+    </div>
+  );
+}
+
+function VerifyEmailBanner({ email }: { email?: string }) {
+  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function resend() {
+    setStatus("sending");
+    try {
+      const res = await fetch("/api/auth/resend-verification", { method: "POST" });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload?.error?.message || "Could not send the verification email.");
+      setStatus("sent");
+      setMessage(payload?.data?.message || "Verification email sent.");
+    } catch (err) {
+      setStatus("error");
+      setMessage(err instanceof Error ? err.message : "Could not send the verification email.");
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+      <Mail size={14} className="shrink-0" />
+      <span className="min-w-0 flex-1">
+        {message || <>Please verify your email address{email ? <> (<span className="font-semibold">{email}</span>)</> : null}. Check your inbox for the link.</>}
+      </span>
+      {status !== "sent" && (
+        <button
+          type="button"
+          onClick={resend}
+          disabled={status === "sending"}
+          className="font-semibold underline hover:no-underline disabled:opacity-60"
+        >
+          {status === "sending" ? "Sending..." : "Resend email"}
+        </button>
+      )}
     </div>
   );
 }

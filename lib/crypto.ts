@@ -5,6 +5,10 @@ function key() {
   if (configured && /^[a-f0-9]{64}$/i.test(configured)) {
     return Buffer.from(configured, "hex");
   }
+  if (!configured && process.env.NODE_ENV === "production") {
+    throw new Error("ENCRYPTION_KEY must be configured in production.");
+  }
+  // The built-in seed is a development-only convenience; it is public in the source code.
   return createHash("sha256").update(configured || "marketeros-secret-encryption-key-seed-2026").digest();
 }
 

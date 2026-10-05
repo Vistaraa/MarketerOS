@@ -1155,3 +1155,12 @@ model UserKpiPreference {
   @@unique([workspaceId])
 }
 
+
+// Fixed-window counters for auth rate limiting, shared across server instances.
+model RateLimit {
+  key         String   @id
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
+
+  @@index([windowStart])
+}

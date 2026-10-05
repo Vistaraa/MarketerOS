@@ -3,12 +3,34 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { authenticatePersistedUser, clearSession, createPersistedUser, getSession, setSession } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit, clearRateLimit, clientIp, formatRetryAfter, hitRateLimit } from "@/lib/rate-limit";
 
 import { cookies } from "next/headers";
 
 export const runtime = "nodejs";
 
 const credentials = z.object({ email: z.string().email(), password: z.string().min(8) });
+
+const MAX_FAILED_LOGINS = 5;
+const FAILED_LOGIN_WINDOW_SECONDS = 15 * 60;
+
+function tooManyRequests(retryAfterSeconds: number, message?: string) {
+  return NextResponse.json(
+    { error: { code: "RATE_LIMITED", message: message || `Too many attempts. Please try again in ${formatRetryAfter(retryAfterSeconds)}.` } },
+    { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } }
+  );
+}
+
+/** Returns a 429 response when this client IP has exceeded `limit` hits of `action` per window, else null. */
+async function limitByIp(request: Request, action: string, limit: number, windowSeconds: number) {
+  const result = await hitRateLimit(`${action}:ip:${clientIp(request)}`, limit, windowSeconds);
+  return result.allowed ? null : tooManyRequests(result.retryAfterSeconds);
+}
+
+/** Base URL for emailed links. In production only APP_URL is trusted; the request origin comes from the spoofable Host header. */
+function appBaseUrl(request: Request) {
+  return process.env.APP_URL || (process.env.NODE_ENV !== "production" ? new URL(request.url).origin : null);
+}
 
 async function resolvePath(
   request: Request,
@@ -49,11 +71,12 @@ export async function GET(
     if (path === "session") {
       const session = await getSession();
       if (session) {
+        const account = await prisma.user.findUnique({ where: { id: session.userId }, select: { emailVerifiedAt: true } });
         return NextResponse.json({
           data: {
             authenticated: true,
             suspended: false,
-            user: { id: session.userId, name: session.name, email: session.email, workspaceId: session.workspaceId, role: session.role }
+            user: { id: session.userId, name: session.name, email: session.email, workspaceId: session.workspaceId, role: session.role, emailVerified: Boolean(account?.emailVerifiedAt) }
           }
         });
       }
@@ -120,6 +143,8 @@ export async function POST(
       return NextResponse.json({ data: { success: true, message: "Logged out successfully." } });
     }
     if (path === "set-password" || path === "accept-invite" || path === "activate") {
+      const limited = await limitByIp(request, "accept-invite", 10, 15 * 60);
+      if (limited) return limited;
       const parsed = z.object({
         token: z.string().min(1, "Invitation token is required."),
         password: z.string().min(8, "Password must be at least 8 characters.")
@@ -152,6 +177,8 @@ export async function POST(
       });
     }
     if (path === "signup") {
+      const limited = await limitByIp(request, "signup", 5, 60 * 60);
+      if (limited) return limited;
       const parsed = credentials.extend({ firstName: z.string().min(1), lastName: z.string().min(1), workspaceName: z.string().min(2) }).safeParse(body);
       if (!parsed.success) return NextResponse.json({ error: { message: parsed.error.issues[0]?.message || "Invalid signup." } }, { status: 400 });
       const { password, firstName, lastName, workspaceName } = parsed.data;
@@ -165,14 +192,35 @@ export async function POST(
       const result = await createPersistedUser({ email, firstName, lastName, workspaceName, passwordHash: await bcrypt.hash(password, 12) });
       const sessionInput = { userId: result.user.id, workspaceId: result.workspace.id, role: "OWNER", email: result.user.email, name: `${result.user.firstName} ${result.user.lastName}` };
       await setSession(sessionInput);
+      const baseUrl = appBaseUrl(request);
+      if (baseUrl) {
+        try {
+          const { sendEmailVerification } = await import("@/lib/email-verification");
+          await sendEmailVerification(result.user.id, baseUrl);
+        } catch (err) {
+          console.error("Sending verification email failed:", err);
+        }
+      }
       return NextResponse.json({ data: { success: true, user: sessionInput, next: "/onboarding/brand" } }, { status: 201 });
     }
     if (path === "login") {
+      const limited = await limitByIp(request, "login", 30, 15 * 60);
+      if (limited) return limited;
       const parsed = credentials.safeParse(body);
       if (!parsed.success) return NextResponse.json({ error: { message: "Enter a valid email and password." } }, { status: 400 });
       const email = parsed.data.email.trim().toLowerCase();
+      // Per-account lockout: IP limits alone don't stop a distributed password-guessing attack on one account.
+      const failureKey = `login:fail:${email}`;
+      const lockout = await checkRateLimit(failureKey, MAX_FAILED_LOGINS, FAILED_LOGIN_WINDOW_SECONDS);
+      if (!lockout.allowed) {
+        return tooManyRequests(lockout.retryAfterSeconds, `Too many failed sign-in attempts for this account. Try again in ${formatRetryAfter(lockout.retryAfterSeconds)}, or reset your password.`);
+      }
       const session = await authenticatePersistedUser(email, parsed.data.password);
-      if (!session) return NextResponse.json({ error: { message: "Email or password is incorrect." } }, { status: 401 });
+      if (!session) {
+        await hitRateLimit(failureKey, MAX_FAILED_LOGINS, FAILED_LOGIN_WINDOW_SECONDS);
+        return NextResponse.json({ error: { message: "Email or password is incorrect." } }, { status: 401 });
+      }
+      await clearRateLimit(failureKey);
       await setSession(session);
       const { getDefaultRouteForRole } = await import("@/lib/auth-server");
       const nextRoute = getDefaultRouteForRole(session.role);
@@ -184,8 +232,12 @@ export async function POST(
         return NextResponse.json({ error: { message: parsed.error.issues[0]?.message || "Invalid email address." } }, { status: 400 });
       }
       const email = parsed.data.email.trim().toLowerCase();
-      // In production the link must point at APP_URL; the request origin comes from the Host header and can be spoofed.
-      const baseUrl = process.env.APP_URL || (process.env.NODE_ENV !== "production" ? new URL(request.url).origin : null);
+      const limited = await limitByIp(request, "forgot-password", 10, 60 * 60);
+      if (limited) return limited;
+      // Counted for every address, existing or not, so a 429 here reveals nothing about which accounts exist.
+      const perEmail = await hitRateLimit(`forgot-password:email:${email}`, 3, 60 * 60);
+      if (!perEmail.allowed) return tooManyRequests(perEmail.retryAfterSeconds);
+      const baseUrl = appBaseUrl(request);
       if (!baseUrl) {
         console.error("Password reset requested but APP_URL is not configured.");
       } else {
@@ -205,6 +257,8 @@ export async function POST(
       });
     }
     if (path === "reset-password") {
+      const limited = await limitByIp(request, "reset-password", 10, 15 * 60);
+      if (limited) return limited;
       const parsed = z.object({
         token: z.string().min(1, "This reset link is invalid. Please request a new one."),
         password: z.string().min(8, "Password must be at least 8 characters long.")
@@ -224,12 +278,25 @@ export async function POST(
       });
     }
     if (path === "verify-email") {
-      return NextResponse.json({
-        data: {
-          success: true,
-          message: "Email verified successfully."
-        }
-      });
+      const limited = await limitByIp(request, "verify-email", 20, 15 * 60);
+      if (limited) return limited;
+      const parsed = z.object({ token: z.string().min(1) }).safeParse(body);
+      const { verifyEmailWithToken } = await import("@/lib/email-verification");
+      if (!parsed.success || !(await verifyEmailWithToken(parsed.data.token))) {
+        return NextResponse.json({ error: { message: "This verification link is invalid or has expired. Sign in and request a new one." } }, { status: 400 });
+      }
+      return NextResponse.json({ data: { success: true, message: "Your email address has been verified." } });
+    }
+    if (path === "resend-verification") {
+      const session = await getSession();
+      if (!session) return NextResponse.json({ error: { message: "Please sign in to resend the verification email." } }, { status: 401 });
+      const perUser = await hitRateLimit(`resend-verification:user:${session.userId}`, 3, 60 * 60);
+      if (!perUser.allowed) return tooManyRequests(perUser.retryAfterSeconds);
+      const baseUrl = appBaseUrl(request);
+      if (!baseUrl) return NextResponse.json({ error: { message: "Email delivery is not configured." } }, { status: 503 });
+      const { sendEmailVerification } = await import("@/lib/email-verification");
+      await sendEmailVerification(session.userId, baseUrl);
+      return NextResponse.json({ data: { success: true, message: `We've sent a new verification link to ${session.email}.` } });
     }
     return NextResponse.json({ error: { message: "Auth route not found." } }, { status: 404 });
   } catch (err: any) {

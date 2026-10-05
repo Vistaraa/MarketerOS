@@ -50,18 +50,23 @@ export interface YouTubeAd {
   viewRate: number;
 }
 
-export interface YouTubeAdsDashboard {
-  totalSpend: number;
-  totalImpressions: number;
-  totalViews: number;
-  totalClicks: number;
-  totalConversions: number;
-  averageCPV: number;
-  averageCPM: number;
-  averageCTR: number;
-  averageViewRate: number;
-  campaigns: YouTubeAdCampaign[];
-  recentAds: YouTubeAd[];
+/** Organic channel performance from the YouTube Data API. Counts are null when YouTube hides them. */
+export interface YouTubeChannelPerformance {
+  channelTitle: string;
+  totalViews: number | null;
+  subscribers: number | null;
+  videoCount: number | null;
+  recentVideos: Array<{
+    id: string;
+    title: string;
+    thumbnailUrl: string;
+    publishedAt: string | null;
+    views: number | null;
+    likes: number | null;
+    comments: number | null;
+  }>;
+  /** Always false until YouTube ad campaigns are read from the Google Ads API. */
+  adMetricsAvailable: boolean;
 }
 
 export interface YouTubeAdsMetrics {

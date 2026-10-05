@@ -468,12 +468,11 @@ function generatePasswordResetEmailHtml(params: SendPasswordResetEmailParams): s
 }
 
 /**
- * Sends a password reset link via Resend or SMTP. The link is only printed to the console outside production.
+ * Delivers a transactional email via Resend, then SMTP. Without a provider, the link is printed to the
+ * console outside production only, since these links grant account access.
  */
-export async function sendPasswordResetEmail(params: SendPasswordResetEmailParams): Promise<EmailSendResult> {
+async function deliverTransactionalEmail(to: string, subject: string, html: string, preview: { label: string; url: string }): Promise<EmailSendResult> {
   const fromAddress = process.env.SMTP_FROM || process.env.RESEND_FROM || "MarketerOS <no-reply@marketeros.com>";
-  const subject = "Reset your MarketerOS password";
-  const html = generatePasswordResetEmailHtml(params);
 
   if (process.env.RESEND_API_KEY) {
     try {
@@ -483,7 +482,7 @@ export async function sendPasswordResetEmail(params: SendPasswordResetEmailParam
           "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ from: fromAddress, to: [params.to], subject, html })
+        body: JSON.stringify({ from: fromAddress, to: [to], subject, html })
       });
       const data = await response.json();
       if (response.ok && data?.id) return { success: true, delivered: true, messageId: data.id };
@@ -495,7 +494,7 @@ export async function sendPasswordResetEmail(params: SendPasswordResetEmailParam
   const transporter = getSmtpTransporter();
   if (transporter) {
     try {
-      const info = await transporter.sendMail({ from: fromAddress, to: params.to, subject, html });
+      const info = await transporter.sendMail({ from: fromAddress, to, subject, html });
       return { success: true, delivered: true, messageId: info.messageId };
     } catch (err: any) {
       console.error("SMTP sending failed:", err?.message || err);
@@ -505,13 +504,53 @@ export async function sendPasswordResetEmail(params: SendPasswordResetEmailParam
 
   if (process.env.NODE_ENV !== "production") {
     console.log("=================================================");
-    console.log("📧 PASSWORD RESET EMAIL (DEV / FALLBACK PREVIEW)");
-    console.log(`To: ${params.to}`);
-    console.log(`Reset URL: ${params.resetUrl}`);
+    console.log(`📧 ${preview.label} (DEV / FALLBACK PREVIEW)`);
+    console.log(`To: ${to}`);
+    console.log(`URL: ${preview.url}`);
     console.log("=================================================");
   } else {
-    console.error("Password reset email could not be delivered: no email provider is configured.");
+    console.error(`${preview.label} could not be delivered: no email provider is configured.`);
   }
 
   return { success: false, delivered: false, error: "No email provider configured." };
+}
+
+export async function sendPasswordResetEmail(params: SendPasswordResetEmailParams): Promise<EmailSendResult> {
+  return deliverTransactionalEmail(params.to, "Reset your MarketerOS password", generatePasswordResetEmailHtml(params), {
+    label: "PASSWORD RESET EMAIL",
+    url: params.resetUrl
+  });
+}
+
+export interface SendVerificationEmailParams {
+  to: string;
+  recipientName: string;
+  verifyUrl: string;
+  expiresInHours: number;
+}
+
+function generateVerificationEmailHtml(params: SendVerificationEmailParams): string {
+  const name = escapeHtml(params.recipientName || "there");
+  const url = escapeHtml(params.verifyUrl);
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:32px 16px;background:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#18181b;">
+  <div style="max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #e4e4e7;border-radius:12px;padding:32px;">
+    <h1 style="margin:0 0 12px;font-size:20px;">Confirm your email address</h1>
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.6;">Hi ${name}, thanks for signing up for MarketerOS. Please confirm that this is your email address.</p>
+    <p style="margin:24px 0;"><a href="${url}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600;">Verify email</a></p>
+    <p style="margin:0 0 8px;font-size:12px;color:#71717a;line-height:1.6;">This link expires in ${params.expiresInHours} hours. If you didn't create a MarketerOS account, you can ignore this email.</p>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+export async function sendVerificationEmail(params: SendVerificationEmailParams): Promise<EmailSendResult> {
+  return deliverTransactionalEmail(params.to, "Confirm your MarketerOS email address", generateVerificationEmailHtml(params), {
+    label: "EMAIL VERIFICATION",
+    url: params.verifyUrl
+  });
 }

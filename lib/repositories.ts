@@ -298,7 +298,7 @@ export async function convertPersistedLeadToClient(workspaceId: string, leadId: 
       contactName: `${leadRow.firstName} ${leadRow.lastName}`,
       contactEmail: leadRow.email,
       contactPhone: leadRow.phone || undefined,
-      monthlyBudget: leadRow.estimatedValue || 5000,
+      monthlyBudget: leadRow.estimatedValue || 0,
       status: "ACTIVE"
     }
   });

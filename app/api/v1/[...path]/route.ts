@@ -590,11 +590,8 @@ export async function POST(
   if (path === "settings/api-keys") {
     const auth = await context("settings.manage");
     if (auth.error) return auth.error;
-    const parsed = z.object({ name: z.string().min(1) }).safeParse(body);
-    if (!parsed.success) return error("API key name is required.");
-    const { generatePersistedApiKey } = await import("@/lib/settings-service");
-    const result = await generatePersistedApiKey(auth.session.workspaceId, auth.session.userId, parsed.data.name);
-    return ok(result, undefined, { status: 201 });
+    // Keys used to be generated and shown here without ever being stored or accepted by the API.
+    return error("Developer API keys aren't available yet.", 501, "NOT_IMPLEMENTED");
   }
   if (path === "settings/change-password") {
     const auth = await context("settings.manage");
@@ -617,16 +614,7 @@ export async function POST(
   if (path === "settings/api-keys/revoke" || path.startsWith("settings/api-keys/")) {
     const auth = await context("settings.manage");
     if (auth.error) return auth.error;
-    const keyId = body?.keyId || path.split("/")[2] || "key";
-    await recordAudit({
-      workspaceId: auth.session.workspaceId,
-      userId: auth.session.userId,
-      action: "REVOKE_API_KEY",
-      module: "settings",
-      entityType: "ApiKey",
-      entityId: String(keyId)
-    });
-    return ok({ success: true, message: "API key revoked successfully." });
+    return error("API key not found.", 404);
   }
   if (path === "social/accounts") {
     const auth = await context("settings.manage");
@@ -1211,9 +1199,8 @@ export async function DELETE(request: Request, { params }: { params: { path: str
   const id = parts[1];
 
   if (entity === "settings" && parts[1] === "api-keys") {
-    const keyId = parts[2];
-    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "REVOKE_API_KEY", module: "settings", entityType: "ApiKey", entityId: keyId });
-    return ok({ revoked: keyId });
+    // API keys aren't implemented yet, so there is never a key to revoke.
+    return error("API key not found.", 404);
   }
 
   if (entity === "settings" && parts[1] === "sessions") {

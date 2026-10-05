@@ -1,4 +1,5 @@
-import { createHash, randomBytes } from "crypto";
+import { createHash } from "crypto";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/audit";
 import { listPersistedTeam } from "@/lib/repositories";
@@ -68,10 +69,8 @@ export type FullSettingsPayload = {
   }>;
   securitySessions: Array<{
     id: string;
-    device: string;
-    browser: string;
-    ipAddress: string;
-    lastActive: string;
+    signedInAt: string;
+    expiresAt: string;
     isCurrent: boolean;
   }>;
   apiKeys: Array<{
@@ -181,59 +180,29 @@ export async function getPersistedSettings(
     { category: "TEAM", label: "Team & Member Invites", description: "New member joins, role updates, and access changes", inApp: true, email: false },
   ];
 
+  // Only real, unexpired sessions. Device, browser and IP aren't recorded, so none are shown.
   const dbSessions = await prisma.session.findMany({
-    where: { userId },
+    where: { userId, expiresAt: { gt: new Date() } },
     orderBy: { createdAt: "desc" }
   }).catch(() => []);
 
-  let securitySessions = dbSessions.map((s, idx) => ({
-    id: s.id,
-    device: idx === 0 ? "Current Workspace Session (Desktop)" : "Active Web Session",
-    browser: "Chrome / Web Browser",
-    ipAddress: "127.0.0.1",
-    lastActive: s.createdAt ? new Date(s.createdAt).toLocaleString() : "Just now",
-    isCurrent: idx === 0
-  }));
-
-  if (securitySessions.length === 0) {
-    const newSess = await prisma.session.create({
-      data: {
-        userId: user.id,
-        tokenHash: `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-      }
-    }).catch(() => null);
-
-    securitySessions = [
-      {
-        id: newSess?.id || "sess-current",
-        device: "Current Desktop Browser (MacBook Pro)",
-        browser: "Chrome (macOS)",
-        ipAddress: "127.0.0.1 (Current)",
-        lastActive: "Just now",
-        isCurrent: true
-      }
-    ];
+  let currentTokenHash: string | null = null;
+  try {
+    const raw = (await cookies()).get("marketeros_session")?.value;
+    if (raw) currentTokenHash = createHash("sha256").update(raw).digest("hex");
+  } catch {
+    // Not in a request context (e.g. a script): no session is marked as current.
   }
 
-  const apiKeysPayload = [
-    {
-      id: "key-prod-01",
-      name: "Production Marketing Service Key",
-      keyPrefix: "mk_live_8f3a",
-      createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-      lastUsedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-      status: "ACTIVE" as const
-    },
-    {
-      id: "key-dev-02",
-      name: "Zapier Automation Webhook Key",
-      keyPrefix: "mk_live_2e9c",
-      createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-      lastUsedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      status: "ACTIVE" as const
-    }
-  ];
+  const securitySessions = dbSessions.map((s) => ({
+    id: s.id,
+    signedInAt: s.createdAt.toISOString(),
+    expiresAt: s.expiresAt.toISOString(),
+    isCurrent: s.tokenHash === currentTokenHash
+  }));
+
+  // API keys aren't implemented yet (nothing stores or accepts them), so there are none to list.
+  const apiKeysPayload: FullSettingsPayload["apiKeys"] = [];
 
   const formattedAuditLogs = auditLogs.map((log) => ({
     id: log.id,
@@ -285,33 +254,5 @@ export async function getPersistedSettings(
     securitySessions,
     apiKeys: apiKeysPayload,
     auditLogs: formattedAuditLogs
-  };
-}
-
-export async function generatePersistedApiKey(
-  workspaceId: string,
-  userId: string,
-  name: string
-) {
-  const secretBytes = randomBytes(24).toString("hex");
-  const rawKey = `mk_live_${secretBytes}`;
-  const keyHash = createHash("sha256").update(rawKey).digest("hex");
-  const keyPrefix = rawKey.slice(0, 12);
-
-  await recordAudit({
-    workspaceId,
-    userId,
-    action: "CREATE_API_KEY",
-    module: "settings",
-    entityType: "ApiKey",
-    entityId: keyPrefix,
-    afterData: { name, keyPrefix }
-  });
-
-  return {
-    rawKey,
-    keyPrefix,
-    name,
-    createdAt: new Date().toISOString()
   };
 }

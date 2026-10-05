@@ -1,15 +1,14 @@
 import { GoogleAdsApi, enums } from "google-ads-api";
 import { prisma } from "@/lib/prisma";
-import { decryptSecret } from "@/lib/crypto";
 
 export async function publishCampaignToGoogleAds(campaignId: string, workspaceId?: string) {
   console.log("\n=======================================================");
   console.log("[GOOGLE_ADS_API] 🚀 Initiating live Campaign Mutate on Google Ads...");
   console.log("[GOOGLE_ADS_API] 🆔 Campaign ID:", campaignId);
 
-  // 1. Fetch Campaign
-  const campaign = await prisma.campaign.findUnique({
-    where: { id: campaignId }
+  // 1. Fetch Campaign (only from the caller's workspace when one is given)
+  const campaign = await prisma.campaign.findFirst({
+    where: { id: campaignId, ...(workspaceId ? { workspaceId } : {}) }
   });
 
   if (!campaign) {
@@ -27,37 +26,25 @@ export async function publishCampaignToGoogleAds(campaignId: string, workspaceId
   const devToken = byokIntegration?.developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
   const clientId = byokIntegration?.oauth?.clientId || process.env.GOOGLE_OAUTH_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
   const clientSecret = byokIntegration?.oauth?.clientSecret || process.env.GOOGLE_OAUTH_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
-  const refreshToken = byokIntegration?.oauth?.refreshToken || (byokIntegration ? "" : "");
+  // The refresh token and customer account must belong to this workspace. Never borrow another
+  // workspace's token or fall back to a hardcoded account: that would spend someone else's ad budget.
+  const refreshToken = byokIntegration?.oauth?.refreshToken || "";
 
-  if (!devToken || !clientId || !clientSecret || !refreshToken) {
-    // Check fallback integration with refreshTokenEncrypted
-    let fallbackIntegration = await prisma.integration.findFirst({
-      where: { platform: "GOOGLE_ADS", refreshTokenEncrypted: { not: null } },
-      orderBy: { updatedAt: "desc" }
-    });
-
-    let decryptedRefresh = "";
-    if (fallbackIntegration?.refreshTokenEncrypted) {
-      try {
-        decryptedRefresh = decryptSecret(fallbackIntegration.refreshTokenEncrypted);
-      } catch {}
-    }
-
-    const finalRefresh = refreshToken || decryptedRefresh;
-    if (!devToken || !clientId || !clientSecret || !finalRefresh) {
-      console.error("[GOOGLE_ADS_API] ❌ Error: Missing Google Ads credentials in database or environment.");
-      return { success: false, error: "Google Ads not connected. Please connect your credentials in Integrations." };
-    }
+  if (!devToken || !clientId || !clientSecret || !refreshToken || !byokIntegration?.accountId) {
+    console.error("[GOOGLE_ADS_API] ❌ Error: This workspace has no complete Google Ads connection.");
+    return { success: false, error: "Google Ads not connected. Please connect your credentials in Integrations." };
   }
 
-  const targetCustomerId = formatCustomerId(
-    byokIntegration?.accountId || process.env.GOOGLE_ADS_CUSTOMER_ID || "3049938456"
-  );
+  const targetCustomerId = formatCustomerId(byokIntegration.accountId);
   const loginCustomerId = byokIntegration?.loginCustomerId
     ? formatCustomerId(byokIntegration.loginCustomerId)
     : process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replaceAll("-", "").trim();
 
-  const dailyBudgetDollars = Number(campaign.dailyBudget || Number(campaign.budget || 3000) / 30) || 100;
+  // Never invent a budget: a default here would become real ad spend.
+  const dailyBudgetDollars = Number(campaign.dailyBudget) || Number(campaign.budget) / 30;
+  if (!(dailyBudgetDollars > 0)) {
+    return { success: false, error: "Set a budget on this campaign before publishing it to Google Ads." };
+  }
   const budgetMicros = dailyBudgetDollars * 1_000_000;
 
   console.log(`[GOOGLE_ADS_API] 🏢 Target Customer ID: ${targetCustomerId}`);

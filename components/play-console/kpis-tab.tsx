@@ -5,70 +5,71 @@ import { createPortal } from "react-dom";
 import { SlidersHorizontal, Check, RefreshCw, Smartphone, Search, Filter, Sparkles, X, CheckSquare, Square, Layers, TrendingUp, AlertTriangle } from "lucide-react";
 
 interface KpiData {
-  app: { id: string; packageName: string; appTitle: string; category?: string };
+  hasData?: boolean;
+  app: { id: string; packageName: string; appTitle: string; category?: string } | null;
   googlePlayTelemetry?: {
     connected: boolean;
-    accountName: string;
-    packageName: string;
+    accountName: string | null;
+    packageName: string | null;
   };
   googleAdsTelemetry?: {
     connected: boolean;
-    accountName: string;
+    accountName: string | null;
     totalSpend: number;
     totalConversions: number;
     totalClicks: number;
   };
-  latestDateLabel: string;
+  latestDateLabel: string | null;
   rolling28: {
-    userAcquisitions?: number;
-    storeListingVisitors?: number;
-    storeListingAcquisitions?: number;
-    storeListingConversionRate?: number;
-    totalAudienceSize?: number;
-    audienceGrowthRate?: number;
-    activeDevices?: number;
-    totalInstalls?: number;
-    dailyActiveUsers?: number;
-    monthlyActiveUsers?: number;
-    returningUsers?: number;
-    userEngagementMins?: number;
-    newUserRetention?: number;
-    userLoss?: number;
-    uninstallRate?: number;
-    acquisitionSource?: string;
-    cpi?: number;
-    adSpend?: number;
-    paidInstalls?: number;
-    organicInstalls?: number;
-    roas?: number;
-    arpu?: number;
-    crashesAndAnrs?: number;
+    userAcquisitions?: number | null;
+    storeListingVisitors?: number | null;
+    storeListingAcquisitions?: number | null;
+    storeListingConversionRate?: number | null;
+    totalAudienceSize?: number | null;
+    audienceGrowthRate?: number | null;
+    activeDevices?: number | null;
+    totalInstalls?: number | null;
+    dailyActiveUsers?: number | null;
+    monthlyActiveUsers?: number | null;
+    returningUsers?: number | null;
+    userEngagementMins?: number | null;
+    newUserRetention?: number | null;
+    userLoss?: number | null;
+    uninstallRate?: number | null;
+    acquisitionSource?: string | null;
+    cpi?: number | null;
+    adSpend?: number | null;
+    paidInstalls?: number | null;
+    organicInstalls?: number | null;
+    roas?: number | null;
+    arpu?: number | null;
+    crashesAndAnrs?: number | null;
     [key: string]: any;
   };
   latest: {
-    userAcquisitions?: number;
-    storeListingVisitors?: number;
-    storeListingAcquisitions?: number;
-    storeListingConversionRate?: number;
-    totalAudienceSize?: number;
-    audienceGrowthRate?: number;
-    activeDevices?: number;
-    totalInstalls?: number;
-    dailyActiveUsers?: number;
-    monthlyActiveUsers?: number;
-    returningUsers?: number;
-    userEngagementMins?: number;
-    newUserRetention?: number;
-    userLoss?: number;
-    uninstallRate?: number;
-    acquisitionSource?: string;
-    cpi?: number;
-    adSpend?: number;
-    paidInstalls?: number;
-    organicInstalls?: number;
-    roas?: number;
-    arpu?: number;
-    crashesAndAnrs?: number;
+    userAcquisitions?: number | null;
+    storeListingVisitors?: number | null;
+    storeListingAcquisitions?: number | null;
+    storeListingConversionRate?: number | null;
+    totalAudienceSize?: number | null;
+    audienceGrowthRate?: number | null;
+    activeDevices?: number | null;
+    totalInstalls?: number | null;
+    dailyActiveUsers?: number | null;
+    monthlyActiveUsers?: number | null;
+    returningUsers?: number | null;
+    userEngagementMins?: number | null;
+    newUserRetention?: number | null;
+    userLoss?: number | null;
+    uninstallRate?: number | null;
+    acquisitionSource?: string | null;
+    cpi?: number | null;
+    adSpend?: number | null;
+    paidInstalls?: number | null;
+    organicInstalls?: number | null;
+    roas?: number | null;
+    arpu?: number | null;
+    crashesAndAnrs?: number | null;
     [key: string]: any;
   };
   timeSeries: Array<Record<string, any>>;
@@ -84,7 +85,7 @@ interface SparklineProps {
   getValue: (d: any) => number;
   isWarning?: boolean;
   category?: string;
-  latestDateLabel?: string;
+  latestDateLabel?: string | null;
 }
 
 function KpiSparklineChart({ metricKey, timeSeries, getValue, isWarning, category, latestDateLabel }: SparklineProps) {
@@ -93,6 +94,7 @@ function KpiSparklineChart({ metricKey, timeSeries, getValue, isWarning, categor
   if (!timeSeries || timeSeries.length === 0) return null;
 
   const values = timeSeries.map(getValue);
+  if (values.some((v) => typeof v !== "number" || !Number.isFinite(v))) return null;
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = (max - min) || (max || 1);
@@ -256,7 +258,7 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
     "store_visitors",
     "conversion_rate",
     "total_audience",
-    "daily_active",
+    "active_devices",
     "crashes_anrs"
   ], []);
 
@@ -277,7 +279,15 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
     );
   }
 
+  if (data.hasData === false || !data.app) {
+    return <PlayKpisEmptyState data={data} />;
+  }
+
   const { latestDateLabel, rolling28, latest, timeSeries } = data;
+  const app = data.app;
+  // Metrics the stored data can't support arrive as null and show as "—", never as a misleading 0.
+  const fmt = (value: number | null | undefined, unit: "num" | "pct" | "money" = "num", suffix = "") =>
+    value == null ? "—" : `${unit === "money" ? "$" : ""}${unit === "pct" ? value : value.toLocaleString()}${unit === "pct" ? "%" : ""}${suffix}`;
 
   const allMetricsMeta: Record<string, {
     key: string;
@@ -296,36 +306,36 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
       title: "User acquisitions",
       category: "Acquisition",
       description: "Number of new users who installed the app",
-      rollingVal: (rolling28.userAcquisitions ?? 0).toLocaleString(),
-      latestVal: (latest.userAcquisitions ?? 0).toLocaleString(),
-      formatSeries: (d) => d.userAcquisitions || 0
+      rollingVal: fmt(rolling28.userAcquisitions),
+      latestVal: fmt(latest.userAcquisitions),
+      formatSeries: (d) => d.userAcquisitions
     },
     store_visitors: {
       key: "store_visitors",
       title: "Store listing visitors",
       category: "Acquisition",
       description: "Users who visited your Play Store listing without already having the app",
-      rollingVal: (rolling28.storeListingVisitors ?? 0).toLocaleString(),
-      latestVal: (latest.storeListingVisitors ?? 0).toLocaleString(),
-      formatSeries: (d) => d.storeListingVisitors || 0
+      rollingVal: fmt(rolling28.storeListingVisitors),
+      latestVal: fmt(latest.storeListingVisitors),
+      formatSeries: (d) => d.storeListingVisitors
     },
     store_acquisitions: {
       key: "store_acquisitions",
       title: "Store listing acquisitions",
       category: "Acquisition",
       description: "Users who installed after visiting your Play Store listing",
-      rollingVal: (rolling28.storeListingAcquisitions ?? 0).toLocaleString(),
-      latestVal: (latest.storeListingAcquisitions ?? 0).toLocaleString(),
-      formatSeries: (d) => d.storeListingAcquisitions || 0
+      rollingVal: fmt(rolling28.storeListingAcquisitions),
+      latestVal: fmt(latest.storeListingAcquisitions),
+      formatSeries: (d) => d.storeListingAcquisitions
     },
     conversion_rate: {
       key: "conversion_rate",
       title: "Store listing conversion rate",
       category: "Acquisition",
       description: "Percentage of store visitors who installed the app",
-      rollingVal: `${rolling28.storeListingConversionRate ?? 0}%`,
-      latestVal: `${latest.storeListingConversionRate ?? 0}%`,
-      formatSeries: (d) => d.storeListingConversionRate || 0
+      rollingVal: fmt(rolling28.storeListingConversionRate, "pct"),
+      latestVal: fmt(latest.storeListingConversionRate, "pct"),
+      formatSeries: (d) => d.storeListingConversionRate
     },
 
     // 2. Audience
@@ -334,36 +344,36 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
       title: "Total audience size",
       category: "Audience",
       description: "Users who have used/had the app active within the last 30 days",
-      rollingVal: (rolling28.totalAudienceSize ?? 0).toLocaleString(),
-      latestVal: (latest.totalAudienceSize ?? 0).toLocaleString(),
-      formatSeries: (d) => d.totalAudienceSize || 0
+      rollingVal: fmt(rolling28.totalAudienceSize),
+      latestVal: fmt(latest.totalAudienceSize),
+      formatSeries: (d) => d.totalAudienceSize
     },
     audience_growth_rate: {
       key: "audience_growth_rate",
       title: "Audience growth rate",
       category: "Audience",
       description: "Percentage change in your audience over time",
-      rollingVal: `${rolling28.audienceGrowthRate ?? 0}%`,
-      latestVal: `${latest.audienceGrowthRate ?? 0}%`,
-      formatSeries: (d) => d.audienceGrowthRate || 0
+      rollingVal: fmt(rolling28.audienceGrowthRate, "pct"),
+      latestVal: fmt(latest.audienceGrowthRate, "pct"),
+      formatSeries: (d) => d.audienceGrowthRate
     },
     active_devices: {
       key: "active_devices",
       title: "Active devices",
       category: "Audience",
       description: "Number of devices currently active with the app installed",
-      rollingVal: (rolling28.activeDevices ?? 0).toLocaleString(),
-      latestVal: (latest.activeDevices ?? 0).toLocaleString(),
-      formatSeries: (d) => d.activeDevices || 0
+      rollingVal: fmt(rolling28.activeDevices),
+      latestVal: fmt(latest.activeDevices),
+      formatSeries: (d) => d.activeDevices
     },
     total_installs: {
       key: "total_installs",
       title: "Total installs",
       category: "Audience",
       description: "Cumulative number of app installations",
-      rollingVal: (rolling28.totalInstalls ?? 0).toLocaleString(),
-      latestVal: (latest.totalInstalls ?? 0).toLocaleString(),
-      formatSeries: (d) => d.totalInstalls || 0
+      rollingVal: fmt(rolling28.totalInstalls),
+      latestVal: fmt(latest.totalInstalls),
+      formatSeries: (d) => d.totalInstalls
     },
 
     // 3. Engagement
@@ -372,36 +382,36 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
       title: "Daily active users (DAU)",
       category: "Engagement",
       description: "Average number of users active each day",
-      rollingVal: (rolling28.dailyActiveUsers ?? 0).toLocaleString(),
-      latestVal: (latest.dailyActiveUsers ?? 0).toLocaleString(),
-      formatSeries: (d) => d.dailyActiveUsers || 0
+      rollingVal: fmt(rolling28.dailyActiveUsers),
+      latestVal: fmt(latest.dailyActiveUsers),
+      formatSeries: (d) => d.dailyActiveUsers
     },
     mau: {
       key: "mau",
       title: "Monthly active users (MAU)",
       category: "Engagement",
       description: "Users active at least once within the last 28 days",
-      rollingVal: (rolling28.monthlyActiveUsers ?? 0).toLocaleString(),
-      latestVal: (latest.monthlyActiveUsers ?? 0).toLocaleString(),
-      formatSeries: (d) => d.monthlyActiveUsers || 0
+      rollingVal: fmt(rolling28.monthlyActiveUsers),
+      latestVal: fmt(latest.monthlyActiveUsers),
+      formatSeries: (d) => d.monthlyActiveUsers
     },
     returning_users: {
       key: "returning_users",
       title: "Returning users",
       category: "Engagement",
       description: "Existing users who come back and use the app again",
-      rollingVal: (rolling28.returningUsers ?? 0).toLocaleString(),
-      latestVal: (latest.returningUsers ?? 0).toLocaleString(),
-      formatSeries: (d) => d.returningUsers || 0
+      rollingVal: fmt(rolling28.returningUsers),
+      latestVal: fmt(latest.returningUsers),
+      formatSeries: (d) => d.returningUsers
     },
     user_engagement: {
       key: "user_engagement",
       title: "User engagement",
       category: "Engagement",
       description: "How frequently and consistently users interact with the app",
-      rollingVal: `${rolling28.userEngagementMins ?? 0} mins / day`,
-      latestVal: `${latest.userEngagementMins ?? 0} mins`,
-      formatSeries: (d) => d.userEngagementMins || 0
+      rollingVal: fmt(rolling28.userEngagementMins, "num", " mins / day"),
+      latestVal: fmt(latest.userEngagementMins, "num", " mins"),
+      formatSeries: (d) => d.userEngagementMins
     },
 
     // 4. Retention & Loss
@@ -410,18 +420,18 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
       title: "New user retention",
       category: "Retention & Loss",
       description: "Percentage of newly acquired users who return/use the app",
-      rollingVal: `${rolling28.newUserRetention ?? 0}%`,
-      latestVal: `${latest.newUserRetention ?? 0}%`,
-      formatSeries: (d) => d.newUserRetention || 0
+      rollingVal: fmt(rolling28.newUserRetention, "pct"),
+      latestVal: fmt(latest.newUserRetention, "pct"),
+      formatSeries: (d) => d.newUserRetention
     },
     user_loss: {
       key: "user_loss",
       title: "User loss",
       category: "Retention & Loss",
       description: "Number of users who uninstalled or stopped using the app",
-      rollingVal: `${rolling28.userLoss ?? 0} / day`,
-      latestVal: `${latest.userLoss ?? 0}`,
-      formatSeries: (d) => d.userLoss || 0,
+      rollingVal: fmt(rolling28.userLoss, "num", " / day"),
+      latestVal: fmt(latest.userLoss),
+      formatSeries: (d) => d.userLoss,
       isWarning: true
     },
     uninstall_rate: {
@@ -429,9 +439,9 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
       title: "Uninstall rate",
       category: "Retention & Loss",
       description: "Percentage/rate of users who uninstall the app",
-      rollingVal: `${rolling28.uninstallRate ?? 0}%`,
-      latestVal: `${latest.uninstallRate ?? 0}%`,
-      formatSeries: (d) => d.uninstallRate || 0,
+      rollingVal: fmt(rolling28.uninstallRate, "pct"),
+      latestVal: fmt(latest.uninstallRate, "pct"),
+      formatSeries: (d) => d.uninstallRate,
       isWarning: true
     },
 
@@ -441,45 +451,45 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
       title: "Cost Per Install (CPI)",
       category: "Marketing",
       description: "Average advertising cost incurred per paid App Campaign installation",
-      rollingVal: `$${rolling28.cpi ?? 0}`,
-      latestVal: `$${latest.cpi ?? 0}`,
-      formatSeries: (d) => d.cpi || 0
+      rollingVal: fmt(rolling28.cpi, "money"),
+      latestVal: fmt(latest.cpi, "money"),
+      formatSeries: (d) => d.cpi
     },
     ad_spend: {
       key: "ad_spend",
       title: "Google Ads App Campaign Spend",
       category: "Marketing",
       description: "Total advertising budget spent driving Google Play store acquisitions",
-      rollingVal: `$${(rolling28.adSpend ?? 0).toLocaleString()} / day`,
-      latestVal: `$${(latest.adSpend ?? 0).toLocaleString()}`,
-      formatSeries: (d) => d.adSpend || 0
+      rollingVal: fmt(rolling28.adSpend, "money", " / day"),
+      latestVal: fmt(latest.adSpend, "money"),
+      formatSeries: (d) => d.adSpend
     },
     paid_installs: {
       key: "paid_installs",
       title: "Paid vs Organic Acquisitions",
       category: "Marketing",
       description: "Ratio of installs acquired via paid Google Ads vs organic search",
-      rollingVal: `${rolling28.paidInstalls ?? 0} Paid / ${rolling28.organicInstalls ?? 0} Org`,
-      latestVal: `${latest.paidInstalls ?? 0} Paid / ${latest.organicInstalls ?? 0} Org`,
-      formatSeries: (d) => d.paidInstalls || 0
+      rollingVal: (rolling28.paidInstalls == null || rolling28.organicInstalls == null ? "—" : `${rolling28.paidInstalls} Paid / ${rolling28.organicInstalls} Org`),
+      latestVal: (latest.paidInstalls == null || latest.organicInstalls == null ? "—" : `${latest.paidInstalls} Paid / ${latest.organicInstalls} Org`),
+      formatSeries: (d) => d.paidInstalls
     },
     roas: {
       key: "roas",
       title: "Return On Ad Spend (ROAS)",
       category: "Marketing",
       description: "Percentage return of gross app revenue generated relative to ad spend",
-      rollingVal: `${rolling28.roas ?? 0}%`,
-      latestVal: `${latest.roas ?? 0}%`,
-      formatSeries: (d) => d.roas || 0
+      rollingVal: fmt(rolling28.roas, "pct"),
+      latestVal: fmt(latest.roas, "pct"),
+      formatSeries: (d) => d.roas
     },
     arpu: {
       key: "arpu",
       title: "Average Revenue Per User (ARPU)",
       category: "Marketing",
       description: "Gross in-app purchase and subscription revenue generated per active device",
-      rollingVal: `$${rolling28.arpu ?? 0}`,
-      latestVal: `$${latest.arpu ?? 0}`,
-      formatSeries: (d) => d.arpu || 0
+      rollingVal: fmt(rolling28.arpu, "money"),
+      latestVal: fmt(latest.arpu, "money"),
+      formatSeries: (d) => d.arpu
     },
     acquisition_source: {
       key: "acquisition_source",
@@ -498,9 +508,9 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
       title: "Crashes & ANR rate",
       category: "Quality",
       description: "Technical crash and application not responding rate",
-      rollingVal: `${rolling28.crashesAndAnrs ?? 0} / day`,
-      latestVal: `${latest.crashesAndAnrs ?? 0}`,
-      formatSeries: (d) => d.crashesAndAnrs || 0,
+      rollingVal: fmt(rolling28.crashesAndAnrs, "num", " / day"),
+      latestVal: fmt(latest.crashesAndAnrs),
+      formatSeries: (d) => d.crashesAndAnrs,
       isWarning: true
     }
   };
@@ -591,7 +601,7 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-              <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 leading-snug truncate">{data.app.appTitle}</h2>
+              <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 leading-snug truncate">{app.appTitle}</h2>
               {data.googlePlayTelemetry?.connected ? (
                 <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 flex items-center gap-1 shrink-0">
                   <Check className="w-3 h-3 text-emerald-500" />
@@ -608,14 +618,8 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
                 </span>
               )}
 
-              {data.googleAdsTelemetry?.connected && (
-                <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/40 flex items-center gap-1 shrink-0">
-                  <Sparkles className="w-3 h-3 text-indigo-500 animate-pulse" />
-                  <span>Live Campaign Fused (${data.googleAdsTelemetry.totalSpend.toLocaleString()} Spend · {data.googleAdsTelemetry.totalConversions} Installs)</span>
-                </span>
-              )}
             </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 font-mono truncate">{data.app.packageName}</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 font-mono truncate">{app.packageName}</p>
           </div>
         </div>
 
@@ -630,21 +634,6 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
           </span>
         </button>
       </div>
-
-      {/* Sleek Active Telemetry Banner when Google Ads is linked */}
-      {data.googleAdsTelemetry?.connected && !data.googlePlayTelemetry?.connected && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-900 dark:text-emerald-300 rounded-2xl p-4 text-xs">
-          <div className="flex items-start gap-2.5">
-            <Sparkles className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-zinc-900 dark:text-zinc-100">Live Google Ads Campaign Telemetry Connected</p>
-              <p className="text-zinc-600 dark:text-zinc-400 text-[11px] mt-0.5">
-                Your mobile app KPIs are fully fused with your active <strong>Google Ads Campaigns (${data.googleAdsTelemetry.totalSpend.toLocaleString()} ad spend · {data.googleAdsTelemetry.totalConversions} acquisitions)</strong>. Tracking live CPI, ROAS, and user acquisitions across MarketerOS.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Connection Alert Banner ONLY when NEITHER Google Play NOR Google Ads is linked */}
       {!data.googlePlayTelemetry?.connected && !data.googleAdsTelemetry?.connected && (
@@ -905,6 +894,30 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
             document.body
           )
         : null}
+    </div>
+  );
+}
+
+function PlayKpisEmptyState({ data }: { data: KpiData }) {
+  const connected = data.googlePlayTelemetry?.connected;
+  return (
+    <div className="max-w-4xl mx-auto flex flex-col items-center text-center gap-3 bg-white dark:bg-zinc-950/60 border border-zinc-200/90 dark:border-zinc-800 rounded-2xl p-8 shadow-2xs">
+      <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center">
+        <Smartphone className="w-5 h-5" />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">No app KPIs yet</p>
+        <p className="mt-1 max-w-md text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+          {connected
+            ? `Google Play is connected${data.googlePlayTelemetry?.packageName ? ` (${data.googlePlayTelemetry.packageName})` : ""}, but importing Play Console metrics isn't available yet, so there's nothing to show.`
+            : "Connect your Android app's Google Play Console to see store visitors, acquisitions, audience and stability metrics here."}
+        </p>
+      </div>
+      {!connected && (
+        <a href="/play-console" className="btn-primary text-xs">
+          Connect Google Play
+        </a>
+      )}
     </div>
   );
 }

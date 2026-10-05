@@ -12,7 +12,17 @@ const PUBLIC_PREFIXES = [
   "/_next",
   "/media",
   "/images",
-  "/api/stripe/webhook"
+  "/api/stripe/webhook",
+  // PayU posts here cross-site, so no session cookie arrives; the handler verifies PayU's signed hash instead.
+  "/api/billing/payu/callback"
+];
+
+// API routes the browser reaches by top-level navigation (OAuth redirects back from Google).
+// Without a session these get the login redirect like pages do, instead of a JSON 401.
+const BROWSER_NAVIGATION_API_ROUTES = [
+  "/api/google-ads/callback",
+  "/api/admob/callback",
+  "/api/v1/integrations/oauth/callback"
 ];
 
 function isPublic(pathname: string): boolean {
@@ -20,19 +30,47 @@ function isPublic(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
-export function middleware(request: NextRequest) {
+function base64UrlToBytes(value: string) {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+/**
+ * Checks the token's HMAC signature (same scheme as lib/auth-server.ts) so forged tokens are rejected
+ * at the edge. Expiry and revocation still need the database and are enforced by getSession() in routes.
+ */
+async function hasValidSignature(token: string | undefined) {
+  const secret = process.env.SESSION_SECRET;
+  if (!token || !secret || secret.length < 32) return false;
+  const [payload, signature] = token.split(".");
+  if (!payload || !signature) return false;
+  try {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);
+    return await crypto.subtle.verify("HMAC", key, base64UrlToBytes(signature), encoder.encode(payload));
+  } catch {
+    return false;
+  }
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const sessionCookie = request.cookies.get(COOKIE_NAME)?.value;
   const authHeader = request.headers.get("authorization");
-  const hasToken = Boolean(sessionCookie || (authHeader && authHeader.startsWith("Bearer ")));
+  const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : undefined;
 
   // 1. Allow public routes (/auth, /api/auth, etc.)
   if (isPublic(pathname)) {
     return NextResponse.next();
   }
 
-  // 3. Protected API Routes (/api/v1/*)
-  if (pathname.startsWith("/api/v1")) {
+  const hasToken = (await hasValidSignature(sessionCookie)) || (await hasValidSignature(bearer));
+
+  // 3. Protected API Routes (/api/*): JSON 401, never an HTML login redirect
+  if (pathname.startsWith("/api/") && !BROWSER_NAVIGATION_API_ROUTES.includes(pathname)) {
     if (!hasToken) {
       return NextResponse.json(
         { error: { code: "UNAUTHENTICATED", message: "Authentication required." } },

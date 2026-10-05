@@ -24,7 +24,6 @@ import {
   X,
   ExternalLink,
   Laptop,
-  Smartphone,
   Download,
   Search,
   Eye,
@@ -105,11 +104,6 @@ export function LiveSettingsPage() {
     sessionTimeout: "12h",
     ipWhitelistEnabled: false
   });
-
-  // API Key creation modal state
-  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
-  const [newKeyName, setNewKeyName] = useState("");
-  const [createdApiSecret, setCreatedApiSecret] = useState<string | null>(null);
 
   // Audit Log Search & Filter
   const [auditSearchQuery, setAuditSearchQuery] = useState("");
@@ -312,44 +306,6 @@ export function LiveSettingsPage() {
     }
   };
 
-  const handleCreateApiKey = async () => {
-    if (!newKeyName.trim()) return;
-    setBusy(true);
-    try {
-      const res = await fetch("/api/v1/settings/api-keys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newKeyName })
-      });
-      const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error?.message || "Failed to create API key.");
-      setCreatedApiSecret(payload.data.rawKey);
-      setNewKeyName("");
-      triggerToast("API key created successfully. Store the secret safely!");
-      loadSettings();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create API key.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleRevokeApiKey = async (keyId: string) => {
-    if (!confirm("Are you sure you want to revoke this API key? External tools using this key will be disconnected.")) return;
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/v1/settings/api-keys/${keyId}`, { method: "DELETE" });
-      const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error?.message || "Failed to revoke API key.");
-      triggerToast("API key revoked.");
-      loadSettings();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to revoke API key.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const handleRevokeSession = async (sessionId: string) => {
     if (!confirm("Are you sure you want to revoke this active session?")) return;
     setBusy(true);
@@ -476,11 +432,6 @@ export function LiveSettingsPage() {
               {activeSection === "team" && (
                 <button onClick={() => setIsTeamModalOpen(true)} className="btn-primary flex items-center gap-1">
                   <UserPlus size={13} /> Invite Team Member
-                </button>
-              )}
-              {activeSection === "apikeys" && (
-                <button onClick={() => setIsApiKeyModalOpen(true)} className="btn-primary flex items-center gap-1">
-                  <Plus size={13} /> Generate API Key
                 </button>
               )}
               {activeSection === "audit" && (
@@ -1314,11 +1265,11 @@ export function LiveSettingsPage() {
                       <div key={sess.id} className="py-3 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="grid h-9 w-9 place-items-center rounded-lg bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100">
-                            {sess.device.includes("iPhone") ? <Smartphone size={16} /> : <Laptop size={16} />}
+                            <Laptop size={16} />
                           </div>
                           <div>
                             <div className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                              <span>{sess.device}</span>
+                              <span>Browser session</span>
                               {sess.isCurrent && (
                                 <span className="rounded bg-emerald-100 px-2 py-0.5 text-[9px] font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                                   Current Device
@@ -1326,7 +1277,7 @@ export function LiveSettingsPage() {
                               )}
                             </div>
                             <div className="text-[11px] text-zinc-400">
-                              {sess.browser} · IP: {sess.ipAddress} · {sess.lastActive}
+                              Signed in {new Date(sess.signedInAt).toLocaleString()} · Expires {new Date(sess.expiresAt).toLocaleDateString()}
                             </div>
                           </div>
                         </div>
@@ -1352,39 +1303,11 @@ export function LiveSettingsPage() {
                       <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">Developer API Keys</h3>
                       <p className="text-xs text-zinc-400 mt-0.5">Secret keys for external webhooks, integrations, and server SDKs.</p>
                     </div>
-                    <button onClick={() => setIsApiKeyModalOpen(true)} className="btn-primary flex items-center gap-1">
-                      <Plus size={13} /> Generate API Key
-                    </button>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="border-b border-zinc-100 bg-zinc-50/70 font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/60">
-                          <th className="p-3 pl-4">Key Name</th>
-                          <th className="p-3">Prefix</th>
-                          <th className="p-3">Created</th>
-                          <th className="p-3">Last Used</th>
-                          <th className="p-3 pr-4 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                        {data.apiKeys.map((key) => (
-                          <tr key={key.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/40">
-                            <td className="p-3 pl-4 font-bold text-zinc-900 dark:text-zinc-100">{key.name}</td>
-                            <td className="p-3 font-mono text-zinc-500">{key.keyPrefix}...</td>
-                            <td className="p-3 text-zinc-500">{new Date(key.createdAt).toLocaleDateString()}</td>
-                            <td className="p-3 text-zinc-500">{key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : "Never"}</td>
-                            <td className="p-3 pr-4 text-right">
-                              <button onClick={() => handleRevokeApiKey(key.id)} className="text-rose-600 hover:underline">
-                                Revoke
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                    Developer API keys aren&apos;t available yet. When they are, you&apos;ll be able to create and revoke keys here for webhooks and server integrations.
+                  </p>
                 </div>
               </div>
             )}
@@ -1529,65 +1452,6 @@ export function LiveSettingsPage() {
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
-        )}
-
-        {/* API KEY CREATION MODAL */}
-        {isApiKeyModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in">
-            <div className="w-full max-w-md bg-white p-6 rounded-xl border border-zinc-200 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
-              <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Generate Developer API Key</h3>
-                <button onClick={() => { setIsApiKeyModalOpen(false); setCreatedApiSecret(null); }} className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-                  <X size={16} />
-                </button>
-              </div>
-
-              {!createdApiSecret ? (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block font-semibold text-zinc-700 dark:text-zinc-300">Key Identifier / Name</label>
-                    <input
-                      value={newKeyName}
-                      onChange={(e) => setNewKeyName(e.target.value)}
-                      placeholder="e.g. Production Webhook Key"
-                      className="input-clean mt-1"
-                    />
-                  </div>
-                  <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 flex justify-end gap-2">
-                    <button onClick={() => setIsApiKeyModalOpen(false)} className="btn-secondary">
-                      Cancel
-                    </button>
-                    <button onClick={handleCreateApiKey} disabled={busy || !newKeyName.trim()} className="btn-primary">
-                      {busy ? "Generating..." : "Generate Secret"}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
-                    <strong>Copy this API key secret now!</strong> It will never be displayed again.
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input value={createdApiSecret} readOnly className="input-clean font-mono text-xs text-zinc-900 dark:text-zinc-100 select-all" />
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(createdApiSecret);
-                        triggerToast("API secret copied to clipboard.");
-                      }}
-                      className="btn-secondary py-2"
-                    >
-                      <Copy size={14} />
-                    </button>
-                  </div>
-                  <div className="pt-2 flex justify-end">
-                    <button onClick={() => { setIsApiKeyModalOpen(false); setCreatedApiSecret(null); }} className="btn-primary">
-                      Done
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}

@@ -1078,7 +1078,9 @@ export function OverviewPage() {
             >
               <Smartphone className="w-3.5 h-3.5 shrink-0" />
               <span>App KPIs</span>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 absolute top-2 right-4 ring-2 ring-white dark:ring-zinc-900" />
+              {kpiData?.hasData && (
+                <span className="w-2 h-2 rounded-full bg-emerald-500 absolute top-2 right-4 ring-2 ring-white dark:ring-zinc-900" />
+              )}
             </button>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
-import { ensurePlayConsoleData } from "@/lib/google/play-console";
+import { getPlayConsoleApp } from "@/lib/google/play-console";
 
 export async function GET(request: Request) {
   try {
@@ -15,9 +15,14 @@ export async function GET(request: Request) {
     const packageNameParam = url.searchParams.get("packageName");
     const clientIdParam = url.searchParams.get("clientId");
 
-    const app = await ensurePlayConsoleData(workspaceId, clientIdParam || undefined);
+    const app = await getPlayConsoleApp(workspaceId, clientIdParam || undefined);
     if (!app) {
-      return NextResponse.json({ error: "Play Console app not found." }, { status: 404 });
+      // No Google Play app connected yet: nothing to show, and nothing is invented.
+      return NextResponse.json({
+        app: null,
+        tracks: { production: [], openTesting: [], closedTesting: [], internalTesting: [] },
+        allReleases: []
+      });
     }
 
     const targetApp = clientIdParam
