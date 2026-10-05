@@ -18,6 +18,7 @@ import {
   FileBarChart,
   Info,
   Layers,
+  LayoutDashboard,
   Lightbulb,
   LineChart as LineChartIcon,
   MoreHorizontal,
@@ -29,13 +30,14 @@ import {
   Rocket,
   Search,
   ShoppingCart,
+  Smartphone,
   Sparkles,
   Tag,
   TrendingDown,
   TrendingUp,
   Zap
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
   Campaign,
@@ -50,6 +52,7 @@ import type {
 import { cn, money } from "@/lib/utils";
 import { AppShell, StatusBadge } from "@/components/ui/marketeros-shell";
 import { KpiCard, KpiGrid } from "@/components/ui/kpi-card";
+import { PlayConsoleKpisTab } from "@/components/play-console/kpis-tab";
 import { useOverviewData } from "@/hooks/use-overview-data";
 import {
   Bar,
@@ -925,6 +928,28 @@ function OnboardingWelcomeBanner() {
    ========================================================================= */
 export function OverviewPage() {
   const router = useRouter();
+  const [mobileTab, setMobileTab] = useState<"overview" | "kpis">("overview");
+  const [kpiData, setKpiData] = useState<any>(null);
+  const [loadingKpi, setLoadingKpi] = useState(false);
+
+  const fetchKpiData = useCallback(async () => {
+    setLoadingKpi(true);
+    try {
+      const res = await fetch("/api/v1/play-console/kpis");
+      if (res.ok) {
+        const data = await res.json();
+        setKpiData(data);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingKpi(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchKpiData();
+  }, [fetchKpiData]);
 
   useEffect(() => {
     for (const href of ["/campaigns", "/reports", "/ai-insights", "/integrations", "/clients", "/leads"]) {
@@ -1026,8 +1051,55 @@ export function OverviewPage() {
       }
     >
       <div className="space-y-4">
-        {/* FRESH USER ONBOARDING BANNER */}
-        {isFreshUser && <OnboardingWelcomeBanner />}
+        {/* MOBILE VIEW SWITCHER (ONLY FOR SMALL SCREEN: block md:hidden) */}
+        <div className="block md:hidden">
+          <div className="grid grid-cols-2 bg-zinc-100/90 dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl p-1 shadow-2xs">
+            <button
+              onClick={() => setMobileTab("overview")}
+              className={cn(
+                "flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                mobileTab === "overview"
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+              )}
+            >
+              <LayoutDashboard className="w-3.5 h-3.5 shrink-0" />
+              <span>Overview</span>
+            </button>
+
+            <button
+              onClick={() => setMobileTab("kpis")}
+              className={cn(
+                "flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer relative",
+                mobileTab === "kpis"
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+              )}
+            >
+              <Smartphone className="w-3.5 h-3.5 shrink-0" />
+              <span>App KPIs</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 absolute top-2 right-4 ring-2 ring-white dark:ring-zinc-900" />
+            </button>
+          </div>
+        </div>
+
+        {/* MOBILE APP KPIS VIEW (ONLY FOR SMALL SCREEN WHEN mobileTab === 'kpis') */}
+        <div className={cn("block md:hidden", mobileTab !== "kpis" && "hidden")}>
+          {loadingKpi && !kpiData ? (
+            <div className="flex flex-col items-center justify-center p-12 text-zinc-400">
+              <RefreshCw className="w-7 h-7 animate-spin mb-2 text-zinc-900 dark:text-zinc-100" />
+              <p className="text-xs font-medium">Loading Mobile App KPIs...</p>
+            </div>
+          ) : (
+            <PlayConsoleKpisTab data={kpiData} onRefresh={fetchKpiData} />
+          )}
+        </div>
+
+        {/* OVERVIEW CONTENT */}
+        {/* On Desktop (md:block): ALWAYS shown. On Mobile (md:hidden): shown when mobileTab === 'overview' */}
+        <div className={cn("space-y-4", mobileTab !== "overview" && "hidden md:block")}>
+          {/* FRESH USER ONBOARDING BANNER */}
+          {isFreshUser && <OnboardingWelcomeBanner />}
 
         {/* ROW 1: TOP 5 STAT CARDS */}
         <KpiGrid columns={5}>
@@ -1136,6 +1208,7 @@ export function OverviewPage() {
               loading={loading}
             />
           </div>
+        </div>
         </div>
       </div>
     </AppShell>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret } from "@/lib/crypto";
+import { getSession } from "@/lib/auth-server";
 
 export async function GET(request: Request) {
   console.log("\n=======================================================");
@@ -16,18 +17,21 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL(`/integrations?error=${encodeURIComponent(error)}`, url.origin));
   }
 
+  // The OAuth state is unsigned, so the target workspace must come from the logged-in session.
+  const session = await getSession().catch(() => null);
+  if (!session) {
+    return NextResponse.redirect(new URL("/auth/login?returnTo=%2Fintegrations", url.origin));
+  }
+  const targetWorkspaceId: string = session.workspaceId;
+
   let returnTo = "/integrations";
   let providerKey = "google_ads";
-  let targetWorkspaceId: string | undefined;
 
   try {
     if (stateParam) {
       const decoded = JSON.parse(Buffer.from(stateParam, "base64url").toString("utf-8"));
-      if (decoded.returnTo) returnTo = decoded.returnTo;
+      if (typeof decoded.returnTo === "string" && /^\/(?![\/\\])/.test(decoded.returnTo)) returnTo = decoded.returnTo;
       if (decoded.providerKey) providerKey = decoded.providerKey;
-      if (decoded.workspaceId && decoded.workspaceId !== "default-ws") {
-        targetWorkspaceId = decoded.workspaceId;
-      }
     }
   } catch (e) {
     console.warn("[OAUTH_CALLBACK] Warning: Could not decode state parameter:", e);
@@ -61,11 +65,6 @@ export async function GET(request: Request) {
       );
 
       if (tokens.access_token || tokens.refresh_token) {
-        if (!targetWorkspaceId) {
-          const ws = await prisma.workspace.findFirst({ orderBy: { createdAt: "desc" } });
-          targetWorkspaceId = ws?.id;
-        }
-
         if (providerKey === "admob") {
           console.log("[ADMOB_OAUTH] 🔍 Querying AdMob API (https://admob.googleapis.com/v1/accounts)...");
           let autoPublisherId = "";

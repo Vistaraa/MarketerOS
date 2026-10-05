@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret } from "@/lib/crypto";
+import { getSession } from "@/lib/auth-server";
 
 export async function GET() {
   console.log("\n=======================================================");
   console.log("[ADMOB_API] 📡 Fetching accessible AdMob accounts from Google API...");
 
   try {
-    const workspace = await prisma.workspace.findFirst({ orderBy: { createdAt: "desc" } });
+    const session = await getSession().catch(() => null);
+    if (!session) {
+      return NextResponse.json({ success: false, error: "Authentication required." }, { status: 401 });
+    }
+    const workspace = { id: session.workspaceId };
     let liveAccounts: Array<{
       publisherId: string;
       descriptiveName: string;
@@ -19,6 +24,7 @@ export async function GET() {
     if (workspace) {
       const integration = await prisma.integration.findFirst({
         where: {
+          workspaceId: workspace.id,
           platform: "FIREBASE_ADMOB",
           accessTokenEncrypted: { not: null }
         },

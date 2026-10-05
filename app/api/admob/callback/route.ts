@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret } from "@/lib/crypto";
+import { getSession } from "@/lib/auth-server";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -13,16 +14,19 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL(`/integrations?error=${encodeURIComponent(error)}`, url.origin));
   }
 
+  // The OAuth state is unsigned, so the target workspace must come from the logged-in session.
+  const session = await getSession().catch(() => null);
+  if (!session) {
+    return NextResponse.redirect(new URL("/auth/login?returnTo=%2Fintegrations", url.origin));
+  }
+  const targetWorkspaceId: string = session.workspaceId;
+
   let returnTo = "/integrations";
-  let targetWorkspaceId: string | undefined;
 
   try {
     if (stateParam) {
       const decoded = JSON.parse(Buffer.from(stateParam, "base64url").toString("utf-8"));
-      if (decoded.returnTo) returnTo = decoded.returnTo;
-      if (decoded.workspaceId && decoded.workspaceId !== "default-ws") {
-        targetWorkspaceId = decoded.workspaceId;
-      }
+      if (typeof decoded.returnTo === "string" && /^\/(?![\/\\])/.test(decoded.returnTo)) returnTo = decoded.returnTo;
     }
   } catch (e) {
     console.warn("[ADMOB_OAUTH] Failed to decode state parameter:", e);
@@ -79,12 +83,6 @@ export async function GET(request: Request) {
           }
         } catch (accErr) {
           console.warn("[ADMOB_OAUTH] Could not fetch AdMob account details during callback:", accErr);
-        }
-
-        // Find target workspace
-        if (!targetWorkspaceId) {
-          const ws = await prisma.workspace.findFirst({ orderBy: { createdAt: "desc" } });
-          targetWorkspaceId = ws?.id;
         }
 
         if (targetWorkspaceId) {

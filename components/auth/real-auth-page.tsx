@@ -14,6 +14,7 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
   const queryEmail = searchParams.get("email") || "";
+  const resetToken = searchParams.get("token") || "";
 
   const signup = mode === "signup";
   const login = mode === "login";
@@ -29,7 +30,8 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [error, setError] = useState<string | null>(null);
+  const missingTokenMessage = "This reset link is invalid or incomplete. Please request a new one.";
+  const [error, setError] = useState<string | null>(resetPassword && !resetToken ? missingTokenMessage : null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -69,6 +71,11 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
       return;
     }
 
+    if (resetPassword && !resetToken) {
+      setError(missingTokenMessage);
+      return;
+    }
+
     setBusy(true);
 
     try {
@@ -78,7 +85,7 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ email }),
         });
-        const payload = (await response.json()) as ApiResponse<{ message?: string; userFound?: boolean }>;
+        const payload = (await response.json()) as ApiResponse<{ message?: string }>;
         if (!response.ok) {
           throw new Error(payload.error?.message || "Failed to process password reset request.");
         }
@@ -93,7 +100,7 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
         const response = await fetch("/api/auth/reset-password", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ token: resetToken, password }),
         });
         const payload = (await response.json()) as ApiResponse<{ message?: string }>;
         if (!response.ok) {
@@ -252,18 +259,6 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
                           type="button"
                           onClick={() =>
                             router.push(
-                              `/auth/reset-password?email=${encodeURIComponent(email)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""
-                              }`
-                            )
-                          }
-                          className="btn-primary py-1 px-2.5 text-[11px]"
-                        >
-                          Set New Password
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            router.push(
                               `/auth/login${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`
                             )
                           }
@@ -304,6 +299,7 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
                 </div>
               )}
 
+              {!resetPassword && (
               <div>
                 <label className="block font-medium text-zinc-700 dark:text-zinc-300">Work Email</label>
                 <input
@@ -315,6 +311,7 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
                   className="input-clean mt-1 font-mono"
                 />
               </div>
+              )}
 
               {!forgotPassword && (
                 <div>

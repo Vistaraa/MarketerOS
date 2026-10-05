@@ -1,21 +1,14 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth-server";
-import { prisma } from "@/lib/prisma";
 import { publishCampaignToGoogleAds } from "@/lib/google-ads-mutate";
 
 export async function POST(request: Request) {
   try {
     const session = await getSession().catch(() => null);
-    let workspaceId = session?.workspaceId;
-
-    if (!workspaceId) {
-      const firstWs = await prisma.workspace.findFirst({ orderBy: { createdAt: "desc" } });
-      workspaceId = firstWs?.id;
+    if (!session) {
+      return NextResponse.json({ success: false, error: "Authentication required." }, { status: 401 });
     }
-
-    if (!workspaceId) {
-      return NextResponse.json({ success: false, error: "Workspace not found" }, { status: 400 });
-    }
+    const workspaceId = session.workspaceId;
 
     const body = await request.json();
     const { campaignId } = body;

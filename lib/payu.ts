@@ -180,31 +180,25 @@ export function verifyPayUResponseHash(params: {
   udf5?: string;
   additionalCharges?: string;
 }): boolean {
+  // Never verify against the public PayU test fallback credentials: anyone could forge those hashes.
+  if (!isPayUConfigured() || !params.hash) return false;
+
   const salt = getPayUSalt();
   const key = getPayUKey();
 
-  if (salt && key) {
-    try {
-      const baseString = `${salt}|${params.status}||||||${params.udf5 || ""}|${params.udf4 || ""}|${params.udf3 || ""}|${params.udf2 || ""}|${params.udf1 || ""}|${params.email}|${params.firstname}|${params.productinfo}|${params.amount}|${params.txnid}|${key}`;
-      const hashString = params.additionalCharges
-        ? `${params.additionalCharges}|${baseString}`
-        : baseString;
+  try {
+    const baseString = `${salt}|${params.status}||||||${params.udf5 || ""}|${params.udf4 || ""}|${params.udf3 || ""}|${params.udf2 || ""}|${params.udf1 || ""}|${params.email}|${params.firstname}|${params.productinfo}|${params.amount}|${params.txnid}|${key}`;
+    const hashString = params.additionalCharges
+      ? `${params.additionalCharges}|${baseString}`
+      : baseString;
 
-      const calculated = crypto.createHash("sha512").update(hashString).digest("hex");
-      if (calculated.toLowerCase() === params.hash.toLowerCase()) {
-        return true;
-      }
-    } catch (err) {
-      console.error("PayU response hash verification error:", err);
-    }
+    const calculated = Buffer.from(crypto.createHash("sha512").update(hashString).digest("hex"));
+    const received = Buffer.from(params.hash.toLowerCase());
+    return calculated.length === received.length && crypto.timingSafeEqual(calculated, received);
+  } catch (err) {
+    console.error("PayU response hash verification error:", err);
+    return false;
   }
-
-  // Fallback for simulation or success callbacks
-  if (params.status === "success") {
-    return true;
-  }
-
-  return false;
 }
 
 /**

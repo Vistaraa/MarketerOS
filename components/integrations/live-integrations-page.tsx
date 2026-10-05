@@ -377,6 +377,9 @@ export function LiveIntegrationsPage() {
 
   // Disconnect target
   const [disconnectTarget, setDisconnectTarget] = useState<{ integrationId: string; platformName: string } | null>(null);
+  // Suspend target confirmation
+  const [suspendTarget, setSuspendTarget] = useState<{ integrationId: string; platformName: string } | null>(null);
+
 
   // Custom Dialog State
   const [dialogConfig, setDialogConfig] = useState<{
@@ -574,7 +577,15 @@ export function LiveIntegrationsPage() {
     }
   };
 
+  const confirmSuspend = async () => {
+    if (!suspendTarget) return;
+    const { integrationId, platformName } = suspendTarget;
+    setSuspendTarget(null);
+    await handleTogglePlatformStatus(integrationId, "Connected", platformName);
+  };
+
   const handleTogglePlatformStatus = async (integrationId: string, currentStatus: string, platformName: string) => {
+
     const nextStatus = currentStatus === "Connected" ? "SUSPENDED" : "CONNECTED";
     console.log(`[PLATFORM INTEGRATION UI] 🔄 Toggling status for "${platformName}" (ID: ${integrationId}) from ${currentStatus} -> ${nextStatus}`);
     try {
@@ -755,8 +766,9 @@ export function LiveIntegrationsPage() {
                     </div>
 
                     {isConfiguredOrActive && existing?.account && (
-                      <div className="mt-2 text-[11px] text-zinc-600 dark:text-zinc-400">
-                        Account ID: <strong className="font-mono text-zinc-900 dark:text-zinc-200">{existing.account}</strong>
+                      <div className="mt-2 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                        <CheckCircle2 size={12} className="shrink-0" />
+                        <span>Connected: <strong className="font-semibold text-zinc-900 dark:text-zinc-200">{existing.account}</strong></span>
                       </div>
                     )}
                   </div>
@@ -777,11 +789,18 @@ export function LiveIntegrationsPage() {
                           <button
                             onClick={() => handleOpenConnect(platform, existing)}
                             className="rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                            title="Update platform API keys or credentials"
                           >
-                            Configure
+                            Edit Settings
                           </button>
                           <button
-                            onClick={() => handleTogglePlatformStatus(existing.id, existing.status, platform.name)}
+                            onClick={() => {
+                              if (isConnected) {
+                                setSuspendTarget({ integrationId: existing.id, platformName: platform.name });
+                              } else {
+                                handleTogglePlatformStatus(existing.id, existing.status, platform.name);
+                              }
+                            }}
                             className={cn(
                               "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
                               isConnected
@@ -789,8 +808,9 @@ export function LiveIntegrationsPage() {
                                 : "bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow-2xs"
                             )}
                           >
-                            {isConnected ? "Suspend" : "Activate Platform"}
+                            {isConnected ? "Suspend" : "Activate"}
                           </button>
+
                           <button
                             onClick={() => setDisconnectTarget({ integrationId: existing.id, platformName: platform.name })}
                             className="rounded-lg p-1 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400"
@@ -802,7 +822,7 @@ export function LiveIntegrationsPage() {
                       ) : (
                         <button
                           onClick={() => handleOpenConnect(platform)}
-                          className="rounded-lg bg-zinc-900 px-3 py-1 text-xs font-medium text-white shadow-2xs hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                          className="rounded-lg bg-zinc-900 px-3 py-1 text-xs font-semibold text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 shadow-2xs"
                         >
                           Connect
                         </button>
@@ -1015,6 +1035,20 @@ export function LiveIntegrationsPage() {
           </div>
         </div>
       )}
+      {/* Suspend Confirmation Dialog */}
+      <CustomDialog
+        isOpen={Boolean(suspendTarget)}
+        title={`Suspend ${suspendTarget?.platformName || "Platform"} Connection?`}
+        message={`Are you sure you want to suspend your ${suspendTarget?.platformName || "platform"} connection?\n\nData synchronization, automated campaign actions, and live metric tracking for this platform will be temporarily paused until reactivated.`}
+        type="confirm"
+        confirmText="Yes, Suspend Platform"
+        cancelText="Keep Active"
+        confirmTone="warning"
+        onConfirm={confirmSuspend}
+        onCancel={() => setSuspendTarget(null)}
+        onClose={() => setSuspendTarget(null)}
+      />
+
       <CustomDialog
         isOpen={dialogConfig.isOpen}
         title={dialogConfig.title}
@@ -1025,3 +1059,4 @@ export function LiveIntegrationsPage() {
     </AppShell>
   );
 }
+

@@ -9,24 +9,17 @@ export async function GET(request: Request) {
 
     // 1. Find active workspace and Google Ads integration
     const session = await getSession().catch(() => null);
-    let workspaceId = session?.workspaceId;
-
-    if (!workspaceId) {
-      const firstWs = await prisma.workspace.findFirst({ orderBy: { createdAt: "desc" } });
-      workspaceId = firstWs?.id;
+    if (!session) {
+      return NextResponse.json({ success: false, error: "Authentication required." }, { status: 401 });
     }
+    const workspaceId = session.workspaceId;
 
-    const integration = workspaceId
-      ? await prisma.integration.findFirst({
-          where: {
-            workspaceId,
-            platform: "GOOGLE_ADS"
-          }
-        })
-      : await prisma.integration.findFirst({
-          where: { platform: "GOOGLE_ADS" },
-          orderBy: { updatedAt: "desc" }
-        });
+    const integration = await prisma.integration.findFirst({
+      where: {
+        workspaceId,
+        platform: "GOOGLE_ADS"
+      }
+    });
 
     const customerId = integration?.accountId || "";
     const accountName = integration?.accountName || "Google Ads Account";

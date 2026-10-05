@@ -626,7 +626,7 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
           <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
           <span>Edit KPIs</span>
           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">
-            {pinned.length} / 17
+            {pinned.length} / {Object.keys(allMetricsMeta).length}
           </span>
         </button>
       </div>
@@ -737,7 +737,7 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
 
                   <div className="flex items-center gap-2 sm:gap-3">
                     <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shrink-0">
-                      {pinned.length} / 17
+                      {pinned.length} / {Object.keys(allMetricsMeta).length}
                     </span>
                     <button
                       onClick={() => setShowEditModal(false)}
@@ -770,7 +770,7 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
                         onClick={handleSelectAll}
                         className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
                       >
-                        Select All (17)
+                        Select All ({Object.keys(allMetricsMeta).length})
                       </button>
                       <button
                         type="button"

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
   try {
@@ -8,9 +7,10 @@ export async function GET(request: Request) {
     const { Platform } = await import("@prisma/client");
 
     const session = await getSession().catch(() => null);
-    const workspace = session?.workspaceId
-      ? { id: session.workspaceId }
-      : await prisma.workspace.findFirst({ orderBy: { createdAt: "desc" } });
+    if (!session) {
+      return NextResponse.json({ success: false, error: "Authentication required." }, { status: 401 });
+    }
+    const workspace = { id: session.workspaceId };
 
     let liveAccounts: Array<{
       customerId: string;

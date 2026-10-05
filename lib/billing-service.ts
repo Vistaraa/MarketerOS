@@ -701,6 +701,12 @@ export async function processSuccessfulPayment(input: {
 }) {
   const { workspaceId, userId, type, planSlug, interval = "monthly", packId } = input;
 
+  // A PayU response can be re-posted; each transaction must only be credited once.
+  if (input.payuTxnId) {
+    const existing = await prisma.invoice.findFirst({ where: { payuTxnId: input.payuTxnId, status: "PAID" } });
+    if (existing) return { invoice: existing, alreadyProcessed: true };
+  }
+
   const workspace = await prisma.workspace.findUnique({
     where: { id: workspaceId },
     include: { owner: true }

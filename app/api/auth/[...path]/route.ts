@@ -184,37 +184,38 @@ export async function POST(
         return NextResponse.json({ error: { message: parsed.error.issues[0]?.message || "Invalid email address." } }, { status: 400 });
       }
       const email = parsed.data.email.trim().toLowerCase();
-      const user = await prisma.user.findFirst({
-        where: { email: { equals: email, mode: "insensitive" } }
-      });
+      // In production the link must point at APP_URL; the request origin comes from the Host header and can be spoofed.
+      const baseUrl = process.env.APP_URL || (process.env.NODE_ENV !== "production" ? new URL(request.url).origin : null);
+      if (!baseUrl) {
+        console.error("Password reset requested but APP_URL is not configured.");
+      } else {
+        try {
+          const { requestPasswordReset } = await import("@/lib/password-reset");
+          await requestPasswordReset(email, baseUrl);
+        } catch (err) {
+          console.error("Password reset request failed:", err);
+        }
+      }
+      // Same response whether or not the account exists, so this endpoint can't be used to discover accounts.
       return NextResponse.json({
         data: {
           success: true,
-          userFound: Boolean(user),
-          message: `Password reset instructions have been generated for ${parsed.data.email}.`
+          message: "If an account exists for that email, we've sent a link to reset your password."
         }
       });
     }
     if (path === "reset-password") {
       const parsed = z.object({
-        email: z.string().email("Please enter a valid email address."),
+        token: z.string().min(1, "This reset link is invalid. Please request a new one."),
         password: z.string().min(8, "Password must be at least 8 characters long.")
       }).safeParse(body);
       if (!parsed.success) {
         return NextResponse.json({ error: { message: parsed.error.issues[0]?.message || "Invalid password." } }, { status: 400 });
       }
-      const email = parsed.data.email.trim().toLowerCase();
-      const user = await prisma.user.findFirst({
-        where: { email: { equals: email, mode: "insensitive" } }
-      });
-      if (!user) {
-        return NextResponse.json({ error: { message: "No account registered with this email address." } }, { status: 404 });
+      const { resetPasswordWithToken } = await import("@/lib/password-reset");
+      if (!(await resetPasswordWithToken(parsed.data.token, parsed.data.password))) {
+        return NextResponse.json({ error: { message: "This reset link is invalid or has expired. Please request a new one." } }, { status: 400 });
       }
-      const passwordHash = await bcrypt.hash(parsed.data.password, 12);
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { passwordHash }
-      });
       return NextResponse.json({
         data: {
           success: true,

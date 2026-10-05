@@ -51,7 +51,7 @@ const mainNavItems = [
   { label: "Overview", href: "/", icon: LayoutDashboard },
   { label: "AI Insights", href: "/ai-insights", icon: Sparkles, badge: "AI" },
   { label: "Campaigns", href: "/campaigns", icon: Target },
-  { label: "Google Play", href: "/play-console", icon: Smartphone, badge: "KPIs" },
+  { label: "Google Play", href: "/play-console", icon: Smartphone, badge: "Console" },
   { label: "Integrations", href: "/integrations", icon: Network },
   { label: "Leads", href: "/leads", icon: Users, badge: "New" },
   { label: "Analytics", href: "/analytics", icon: FileBarChart },
@@ -502,17 +502,16 @@ export function ModernTopbar({
 
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-zinc-200/80 bg-white/95 px-2.5 sm:px-6 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/95">
-      {/* Left: Mobile Menu Trigger (hidden on campaign routes) & Page Title */}
+      {/* Left: Mobile Menu Trigger & Page Title */}
       <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 pr-1">
-        {!isCampaignRoute && (
-          <button
-            onClick={onMobileMenuOpen}
-            title="Open Menu"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-600 shadow-2xs hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 lg:hidden"
-          >
-            <Menu size={16} />
-          </button>
-        )}
+        <button
+          onClick={onMobileMenuOpen}
+          title="Open Menu"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-600 shadow-2xs hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 lg:hidden"
+        >
+          <Menu size={16} />
+        </button>
+
         <div className="flex items-center gap-1 sm:gap-1.5 text-xs text-zinc-400 min-w-0">
           <Link
             href="/"

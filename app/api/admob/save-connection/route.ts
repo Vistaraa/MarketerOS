@@ -22,24 +22,10 @@ export async function POST(request: Request) {
     }
 
     const session = await getSession().catch(() => null);
-    let workspaceId = session?.workspaceId;
-
-    if (!workspaceId) {
-      const firstWs = await prisma.workspace.findFirst({ orderBy: { createdAt: "desc" } });
-      workspaceId = firstWs?.id;
+    if (!session) {
+      return NextResponse.json({ success: false, error: "Authentication required." }, { status: 401 });
     }
-
-    if (!workspaceId) {
-      const user = await prisma.user.findFirst();
-      const newWs = await prisma.workspace.create({
-        data: {
-          name: "Default Workspace",
-          slug: `workspace-${Date.now()}`,
-          ownerId: user?.id || "admin"
-        }
-      });
-      workspaceId = newWs.id;
-    }
+    const workspaceId = session.workspaceId;
 
     const cleanPublisherId = publisherId.trim();
 
@@ -52,6 +38,7 @@ export async function POST(request: Request) {
 
     const tokenSource = await prisma.integration.findFirst({
       where: {
+        workspaceId,
         platform: "FIREBASE_ADMOB",
         OR: [
           { accessTokenEncrypted: { not: null } },
@@ -92,18 +79,6 @@ export async function POST(request: Request) {
         }
       });
     }
-
-    // Synchronize across workspaces
-    await prisma.integration.updateMany({
-      where: { platform: "FIREBASE_ADMOB" },
-      data: {
-        accountName: accountName || `AdMob (${cleanPublisherId})`,
-        accountId: cleanPublisherId,
-        status: "CONNECTED",
-        lastSyncedAt: new Date(),
-        errorMessage: null
-      }
-    });
 
     console.log(`[ADMOB_API] ✅ AdMob integration successfully connected & synchronized! (ID: ${cleanPublisherId})`);
     console.log("=======================================================\n");

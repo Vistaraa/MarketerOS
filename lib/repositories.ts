@@ -126,6 +126,11 @@ export async function archivePersistedCampaign(workspaceId: string, id: string) 
   return updatePersistedCampaignStatus(workspaceId, id, "ARCHIVED");
 }
 
+export async function deletePersistedCampaign(workspaceId: string, id: string) {
+  return prisma.campaign.deleteMany({ where: { id, workspaceId } });
+}
+
+
 export async function listPersistedLeads(workspaceId: string, query = "") {
   const rows = await prisma.lead.findMany({
     where: {
@@ -315,7 +320,8 @@ const integrationColor: Record<string, string> = { "Google Ads": "#4285f4", "Met
 function integrationFromRow(row: { id: string; platform: Platform; accountName: string | null; accountId: string | null; status: string; lastSyncedAt: Date | null; providerKey: string | null; errorMessage: string | null }): Integration & { providerKey?: string; error?: string } {
   const providerLabels: Record<string, Integration["platform"]> = { google_ads: "Google Ads", google_analytics: "Google Analytics", google_search_console: "Google Search Console", google_firebase: "Firebase", google_admob: "AdMob", google_youtube: "YouTube", google_business_profile: "Google Business Profile", meta_ads: "Meta Ads", meta_facebook: "Facebook", meta_instagram: "Instagram", meta_messenger: "Messenger", meta_whatsapp: "WhatsApp Business" };
   const platform = providerLabels[row.providerKey || ""] || integrationPlatform[row.platform] || "WordPress";
-  return { id: row.id, platform, description: `${platform} account`, category: platform.includes("Analytics") ? "Analytics" : "Advertising", status: row.status === "CONNECTED" ? "Connected" : row.status === "ERROR" || row.status === "EXPIRED" ? "Needs attention" : "Not connected", account: row.accountName || row.accountId || undefined, synced: row.lastSyncedAt?.toISOString(), color: integrationColor[platform] || "#6940e8", initials: platform.slice(0, 1), providerKey: row.providerKey || undefined, error: row.errorMessage || undefined };
+  return { id: row.id, platform, description: `${platform} account`, category: platform.includes("Analytics") ? "Analytics" : "Advertising", status: row.status === "CONNECTED" ? "Connected" : row.status === "SUSPENDED" ? "Suspended" : row.status === "ERROR" || row.status === "EXPIRED" ? "Needs attention" : "Not connected", account: row.accountName || row.accountId || undefined, synced: row.lastSyncedAt?.toISOString(), color: integrationColor[platform] || "#6940e8", initials: platform.slice(0, 1), providerKey: row.providerKey || undefined, error: row.errorMessage || undefined };
+
 }
 
 export async function listPersistedIntegrations(workspaceId: string, clientId?: string) {

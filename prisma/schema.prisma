@@ -40,10 +40,12 @@ enum ClientStatus {
 enum IntegrationStatus {
   CONNECTED
   DISCONNECTED
+  SUSPENDED
   ERROR
   EXPIRED
   PENDING
 }
+
 
 enum Platform {
   GOOGLE_ADS

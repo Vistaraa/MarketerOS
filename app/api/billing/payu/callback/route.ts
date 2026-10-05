@@ -46,7 +46,8 @@ export async function POST(request: Request) {
       additionalCharges
     });
 
-    if (status === "success" && (isValid || hash.startsWith("sim_"))) {
+    // udf1/udf2 (workspace/user) are covered by the hash, so a valid hash also proves which workspace paid.
+    if (status === "success" && isValid) {
       if (udf1 && udf2) {
         await processSuccessfulPayment({
           workspaceId: udf1,

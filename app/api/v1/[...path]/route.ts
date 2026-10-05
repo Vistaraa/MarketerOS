@@ -71,19 +71,7 @@ async function context(permission = "analytics.view") {
     if (!can(session.role, permission)) return { error: error("You do not have permission to perform this action.", 403) };
     return { session };
   } catch {
-    const workspace = await prisma.workspace.findFirst({ orderBy: { createdAt: "desc" } });
-    const user = await prisma.user.findFirst();
-    if (workspace) {
-      return {
-        session: {
-          userId: user?.id || "admin",
-          workspaceId: workspace.id,
-          role: "OWNER",
-          email: user?.email || "admin@marketeros.local"
-        } as never
-      };
-    }
-    return { error: error("Authentication required.", 401) };
+    return { error: error("Authentication required.", 401, "UNAUTHENTICATED") };
   }
 }
 
@@ -361,7 +349,7 @@ export async function POST(
     }).safeParse(body);
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid payment parameters.");
 
-    const { createPayUPaymentRequest, CREDIT_PACKS, getPayUSalt, convertUsdToInr, formatPriceForCurrency, USD_TO_INR_RATE } = await import("@/lib/payu");
+    const { createPayUPaymentRequest, CREDIT_PACKS, convertUsdToInr, formatPriceForCurrency, USD_TO_INR_RATE } = await import("@/lib/payu");
     const { DEFAULT_PLANS } = await import("@/lib/billing-service");
 
     let amountUsd = 0;
@@ -417,7 +405,6 @@ export async function POST(
         udf4,
         udf5
       });
-      const salt = getPayUSalt();
       return ok({
         ...paymentPayload,
         amountUsd,
@@ -425,9 +412,7 @@ export async function POST(
         exchangeRate: USD_TO_INR_RATE,
         currencyUsd: "USD",
         currencyInr: "INR",
-        salt,
         merchantKey: paymentPayload.key,
-        merchantSalt: salt,
         params: {
           key: paymentPayload.key,
           txnid: paymentPayload.txnid,
@@ -486,9 +471,14 @@ export async function POST(
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid verification payload.");
 
     const payload = parsed.data;
-    const txnid = payload.txnid || payload.orderId || `txn_${Date.now()}`;
+    const txnid = payload.txnid || payload.orderId;
+    if (!txnid) return error("A PayU transaction ID is required.", 400, "INVALID_PAYMENT");
+    // The purchase is only ever credited to the caller's own workspace.
+    if ((payload.udf1 && payload.udf1 !== auth.session.workspaceId) || (payload.udf2 && payload.udf2 !== auth.session.userId)) {
+      return error("This payment does not belong to your workspace.", 403, "PAYMENT_WORKSPACE_MISMATCH");
+    }
     const amount = payload.amount !== undefined ? payload.amount : 0;
-    const status = payload.status || "success";
+    const status = payload.status || "";
     const hash = payload.hash || payload.signature || "";
 
     const { verifyPayUResponseHash } = await import("@/lib/payu");
@@ -508,7 +498,7 @@ export async function POST(
       additionalCharges: payload.additionalCharges
     });
 
-    if (!isValid && status !== "success" && !hash.startsWith("sim_")) {
+    if (!isValid || status !== "success") {
       return error("PayU payment verification failed. Invalid hash signature.", 400, "INVALID_SIGNATURE");
     }
 
@@ -521,8 +511,8 @@ export async function POST(
     try {
       const { processSuccessfulPayment } = await import("@/lib/billing-service");
       const result = await processSuccessfulPayment({
-        workspaceId: payload.udf1 || auth.session.workspaceId,
-        userId: payload.udf2 || auth.session.userId,
+        workspaceId: auth.session.workspaceId,
+        userId: auth.session.userId,
         type,
         planSlug,
         interval,
@@ -1228,7 +1218,8 @@ export async function DELETE(request: Request, { params }: { params: { path: str
 
   if (entity === "settings" && parts[1] === "sessions") {
     const sessionId = parts[2];
-    await prisma.session.deleteMany({ where: { id: sessionId } });
+    const { revokeUserSession } = await import("@/lib/auth-server");
+    if (!(await revokeUserSession(auth.session.userId, sessionId))) return error("Session not found.", 404);
     await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "REVOKE_SESSION", module: "settings", entityType: "Session", entityId: sessionId });
     return ok({ revoked: sessionId });
   }
@@ -1280,8 +1271,18 @@ export async function DELETE(request: Request, { params }: { params: { path: str
     return ok({ deleted: id });
   }
 
-  const archived = await archivePersistedCampaign(auth.session.workspaceId, id);
-  if (!archived) return error("Campaign not found.", 404);
-  await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "SOFT_DELETE", module: "campaigns", entityType: "Campaign", entityId: id });
-  return ok({ deleted: id, softDeleted: true });
+  if (entity === "campaigns") {
+    const { deletePersistedCampaign } = await import("@/lib/repositories");
+    const result = await deletePersistedCampaign(auth.session.workspaceId, id);
+    if (!result.count) return error("Campaign not found.", 404);
+    await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "DELETE", module: "campaigns", entityType: "Campaign", entityId: id });
+    return ok({ deleted: id });
+  }
+
+  const { deletePersistedCampaign } = await import("@/lib/repositories");
+  const deleted = await deletePersistedCampaign(auth.session.workspaceId, id);
+  if (!deleted.count) return error("Campaign not found.", 404);
+  await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "DELETE", module: "campaigns", entityType: "Campaign", entityId: id });
+  return ok({ deleted: id });
 }
+

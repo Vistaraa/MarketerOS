@@ -436,3 +436,82 @@ export async function sendRoleUpdateEmail(params: SendRoleUpdateEmailParams): Pr
   return { success: true, delivered: false };
 }
 
+
+export interface SendPasswordResetEmailParams {
+  to: string;
+  recipientName: string;
+  resetUrl: string;
+  expiresInMinutes: number;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function generatePasswordResetEmailHtml(params: SendPasswordResetEmailParams): string {
+  const name = escapeHtml(params.recipientName || "there");
+  const url = escapeHtml(params.resetUrl);
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:32px 16px;background:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#18181b;">
+  <div style="max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #e4e4e7;border-radius:12px;padding:32px;">
+    <h1 style="margin:0 0 12px;font-size:20px;">Reset your MarketerOS password</h1>
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.6;">Hi ${name}, we received a request to reset your password. Click the button below to choose a new one.</p>
+    <p style="margin:24px 0;"><a href="${url}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600;">Reset password</a></p>
+    <p style="margin:0 0 8px;font-size:12px;color:#71717a;line-height:1.6;">This link expires in ${params.expiresInMinutes} minutes and can only be used once. If you didn't request a reset, you can ignore this email; your password won't change.</p>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * Sends a password reset link via Resend or SMTP. The link is only printed to the console outside production.
+ */
+export async function sendPasswordResetEmail(params: SendPasswordResetEmailParams): Promise<EmailSendResult> {
+  const fromAddress = process.env.SMTP_FROM || process.env.RESEND_FROM || "MarketerOS <no-reply@marketeros.com>";
+  const subject = "Reset your MarketerOS password";
+  const html = generatePasswordResetEmailHtml(params);
+
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ from: fromAddress, to: [params.to], subject, html })
+      });
+      const data = await response.json();
+      if (response.ok && data?.id) return { success: true, delivered: true, messageId: data.id };
+    } catch (err) {
+      console.error("Resend API error:", err);
+    }
+  }
+
+  const transporter = getSmtpTransporter();
+  if (transporter) {
+    try {
+      const info = await transporter.sendMail({ from: fromAddress, to: params.to, subject, html });
+      return { success: true, delivered: true, messageId: info.messageId };
+    } catch (err: any) {
+      console.error("SMTP sending failed:", err?.message || err);
+      return { success: false, delivered: false, error: err?.message || "SMTP sending failed." };
+    }
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("=================================================");
+    console.log("📧 PASSWORD RESET EMAIL (DEV / FALLBACK PREVIEW)");
+    console.log(`To: ${params.to}`);
+    console.log(`Reset URL: ${params.resetUrl}`);
+    console.log("=================================================");
+  } else {
+    console.error("Password reset email could not be delivered: no email provider is configured.");
+  }
+
+  return { success: false, delivered: false, error: "No email provider configured." };
+}

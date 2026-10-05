@@ -11,7 +11,7 @@ import { RefreshCw, Smartphone, Layers, Inbox, LineChart, KeyRound, ArrowLeft, B
 
 export default function PlayConsolePage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"kpis" | "releases" | "inbox">("kpis");
+  const [activeTab, setActiveTab] = useState<"releases" | "inbox">("releases");
 
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
@@ -107,7 +107,7 @@ export default function PlayConsolePage() {
         {/* Page Heading matching MarketerOS Design System */}
         <PageHeading
           title="Google Play Console"
-          description="Live Android app KPIs, 28-day rolling averages, production releases & developer inbox."
+          description="Production releases & developer inbox for connected Android apps."
           action={
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
               {/* Agency Client Selector */}
@@ -151,19 +151,7 @@ export default function PlayConsolePage() {
 
         {/* Console Navigation Tab Switcher matching MarketerOS Aesthetics */}
         <div className="max-w-4xl mx-auto">
-          <div className="grid grid-cols-3 bg-zinc-100/80 dark:bg-zinc-900/80 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl p-1 shadow-2xs">
-            <button
-              onClick={() => setActiveTab("kpis")}
-              className={`flex items-center justify-center gap-1.5 py-2 px-1 sm:px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === "kpis"
-                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs"
-                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-              }`}
-            >
-              <LineChart className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-              <span>KPIs</span>
-            </button>
-
+          <div className="grid grid-cols-2 bg-zinc-100/80 dark:bg-zinc-900/80 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl p-1 shadow-2xs">
             <button
               onClick={() => setActiveTab("releases")}
               className={`flex items-center justify-center gap-1.5 py-2 px-1 sm:px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -202,7 +190,6 @@ export default function PlayConsolePage() {
             </div>
           ) : (
             <>
-              {activeTab === "kpis" && <PlayConsoleKpisTab data={kpiData} onRefresh={fetchAllData} />}
               {activeTab === "releases" && <PlayConsoleReleasesTab data={releasesData} onRefresh={fetchAllData} />}
               {activeTab === "inbox" && <PlayConsoleInboxTab data={inboxData} onRefresh={fetchAllData} />}
             </>

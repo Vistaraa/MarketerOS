@@ -42,6 +42,22 @@ export async function clearSession() {
   store.delete(COOKIE);
 }
 
+/** Revokes one of the given user's sessions. Returns false if the session does not belong to that user. */
+export async function revokeUserSession(userId: string, sessionId: string) {
+  const target = await prisma.session.findFirst({ where: { id: sessionId, userId }, select: { tokenHash: true } });
+  if (!target) return false;
+  cacheInvalidateKey(sessionCacheKey(target.tokenHash));
+  await prisma.session.deleteMany({ where: { id: sessionId, userId } });
+  return true;
+}
+
+/** Signs the user out everywhere, including sessions still held in the in-memory session cache. */
+export async function revokeAllUserSessions(userId: string) {
+  const sessions = await prisma.session.findMany({ where: { userId }, select: { tokenHash: true } });
+  for (const s of sessions) cacheInvalidateKey(sessionCacheKey(s.tokenHash));
+  await prisma.session.deleteMany({ where: { userId } });
+}
+
 export async function getSession(explicitToken?: string) {
   let raw = explicitToken;
   if (!raw) {
