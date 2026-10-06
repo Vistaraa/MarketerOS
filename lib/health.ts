@@ -3,7 +3,8 @@ import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { objectStorage } from "@/lib/storage";
 
-const CHECK_TIMEOUT_MS = 3000;
+// Generous enough that a busy instance (e.g. parsing a large upload) isn't reported as down.
+const CHECK_TIMEOUT_MS = 5000;
 
 function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
   return Promise.race([promise, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} timed out`)), CHECK_TIMEOUT_MS))]);

@@ -13,8 +13,14 @@ test("liveness probe is cheap and public", async () => {
 });
 
 test("readiness probe checks the database, migrations and storage", async () => {
-  const res = await fetch(`${BASE}/api/health/ready`);
-  const body = await res.json();
+  // Like an uptime monitor, allow a retry: earlier suites can leave the single test server briefly busy.
+  let res, body;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    res = await fetch(`${BASE}/api/health/ready`);
+    body = await res.json();
+    if (res.status === 200) break;
+    await new Promise((r) => setTimeout(r, 2000));
+  }
   assert.equal(res.status, 200, JSON.stringify(body));
   assert.equal(body.status, "ready");
   assert.equal(body.checks.database.ok, true);

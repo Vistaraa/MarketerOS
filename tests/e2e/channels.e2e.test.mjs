@@ -108,7 +108,7 @@ test("Tokens are verified before anything is saved", { skip }, async () => {
   const tt = await call(A.cookie, "POST", "/api/tiktok/connect", { accountId: "7000000000000000001", accessToken: "tt-bad-token" });
   assert.equal(tt.status, 422, "TikTok's HTTP 200 error responses are still errors");
   assert.match(tt.json.error, /revoked/);
-  const sh = await call(A.cookie, "POST", "/api/shopify/connect", { accountId: SHOP, apiKey: "shpat_bad" });
+  const sh = await call(A.cookie, "POST", "/api/shopify/connect", { accountId: SHOP, apiKey: "shpat_bad_token_0000" });
   assert.equal(sh.status, 422);
   assert.equal(await sql(`select count(*) from "Integration" where "workspaceId" = '${A.ws}'`), "0");
 });
