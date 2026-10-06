@@ -554,3 +554,40 @@ export async function sendVerificationEmail(params: SendVerificationEmailParams)
     url: params.verifyUrl
   });
 }
+
+export interface SendBillingNoticeEmailParams {
+  to: string;
+  recipientName: string;
+  subject: string;
+  heading: string;
+  body: string;
+  actionLabel: string;
+  actionUrl: string;
+}
+
+function generateBillingNoticeEmailHtml(params: SendBillingNoticeEmailParams): string {
+  const name = escapeHtml(params.recipientName || "there");
+  const url = escapeHtml(params.actionUrl);
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:32px 16px;background:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#18181b;">
+  <div style="max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #e4e4e7;border-radius:12px;padding:32px;">
+    <h1 style="margin:0 0 12px;font-size:20px;">${escapeHtml(params.heading)}</h1>
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.6;">Hi ${name}, ${escapeHtml(params.body)}</p>
+    <p style="margin:24px 0;"><a href="${url}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600;">${escapeHtml(params.actionLabel)}</a></p>
+    <p style="margin:0 0 8px;font-size:12px;color:#71717a;line-height:1.6;">You're receiving this because you own a MarketerOS workspace.</p>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+/** Trial and subscription reminders (ending soon, ended, read-only). */
+export async function sendBillingNoticeEmail(params: SendBillingNoticeEmailParams): Promise<EmailSendResult> {
+  return deliverTransactionalEmail(params.to, params.subject, generateBillingNoticeEmailHtml(params), {
+    label: "BILLING NOTICE EMAIL",
+    url: params.actionUrl
+  });
+}

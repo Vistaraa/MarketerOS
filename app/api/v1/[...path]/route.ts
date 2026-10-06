@@ -14,6 +14,7 @@ import { validateCredentials } from "@/lib/integrations/validate";
 import { validateYouTubeApiKey, validateYouTubeChannel, fetchChannelInfo, fetchRecentVideos, fetchAllYouTubeAnalytics } from "@/lib/youtube";
 import { paged, parseListQuery } from "@/lib/api-contracts";
 import { cacheGetOrSet, cacheInvalidatePrefix } from "@/lib/cache";
+import { campaignStatusGuard, planLimitGuard } from "@/lib/plan-limits";
 import { buildPersistedOverview, parseOverviewQuery } from "@/lib/overview-service";
 import { archivePersistedCampaign, connectPersistedIntegrationCredentials, convertPersistedLeadToClient, createOrUpdatePersistedSocialAccount, createPersistedCampaign, createPersistedLead, deletePersistedLead, disconnectPersistedIntegration, disconnectPersistedSocialAccount, getPersistedCampaign, getPersistedIntegration, getPersistedLead, listPersistedAutomations, listPersistedCampaigns, listPersistedClients, listPersistedContent, listPersistedInsights, listPersistedIntegrations, listPersistedLeads, listPersistedNotifications, listPersistedReports, listPersistedSocialAccountsMerged, listPersistedSocialPosts, listPersistedTeam, searchPersisted, updatePersistedCampaignStatus, updatePersistedLead } from "@/lib/repositories";
 
@@ -93,6 +94,19 @@ async function aiErrorResponse(cause: unknown) {
   }
   console.error("[ai] Unexpected failure:", cause);
   return error("AI generation failed. Please try again.", 502, "AI_FAILED");
+}
+
+/**
+ * Writes that stay available when the subscription has lapsed: paying and billing, personal settings, notifications,
+ * disconnecting integrations, and POST endpoints that only read (YouTube lookups).
+ */
+const ALLOWED_WHILE_LOCKED = /^(billing(\/.*)?|notifications(\/.*)?|settings\/(profile|notifications|change-password)|integrations\/disconnect|youtube\/(analytics|channel-info|dashboard|videos|validate-api-key|validate-channel)|youtube-ads\/(campaigns|dashboard|metrics|validate))$/;
+
+/** 402 for a write to a workspace whose subscription has lapsed (it stays readable), otherwise null. */
+async function lapsedSubscriptionResponse(workspaceId: string, path: string) {
+  if (ALLOWED_WHILE_LOCKED.test(path)) return null;
+  const { subscriptionWriteGuard } = await import("@/lib/subscription");
+  return subscriptionWriteGuard(workspaceId);
 }
 
 function teamActor(session: { userId: string; workspaceId: string; role: string; name?: string }) {
@@ -340,6 +354,8 @@ export async function POST(
   const url = new URL(request.url);
   const auth = await context(getRequiredPermission(path, "POST"));
   if (auth.error) return auth.error;
+  const lapsed = await lapsedSubscriptionResponse(auth.session.workspaceId, path);
+  if (lapsed) return lapsed;
   cacheInvalidatePrefix(`ws:${auth.session.workspaceId}`);
   const body = await request.json().catch(() => null);
   if (path === "notifications/read-all") { await prisma.notification.updateMany({ where: { workspaceId: auth.session.workspaceId, userId: auth.session.userId, readAt: null }, data: { readAt: new Date() } }); return ok({ updated: true }); }
@@ -381,7 +397,10 @@ export async function POST(
     }).safeParse(body);
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid payment parameters.");
 
-    const { createPayUPaymentRequest, CREDIT_PACKS, convertUsdToInr, formatPriceForCurrency, USD_TO_INR_RATE } = await import("@/lib/payu");
+    const { createPayUPaymentRequest, CREDIT_PACKS, convertUsdToInr, formatPriceForCurrency, USD_TO_INR_RATE, isPayUConfigured } = await import("@/lib/payu");
+    if (process.env.NODE_ENV === "production" && !isPayUConfigured()) {
+      return error("Online payments aren't available yet. Please contact support to change your plan.", 503, "PAYMENTS_NOT_CONFIGURED");
+    }
     const { DEFAULT_PLANS } = await import("@/lib/billing-service");
 
     let amountUsd = 0;
@@ -586,22 +605,8 @@ export async function POST(
   if (path === "billing/checkout") {
     const auth = await context("billing.manage");
     if (auth.error) return auth.error;
-    const parsed = z.object({ planId: z.string().min(1), interval: z.enum(["monthly", "yearly"]).default("monthly") }).safeParse(body);
-    if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid billing checkout request.");
-    try {
-      const { processSuccessfulPayment } = await import("@/lib/billing-service");
-      const result = await processSuccessfulPayment({
-        workspaceId: auth.session.workspaceId,
-        userId: auth.session.userId,
-        type: "subscription",
-        planSlug: parsed.data.planId,
-        interval: parsed.data.interval,
-        razorpayPaymentId: `pay_direct_${Date.now()}`
-      });
-      return ok({ success: true, ...result, message: `Successfully updated plan to ${parsed.data.planId.toUpperCase()}.` });
-    } catch (cause) {
-      return error(logServerError("billing", "Unable to update subscription plan.", cause), 500, "BILLING_UPDATE_FAILED");
-    }
+    // This used to switch plans without any payment. Plans now change only through a verified PayU payment.
+    return error("Plan changes require payment. Start checkout with billing/payu/create-payment.", 402, "PAYMENT_REQUIRED");
   }
   if (path === "billing/portal") {
     const auth = await context("billing.manage");
@@ -698,7 +703,9 @@ export async function POST(
     return ok(created, undefined, { status: 201 });
   }
   if (path === "clients") {
-    const auth = await context("client.edit"); if (auth.error) return auth.error; const parsed = clientInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid client."); const slug = `${parsed.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`; const created = await prisma.client.create({ data: { workspaceId: auth.session.workspaceId, name: parsed.data.name, slug, industry: parsed.data.industry, website: parsed.data.website || undefined, contactName: parsed.data.contactName, contactEmail: parsed.data.contactEmail, contactPhone: parsed.data.contactPhone, currency: parsed.data.currency || "USD", timezone: parsed.data.timezone || "UTC", monthlyBudget: parsed.data.monthlyBudget || 0, status: (parsed.data.status?.toUpperCase() || "ACTIVE") as never } }); return ok(created, undefined, { status: 201 });
+    const auth = await context("client.edit"); if (auth.error) return auth.error; const parsed = clientInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid client.");
+    const overLimit = await planLimitGuard(auth.session.workspaceId, "clients"); if (overLimit) return overLimit;
+    const slug = `${parsed.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`; const created = await prisma.client.create({ data: { workspaceId: auth.session.workspaceId, name: parsed.data.name, slug, industry: parsed.data.industry, website: parsed.data.website || undefined, contactName: parsed.data.contactName, contactEmail: parsed.data.contactEmail, contactPhone: parsed.data.contactPhone, currency: parsed.data.currency || "USD", timezone: parsed.data.timezone || "UTC", monthlyBudget: parsed.data.monthlyBudget || 0, status: (parsed.data.status?.toUpperCase() || "ACTIVE") as never } }); return ok(created, undefined, { status: 201 });
   }
   if (path === "automation") {
     const auth = await context("automation.manage"); if (auth.error) return auth.error; const parsed = automationInput.safeParse(body); if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid automation."); const created = await prisma.automation.create({ data: { workspaceId: auth.session.workspaceId, name: parsed.data.name, description: parsed.data.description, trigger: parsed.data.trigger, action: parsed.data.action, campaignId: parsed.data.campaignId, triggerConfig: parsed.data.triggerConfig as never, actionConfig: parsed.data.actionConfig as never, isActive: parsed.data.isActive ?? true } }); return ok(created, undefined, { status: 201 });
@@ -716,7 +723,7 @@ export async function POST(
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid team invitation.");
     const { inviteTeamMember } = await import("@/lib/team-service");
     const result = await inviteTeamMember(teamActor(auth.session), parsed.data, inviteBaseUrl(request, url));
-    if (!result.ok) return error(result.message, result.status);
+    if (!result.ok) return error(result.message, result.status, result.code);
     return ok({
       item: result.data.user,
       delivered: result.data.delivered,
@@ -777,6 +784,8 @@ export async function POST(
   if (path === "campaigns") {
     const parsed = campaignInput.safeParse(body);
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid campaign.");
+    const overLimit = await planLimitGuard(auth.session.workspaceId, "campaigns");
+    if (overLimit) return overLimit;
 
     // Check if platform(s) are connected in Integrations
     const platformMap: Record<string, string> = {
@@ -1047,6 +1056,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ pa
   const path = (await params).path.join("/");
   const auth = await context(path.startsWith("notifications") ? "notifications.view" : (path === "settings/profile" || path === "settings/notifications") ? "settings.view" : path === "settings" ? "settings.manage" : path.startsWith("content/") ? "content.edit" : path.startsWith("social/posts/") ? "social.edit" : path.startsWith("clients/") ? "client.edit" : path.startsWith("automation/") ? "automation.manage" : path.startsWith("ai/insights/") ? "analytics.view" : path.startsWith("team/") ? "team.manage" : "campaign.edit");
   if (auth.error) return auth.error;
+  const lapsed = await lapsedSubscriptionResponse(auth.session.workspaceId, path);
+  if (lapsed) return lapsed;
   cacheInvalidatePrefix(`ws:${auth.session.workspaceId}`);
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (path.startsWith("notifications/")) { const id = path.split("/")[1]; const updated = await prisma.notification.updateMany({ where: { id, workspaceId: auth.session.workspaceId, userId: auth.session.userId }, data: { readAt: new Date() } }); return updated.count ? ok({ id, read: true }) : error("Notification not found.", 404); }
@@ -1188,6 +1199,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ pa
   if (path.startsWith("campaigns/")) {
     const id = path.split("/")[1];
     if (!body?.status) return error("A campaign status is required.");
+    const overLimit = await campaignStatusGuard(auth.session.workspaceId, id, String(body.status));
+    if (overLimit) return overLimit;
     const updated = await updatePersistedCampaignStatus(auth.session.workspaceId, id, String(body.status));
     if (!updated) return error("Campaign not found.", 404);
     await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE_STATUS", module: "campaigns", entityType: "Campaign", entityId: id, afterData: { status: body.status } });
@@ -1201,6 +1214,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ p
   const path = parts.join("/");
   const auth = await context("campaign.delete");
   if (auth.error) return auth.error;
+  const lapsed = await lapsedSubscriptionResponse(auth.session.workspaceId, path);
+  if (lapsed) return lapsed;
   cacheInvalidatePrefix(`ws:${auth.session.workspaceId}`);
   const entity = parts[0];
   const id = parts[1];

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_PLANS } from "@/lib/billing-service";
+import { trialSubscriptionData } from "@/lib/subscription";
 
 export const CANONICAL_PLAN_SLUGS = ["starter", "pro", "business", "enterprise"] as const;
 
@@ -81,8 +82,8 @@ export async function ensureSystemBootstrapped(force = false): Promise<void> {
 }
 
 /**
- * Ensures that a workspace has an active subscription attached to a valid canonical plan.
- * Automatically provisions or migrates subscriptions without requiring manual seeding.
+ * Ensures that a workspace has a subscription on a canonical plan: new workspaces start a Pro trial, and a
+ * subscription on a retired plan moves to the preferred plan keeping its status and dates.
  */
 export async function ensureWorkspaceSubscription(
   workspaceId: string,
@@ -107,30 +108,10 @@ export async function ensureWorkspaceSubscription(
       throw new Error("Unable to provision subscription: no canonical plans found.");
     }
 
-    const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     return prisma.subscription.upsert({
       where: { workspaceId },
-      update: {
-        planId: targetPlan.id,
-        planSlug: targetPlan.slug,
-        status: "ACTIVE",
-        interval: "MONTHLY",
-        billingInterval: "MONTHLY",
-        currentPeriodStart: new Date(),
-        currentPeriodEnd: periodEnd,
-        cancelAtPeriodEnd: false
-      },
-      create: {
-        workspaceId,
-        planId: targetPlan.id,
-        planSlug: targetPlan.slug,
-        status: "ACTIVE",
-        interval: "MONTHLY",
-        billingInterval: "MONTHLY",
-        currentPeriodStart: new Date(),
-        currentPeriodEnd: periodEnd,
-        cancelAtPeriodEnd: false
-      },
+      update: { planId: targetPlan.id, planSlug: targetPlan.slug },
+      create: { workspaceId, ...trialSubscriptionData(targetPlan.id, targetPlan.slug) },
       include: { plan: true }
     });
   }

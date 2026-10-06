@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
+import { monthlyWindowStart } from "@/lib/subscription";
 
 /** 100 model tokens = 1 AI credit (the same conversion the Billing page shows). */
 export const TOKENS_PER_CREDIT = 100;
 const DEFAULT_MONTHLY_CREDITS = 10000;
 
 /**
- * AI credit usage for the current billing period: the subscription's current period, or the calendar month
- * (UTC) without one. Used both to display usage and to enforce the allowance, so the two always agree.
+ * AI credit usage for the subscription's current monthly window, or the calendar month (UTC) without one.
+ * Used both to display usage and to enforce the allowance, so the two always agree.
  */
 export async function getAICreditStatus(workspaceId: string) {
   const [subscription, workspace] = await Promise.all([
@@ -16,7 +17,8 @@ export async function getAICreditStatus(workspaceId: string) {
 
   const now = new Date();
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const periodStart = subscription?.currentPeriodStart && subscription.currentPeriodStart <= now ? subscription.currentPeriodStart : monthStart;
+  // Monthly windows anchored on the subscription's period start (yearly plans still reset every month).
+  const periodStart = subscription?.currentPeriodStart ? monthlyWindowStart(subscription.currentPeriodStart, now) : monthStart;
 
   const usage = await prisma.aIRequest.aggregate({
     where: { workspaceId, createdAt: { gte: periodStart } },

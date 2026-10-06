@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { logServerError } from "@/lib/errors";
 import { getSession } from "@/lib/auth-server";
 import { getDecryptedGooglePlayIntegration } from "@/lib/google/play-console";
+import { subscriptionWriteGuard } from "@/lib/subscription";
 
 export async function POST() {
   try {
@@ -9,6 +10,8 @@ export async function POST() {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const lapsed = await subscriptionWriteGuard(session.workspaceId);
+    if (lapsed) return lapsed;
 
     const decrypted = await getDecryptedGooglePlayIntegration(session.workspaceId);
     if (!decrypted) {

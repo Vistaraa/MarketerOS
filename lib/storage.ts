@@ -1,6 +1,6 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, constants, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 /**
@@ -20,6 +20,8 @@ export interface ObjectStorage {
   put(key: string, body: Buffer, contentType: string): Promise<void>;
   get(key: string): Promise<StoredObject | null>;
   delete(key: string): Promise<void>;
+  /** Cheap check that storage is reachable and usable (for the readiness probe). */
+  healthCheck(): Promise<boolean>;
   /** Present when browsers can upload straight to storage (S3), bypassing the app server's body-size limits. */
   direct?: DirectUploadSupport;
 }
@@ -63,6 +65,16 @@ class LocalDiskStorage implements ObjectStorage {
     await rm(file, { force: true });
     await rm(`${file}.type`, { force: true });
   }
+
+  async healthCheck() {
+    try {
+      await mkdir(this.root, { recursive: true });
+      await access(this.root, constants.W_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
 class S3Storage implements ObjectStorage {
@@ -104,6 +116,15 @@ class S3Storage implements ObjectStorage {
 
   async delete(key: string) {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+  }
+
+  async healthCheck() {
+    try {
+      await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   direct: DirectUploadSupport = {

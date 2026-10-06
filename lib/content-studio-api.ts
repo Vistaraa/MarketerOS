@@ -3,16 +3,24 @@ import { z } from "zod";
 import type { ContentTemplate, HashtagGroup, MediaAsset } from "@prisma/client";
 import { can, getSession } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
+import { subscriptionWriteGuard } from "@/lib/subscription";
 
 export function apiError(message: string, status = 400, code = "BAD_REQUEST") {
   return NextResponse.json({ error: { code, message } }, { status });
 }
 
-/** Resolves the caller's workspace and checks a permission (e.g. "content.view" / "content.edit"). */
+/**
+ * Resolves the caller's workspace and checks a permission (e.g. "content.view" / "content.edit"). Anything other
+ * than viewing is a change, refused while the workspace's subscription has lapsed.
+ */
 export async function contentStudioContext(permission: string) {
   const session = await getSession();
   if (!session) return { response: apiError("Authentication required.", 401, "UNAUTHENTICATED") } as const;
   if (!can(session.role, permission)) return { response: apiError("You do not have permission to perform this action.", 403, "FORBIDDEN") } as const;
+  if (permission !== "content.view") {
+    const lapsed = await subscriptionWriteGuard(session.workspaceId);
+    if (lapsed) return { response: lapsed } as const;
+  }
   return { session } as const;
 }
 

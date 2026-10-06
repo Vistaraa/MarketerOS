@@ -1,4 +1,28 @@
 /**
+ * Connection-pooling advice for serverless hosting. Each serverless instance opens its own connections, so
+ * production should use a pooler (Supabase: transaction pooler on port 6543). Prisma needs pgbouncer=true there,
+ * otherwise prepared statements fail intermittently.
+ */
+export function databaseUrlWarnings(databaseUrl: string | undefined, isProduction: boolean): string[] {
+  if (!databaseUrl) return [];
+  let url: URL;
+  try {
+    url = new URL(databaseUrl);
+  } catch {
+    return ["DATABASE_URL is not a valid URL."];
+  }
+  const warnings: string[] = [];
+  const pooled = url.port === "6543" || url.hostname.includes("pooler");
+  if (pooled && url.searchParams.get("pgbouncer") !== "true") {
+    warnings.push("DATABASE_URL points at a connection pooler but lacks ?pgbouncer=true; Prisma prepared statements will fail intermittently.");
+  }
+  if (isProduction && url.hostname.endsWith("supabase.co") && !pooled) {
+    warnings.push("DATABASE_URL uses a direct Supabase connection. On serverless hosting use the transaction pooler (port 6543) with ?pgbouncer=true&connection_limit=1, and keep the direct URL in DIRECT_URL for migrations.");
+  }
+  return warnings;
+}
+
+/**
  * Validates required configuration when the server boots. In production a missing secret throws, so a
  * misconfigured deployment fails at startup instead of silently falling back to insecure defaults.
  */
@@ -7,6 +31,8 @@ export function assertRequiredEnv() {
   const problems: string[] = [];
 
   if (!process.env.DATABASE_URL) problems.push("DATABASE_URL is not set.");
+  if (isProduction && !process.env.DIRECT_URL) problems.push("DIRECT_URL is not set (direct, non-pooled connection used by prisma migrate).");
+  for (const warning of databaseUrlWarnings(process.env.DATABASE_URL, isProduction)) console.warn(`[env] ${warning}`);
 
   const sessionSecret = process.env.SESSION_SECRET;
   if (!sessionSecret || sessionSecret.length < 32) problems.push("SESSION_SECRET must be set to at least 32 characters.");
@@ -20,6 +46,13 @@ export function assertRequiredEnv() {
   }
 
   if (isProduction && !process.env.APP_URL) problems.push("APP_URL must be set in production (used for password reset and email verification links).");
+
+  if (isProduction) {
+    const payuKey = (process.env.PAYU_MERCHANT_KEY || process.env.PAYU_KEY)?.trim();
+    const payuEnv = (process.env.PAYU_ENV || process.env.PAYU_MODE || "test").toLowerCase();
+    if (!payuKey) console.warn("[env] PayU is not configured (PAYU_MERCHANT_KEY / PAYU_MERCHANT_SALT): customers can't pay, so trials can't convert.");
+    else if (payuEnv !== "production" && payuEnv !== "live") console.warn("[env] PAYU_ENV is not \"production\": payments go to PayU's test environment and no real money is collected.");
+  }
 
   if (isProduction && process.env.STORAGE_DRIVER !== "s3") {
     // A warning, not a failure: single-server hosts can keep files on disk, but serverless platforms discard them.

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { encryptCredentialFields } from "@/lib/google/client";
 import { testGooglePlayConnection } from "@/lib/google/play-console";
 import { Platform, IntegrationStatus } from "@prisma/client";
+import { subscriptionWriteGuard } from "@/lib/subscription";
 
 export async function POST(request: Request) {
   try {
@@ -12,6 +13,8 @@ export async function POST(request: Request) {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const lapsed = await subscriptionWriteGuard(session.workspaceId);
+    if (lapsed) return lapsed;
 
     const body = await request.json();
     const {

@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/audit";
 import { isPayUConfigured, getPayUKey, getPayUPaymentUrl, CREDIT_PACKS } from "@/lib/payu";
+import { evaluateAccess, paidPeriod, trialSubscriptionData, type SubscriptionAccess } from "@/lib/subscription";
+import { getPlanUsage } from "@/lib/plan-limits";
 
 export type ResourceLimitStatus = "NORMAL" | "WARNING" | "LIMIT_REACHED" | "OVER_LIMIT";
 
@@ -31,6 +33,8 @@ export type BillingOverviewPayload = {
     currentPeriodStart: string;
     currentPeriodEnd: string;
     trialEnd?: string | null;
+    /** Trial days left, grace period and read-only state, for banners and the plan card. */
+    access: SubscriptionAccess;
     payuTxnId?: string | null;
     payuPaymentId?: string | null;
     razorpaySubscriptionId?: string | null;
@@ -383,32 +387,13 @@ export async function getPersistedBillingOverview(workspaceId: string): Promise<
   const canonicalPlans = dbPlans.filter((p) => CANONICAL_SLUGS.includes(p.slug));
   const proPlan = canonicalPlans.find((p) => p.slug === "pro") || canonicalPlans[0];
 
-  // Ensure an active subscription exists in DB and is migrated off legacy plans (e.g. "scale") to "pro"
+  // A workspace without a subscription starts the Pro trial; one on a retired plan (e.g. "scale") moves to Pro,
+  // keeping its status and dates.
   if (!subscription || !CANONICAL_SLUGS.includes(subscription.plan?.slug)) {
-    const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     subscription = await prisma.subscription.upsert({
       where: { workspaceId },
-      update: {
-        planId: proPlan.id,
-        planSlug: proPlan.slug,
-        status: "ACTIVE",
-        interval: "MONTHLY",
-        billingInterval: "MONTHLY",
-        currentPeriodStart: new Date(),
-        currentPeriodEnd: periodEnd,
-        cancelAtPeriodEnd: false
-      },
-      create: {
-        workspaceId,
-        planId: proPlan.id,
-        planSlug: proPlan.slug,
-        status: "ACTIVE",
-        interval: "MONTHLY",
-        billingInterval: "MONTHLY",
-        currentPeriodStart: new Date(),
-        currentPeriodEnd: periodEnd,
-        cancelAtPeriodEnd: false
-      },
+      update: { planId: proPlan.id, planSlug: proPlan.slug },
+      create: { workspaceId, ...trialSubscriptionData(proPlan.id, proPlan.slug) },
       include: { plan: true }
     });
 
@@ -422,10 +407,9 @@ export async function getPersistedBillingOverview(workspaceId: string): Promise<
     }
   }
 
-  // Count active team members
-  const userCount = await prisma.user.count({
-    where: { ownedWorkspaces: { some: { id: workspaceId } } }
-  });
+  // Seats, clients and campaigns, counted exactly as the plan limits are enforced.
+  const planUsage = await getPlanUsage(workspaceId);
+  const userCount = planUsage.members.used;
 
   // AI credit usage for the current billing period (the same figures generation is limited by).
   const { getAICreditStatus } = await import("@/lib/ai-credits");
@@ -467,8 +451,8 @@ export async function getPersistedBillingOverview(workspaceId: string): Promise<
 
   const usage: ResourceUsageItem[] = [
     calcUsageItem("seats", "Team Seats", userCount, maxMembers, "seats"),
-    calcUsageItem("clients", "Client Workspaces", workspace._count.clients, maxClients, "clients"),
-    calcUsageItem("campaigns", "Active Campaigns", workspace._count.campaigns, maxCampaigns, "campaigns"),
+    calcUsageItem("clients", "Client Workspaces", planUsage.clients.used, maxClients, "clients"),
+    calcUsageItem("campaigns", "Active Campaigns", planUsage.campaigns.used, maxCampaigns, "campaigns"),
     calcUsageItem("ai_credits", "Monthly AI Credits", aiCreditsUsed, totalAICredits, "credits"),
     calcUsageItem("leads", "Leads CRM Database", workspace._count.leads, leadsQuota, "leads"),
     calcUsageItem("content", "Content Studio Library", workspace._count.content, contentQuota, "items"),
@@ -575,11 +559,13 @@ export async function getPersistedBillingOverview(workspaceId: string): Promise<
   return {
     subscription: {
       id: subscription.id,
-      status: subscription.status as "ACTIVE",
+      status: subscription.status,
       interval: subscription.interval as "MONTHLY" | "YEARLY",
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
       currentPeriodStart: subscription.currentPeriodStart.toISOString(),
       currentPeriodEnd: subscription.currentPeriodEnd.toISOString(),
+      trialEnd: subscription.status === "TRIALING" ? subscription.currentPeriodEnd.toISOString() : null,
+      access: evaluateAccess(subscription),
       payuTxnId: subscription.payuTxnId,
       payuPaymentId: subscription.payuPaymentId,
       razorpaySubscriptionId: subscription.razorpaySubscriptionId,
@@ -735,12 +721,8 @@ export async function processSuccessfulPayment(input: {
       ? Number(plan.yearlyPrice || 1990)
       : Number(plan.monthlyPrice || 199);
 
-    const periodEnd = new Date();
-    if (interval === "yearly") {
-      periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-    } else {
-      periodEnd.setMonth(periodEnd.getMonth() + 1);
-    }
+    const current = await prisma.subscription.findUnique({ where: { workspaceId } });
+    const period = paidPeriod(current, plan.slug, interval);
 
     const updatedSubscription = await prisma.subscription.upsert({
       where: { workspaceId },
@@ -750,9 +732,11 @@ export async function processSuccessfulPayment(input: {
         status: "ACTIVE",
         interval: interval === "yearly" ? "YEARLY" : "MONTHLY",
         billingInterval: interval === "yearly" ? "YEARLY" : "MONTHLY",
-        currentPeriodStart: new Date(),
-        currentPeriodEnd: periodEnd,
+        currentPeriodStart: period.start,
+        currentPeriodEnd: period.end,
         cancelAtPeriodEnd: false,
+        complimentary: false,
+        lastLifecycleNotice: null,
         payuTxnId: input.payuTxnId,
         payuPaymentId: input.payuPaymentId || `payu_${Date.now()}`,
         razorpayPaymentId: input.razorpayPaymentId || input.payuPaymentId || `pay_${Date.now()}`
@@ -764,8 +748,8 @@ export async function processSuccessfulPayment(input: {
         status: "ACTIVE",
         interval: interval === "yearly" ? "YEARLY" : "MONTHLY",
         billingInterval: interval === "yearly" ? "YEARLY" : "MONTHLY",
-        currentPeriodStart: new Date(),
-        currentPeriodEnd: periodEnd,
+        currentPeriodStart: period.start,
+        currentPeriodEnd: period.end,
         cancelAtPeriodEnd: false,
         payuTxnId: input.payuTxnId,
         payuPaymentId: input.payuPaymentId || `payu_${Date.now()}`,

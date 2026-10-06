@@ -34,7 +34,8 @@ async function main() {
   log({ event: "started", pollIntervalMs: POLL_INTERVAL_MS, once: runOnce });
   while (!stopping) {
     try {
-      const { recovered, processed } = await runJobBatch();
+      const { scheduled, recovered, processed } = await runJobBatch();
+      for (const task of scheduled) log({ event: "scheduled_task", ...task }, task.ok ? "info" : "error");
       if (recovered) log({ event: "recovered_stuck_jobs", count: recovered });
       for (const job of processed) log({ event: "job_finished", ...job });
       if (runOnce) break;

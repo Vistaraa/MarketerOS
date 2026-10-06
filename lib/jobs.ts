@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { decryptSecret } from "@/lib/crypto";
 import { getProvider } from "@/lib/integrations/provider";
+import { runScheduledTasks } from "@/lib/scheduled-tasks";
 
 export type JobName = "integration.sync" | "metrics.aggregate" | "report.generate" | "automation.evaluate";
 
@@ -64,11 +65,12 @@ export async function processNextJob() {
 }
 
 /**
- * Runs due jobs until the queue is empty or a limit is hit. Shared by the long-running worker
- * (scripts/worker.ts) and the serverless cron endpoint (/api/cron/jobs).
+ * Runs due system tasks (e.g. the hourly billing lifecycle), then due jobs until the queue is empty or a limit
+ * is hit. Shared by the long-running worker (scripts/worker.ts) and the serverless cron endpoint (/api/cron/jobs).
  */
 export async function runJobBatch({ maxJobs = 25, maxMs = 50_000 }: { maxJobs?: number; maxMs?: number } = {}) {
   const startedAt = Date.now();
+  const scheduled = await runScheduledTasks();
   const recovered = await recoverStuckJobs();
   const processed: Array<{ id: string; name: string | null; status: JobStatus }> = [];
   while (processed.length < maxJobs && Date.now() - startedAt < maxMs) {
@@ -76,7 +78,7 @@ export async function runJobBatch({ maxJobs = 25, maxMs = 50_000 }: { maxJobs?: 
     if (!job) break;
     processed.push({ id: job.id, name: job.name, status: job.status });
   }
-  return { recovered, processed };
+  return { scheduled, recovered, processed };
 }
 
 async function failOrRetry(job: { id: string; name: string | null; workspaceId: string; integrationId: string | null; payload: unknown; attempts: number; maxAttempts: number }, message: string): Promise<JobStatus> {

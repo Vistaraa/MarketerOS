@@ -743,7 +743,7 @@ export function AppShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [loadingSession, setLoadingSession] = useState(true);
-  const [session, setSession] = useState<{ authenticated?: boolean; suspended?: boolean; user?: { role?: string; name?: string; email?: string; emailVerified?: boolean } } | null>(null);
+  const [session, setSession] = useState<{ authenticated?: boolean; suspended?: boolean; user?: { role?: string; name?: string; email?: string; emailVerified?: boolean }; subscription?: SubscriptionSummary } | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/session")
@@ -860,6 +860,7 @@ export function AppShell({
         />
 
         {session?.authenticated && session.user?.emailVerified === false && <VerifyEmailBanner email={session.user.email} />}
+        {session?.authenticated && session.subscription && <SubscriptionBanner subscription={session.subscription} />}
 
         <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 pb-24 lg:pb-8">
           <div className="mx-auto max-w-[1550px] w-full">
@@ -896,6 +897,55 @@ export function AppShell({
       </div>
 
       <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} role={session?.user?.role} />
+    </div>
+  );
+}
+
+type SubscriptionSummary = {
+  state: "complimentary" | "trialing" | "active" | "past_due" | "cancelled" | "locked";
+  planName?: string;
+  daysLeft: number | null;
+  lockAt: string | null;
+  locked: boolean;
+  reason: "trial_ended" | "payment_due" | "cancelled" | "paused" | null;
+};
+
+const bannerDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "");
+
+/** Trial countdown, grace-period warning, or read-only notice. Nothing for active and complimentary plans. */
+function SubscriptionBanner({ subscription: sub }: { subscription: SubscriptionSummary }) {
+  let tone: "info" | "warn" | "danger";
+  let text: string;
+  let action: string;
+  if (sub.state === "trialing") {
+    tone = sub.daysLeft !== null && sub.daysLeft <= 3 ? "warn" : "info";
+    text = `${sub.planName || "Pro"} trial: ${sub.daysLeft === 1 ? "1 day" : `${sub.daysLeft} days`} left.`;
+    action = "Choose a plan";
+  } else if (sub.state === "past_due") {
+    tone = "warn";
+    text = `${sub.reason === "trial_ended" ? "Your free trial has ended." : "Your subscription payment is due."} The workspace becomes read-only on ${bannerDate(sub.lockAt)}.`;
+    action = sub.reason === "trial_ended" ? "Choose a plan" : "Renew now";
+  } else if (sub.state === "cancelled") {
+    tone = "warn";
+    text = `Your subscription is cancelled. Full access continues until ${bannerDate(sub.lockAt)}.`;
+    action = "Reactivate";
+  } else if (sub.state === "locked") {
+    tone = "danger";
+    text = `This workspace is read-only: ${sub.reason === "trial_ended" ? "the free trial has ended" : sub.reason === "cancelled" ? "the subscription has ended" : sub.reason === "paused" ? "the subscription is paused" : "payment is overdue"}. Your data is safe, and changes resume as soon as a plan is active.`;
+    action = "Reactivate";
+  } else {
+    return null;
+  }
+  const styles = {
+    info: "border-indigo-200 bg-indigo-50 text-indigo-900 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-200",
+    warn: "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200",
+    danger: "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
+  }[tone];
+  return (
+    <div role={tone === "info" ? "status" : "alert"} className={`flex flex-wrap items-center gap-2 border-b px-4 py-2 text-xs ${styles}`}>
+      <CreditCard size={14} className="shrink-0" />
+      <span className="min-w-0 flex-1">{text}</span>
+      <Link href="/billing" className="font-semibold underline hover:no-underline">{action}</Link>
     </div>
   );
 }
@@ -986,9 +1036,9 @@ export function PageHeading({
 export function StatusBadge({ status }: { status: string }) {
   const s = (status || "").toUpperCase();
 
-  const isOk = s === "ACTIVE" || s === "CONNECTED" || s === "READY" || s === "LIVE" || s === "COMPLETED";
-  const isPaused = s === "PAUSED" || s === "DRAFT" || s === "NEEDS ATTENTION" || s === "NEEDS_ATTENTION" || s === "PENDING" || s === "INVITED";
-  const isSuspended = s === "SUSPENDED" || s === "INACTIVE" || s === "DISCONNECTED" || s === "NOT CONNECTED" || s === "NOT_CONNECTED" || s === "FAILED";
+  const isOk = s === "ACTIVE" || s === "CONNECTED" || s === "READY" || s === "LIVE" || s === "COMPLETED" || s === "COMPLIMENTARY";
+  const isPaused = s === "PAUSED" || s === "DRAFT" || s === "NEEDS ATTENTION" || s === "NEEDS_ATTENTION" || s === "PENDING" || s === "INVITED" || s === "TRIAL" || s === "PAST DUE" || s === "CANCELLED";
+  const isSuspended = s === "SUSPENDED" || s === "INACTIVE" || s === "DISCONNECTED" || s === "NOT CONNECTED" || s === "NOT_CONNECTED" || s === "FAILED" || s === "READ-ONLY";
 
   const label =
     s === "SUSPENDED"

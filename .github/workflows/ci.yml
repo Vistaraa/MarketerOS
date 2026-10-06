@@ -47,11 +47,15 @@ jobs:
       S3_ACCESS_KEY_ID: ci-only
       S3_SECRET_ACCESS_KEY: ci-only
       CRON_SECRET: ci-only-cron-secret
+      # PayU's public sandbox merchant (from PayU's docs; it can't take real money), so tests can sign payments.
+      PAYU_MERCHANT_KEY: gtKFFx
+      PAYU_MERCHANT_SALT: eCwWELxi
+      PAYU_ENV: test
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -80,8 +84,10 @@ jobs:
 
       - name: Start S3-compatible test storage
         run: |
-          pip install --quiet "moto[server]"
-          moto_server -p 5055 > moto.log 2>&1 &
+          # Ubuntu's system Python refuses pip installs (PEP 668), so moto gets its own virtual environment.
+          python3 -m venv "$RUNNER_TEMP/moto"
+          "$RUNNER_TEMP/moto/bin/pip" install --quiet "moto[server]"
+          "$RUNNER_TEMP/moto/bin/moto_server" -p 5055 > moto.log 2>&1 &
           for i in $(seq 1 30); do curl -s -o /dev/null http://localhost:5055 && break; sleep 1; done
           node tests/e2e/setup-s3.mjs
 

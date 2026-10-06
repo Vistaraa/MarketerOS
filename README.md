@@ -124,6 +124,9 @@ Report generation and integration syncs are queued as background jobs. Something
 
 ## 🚀 Deploying to Production
 
+The full step-by-step runbook (accounts, environment variables, first launch, every release, verification, rollback) is in **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**. Summary:
+
+
 1. **Configuration:** set `DATABASE_URL`, `DIRECT_URL`, `SESSION_SECRET`, `ENCRYPTION_KEY` and `APP_URL`. The server refuses to start without them. See `.env.example` for email, storage, jobs and monitoring settings.
 2. **Database:** run `npx prisma migrate deploy` on every deploy.
 3. **One-time cleanup** of demo data that older versions generated: `npx tsx scripts/purge-synthetic-data.ts` (dry run), then add `--apply`.

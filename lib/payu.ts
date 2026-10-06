@@ -122,14 +122,19 @@ export function isPayUConfigured(): boolean {
   );
 }
 
+/** PayU's public sandbox merchant, used only outside production when no merchant is configured. */
+const SANDBOX_KEY = "gtKFFx";
+const SANDBOX_SALT = "eCwWELxi";
+const sandboxFallback = (value: string) => (process.env.NODE_ENV === "production" ? "" : value);
+
 export function getPayUKey(): string {
   const key = (process.env.PAYU_MERCHANT_KEY || process.env.PAYU_KEY)?.trim();
-  return key || "gtKFFx";
+  return key || sandboxFallback(SANDBOX_KEY);
 }
 
 export function getPayUSalt(): string {
   const salt = (process.env.PAYU_MERCHANT_SALT || process.env.PAYU_SALT)?.trim();
-  return salt || "eCwWELxi";
+  return salt || sandboxFallback(SANDBOX_SALT);
 }
 
 export function getPayUPaymentUrl(): string {

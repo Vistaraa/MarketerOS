@@ -909,6 +909,10 @@ model Subscription {
   razorpayPaymentId      String?
   payuTxnId              String?
   payuPaymentId          String?
+  // Free access granted outside billing (workspaces created before trials existed). Never expires or locks.
+  complimentary          Boolean             @default(false)
+  // Last lifecycle email sent ("<periodEnd ISO>:7d" | ":1d" | ":expired" | ":locked"), so each is sent once.
+  lastLifecycleNotice    String?
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
   workspace              Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -1159,6 +1163,13 @@ model UserKpiPreference {
   @@unique([workspaceId])
 }
 
+
+// Last run of periodic system-wide tasks (e.g. the billing lifecycle), claimed atomically so only one
+// server instance runs each task per interval.
+model SystemTask {
+  name      String   @id
+  lastRunAt DateTime
+}
 
 // Fixed-window counters for auth rate limiting, shared across server instances.
 model RateLimit {

@@ -3,6 +3,7 @@ import { logServerError } from "@/lib/errors";
 import { getSession } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 import { getPlayConsoleApp } from "@/lib/google/play-console";
+import { subscriptionWriteGuard } from "@/lib/subscription";
 
 export async function GET(request: Request) {
   try {
@@ -57,6 +58,8 @@ export async function PATCH(request: Request) {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const lapsed = await subscriptionWriteGuard(session.workspaceId);
+    if (lapsed) return lapsed;
 
     const { workspaceId } = session;
     const body = await request.json();

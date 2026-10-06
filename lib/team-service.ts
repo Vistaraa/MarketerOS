@@ -3,6 +3,7 @@ import { revokeAllUserSessions } from "@/lib/auth-server";
 import { createTeamInvitation } from "@/lib/invite-service";
 import { recordAudit } from "@/lib/audit";
 import { MEMBERSHIP_KEY, isAssignableRole, resolveTeamTarget } from "@/lib/team-access";
+import { checkPlanLimit } from "@/lib/plan-limits";
 
 /**
  * Team management with every rule enforced server-side. Callers must already hold "team.manage".
@@ -13,9 +14,9 @@ import { MEMBERSHIP_KEY, isAssignableRole, resolveTeamTarget } from "@/lib/team-
  *    solely in this workspace, so one workspace can never affect someone's access elsewhere.
  */
 export type TeamActor = { userId: string; workspaceId: string; role: string; name?: string };
-export type TeamResult<T = unknown> = { ok: true; data: T } | { ok: false; status: number; message: string };
+export type TeamResult<T = unknown> = { ok: true; data: T } | { ok: false; status: number; message: string; code?: string };
 
-const fail = (status: number, message: string) => ({ ok: false as const, status, message });
+const fail = (status: number, message: string, code?: string) => ({ ok: false as const, status, message, code });
 const isOwnerActor = (actor: TeamActor) => actor.role.toUpperCase() === "OWNER";
 
 export async function changeTeamMember(actor: TeamActor, targetUserId: string, input: { role?: unknown; status?: unknown; jobTitle?: unknown }): Promise<TeamResult<{ roleChanged: string | null; email: string; firstName: string }>> {
@@ -89,9 +90,12 @@ export async function inviteTeamMember(actor: TeamActor, input: InviteInput, bas
 
   const email = input.email.trim().toLowerCase();
   const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-  if (existing) {
-    const target = await resolveTeamTarget(actor.workspaceId, existing.id);
-    if (target?.isOwner || target?.membership) return fail(409, "This person is already a member of your workspace.");
+  const target = existing ? await resolveTeamTarget(actor.workspaceId, existing.id) : null;
+  if (target?.isOwner || target?.membership) return fail(409, "This person is already a member of your workspace.");
+  // Re-inviting someone with a pending invitation doesn't take another seat.
+  if (!target?.pendingInvite) {
+    const seats = await checkPlanLimit(actor.workspaceId, "members");
+    if (!seats.ok) return fail(402, seats.message, "PLAN_LIMIT_REACHED");
   }
 
   const created = await createTeamInvitation({ ...input, email, role, workspaceId: actor.workspaceId, inviterUserId: actor.userId, inviterName: actor.name, baseUrl });

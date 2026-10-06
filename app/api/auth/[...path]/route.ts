@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { checkRateLimit, clearRateLimit, clientIp, formatRetryAfter, hitRateLimit } from "@/lib/rate-limit";
 
 import { cookies } from "next/headers";
+import { getSubscriptionAccess } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 
@@ -72,12 +73,16 @@ export async function GET(
     if (path === "session") {
       const session = await getSession();
       if (session) {
-        const account = await prisma.user.findUnique({ where: { id: session.userId }, select: { emailVerifiedAt: true } });
+        const [account, access] = await Promise.all([
+          prisma.user.findUnique({ where: { id: session.userId }, select: { emailVerifiedAt: true } }),
+          getSubscriptionAccess(session.workspaceId)
+        ]);
         return NextResponse.json({
           data: {
             authenticated: true,
             suspended: false,
-            user: { id: session.userId, name: session.name, email: session.email, workspaceId: session.workspaceId, role: session.role, emailVerified: Boolean(account?.emailVerifiedAt) }
+            user: { id: session.userId, name: session.name, email: session.email, workspaceId: session.workspaceId, role: session.role, emailVerified: Boolean(account?.emailVerifiedAt) },
+            subscription: { state: access.state, planName: access.planName, daysLeft: access.daysLeft, periodEnd: access.periodEnd, lockAt: access.lockAt, locked: access.locked, reason: access.reason }
           }
         });
       }

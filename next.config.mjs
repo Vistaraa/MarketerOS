@@ -54,6 +54,10 @@ const maxUploadBytes = Number(process.env.MAX_UPLOAD_BYTES || 25 * 1024 * 1024);
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  // The readiness probe compares shipped migrations with the database, so include them in its serverless bundle.
+  outputFileTracingIncludes: {
+    "/api/health/ready": ["./prisma/migrations/**/*"]
+  },
   // instrumentation.ts is loaded automatically since Next.js 15 (no experimental flag needed).
   experimental: {
     // Next.js 15 buffers request bodies for middleware and truncates them past 10 MB by default, which broke

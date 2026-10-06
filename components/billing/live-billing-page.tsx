@@ -42,6 +42,35 @@ type ActiveTab =
   | "credits"
   | "settings";
 
+const PLAN_STATE_LABELS: Record<string, string> = {
+  complimentary: "Complimentary",
+  trialing: "Trial",
+  active: "Active",
+  past_due: "Past due",
+  cancelled: "Cancelled",
+  locked: "Read-only"
+};
+
+/** What the current period means: trial end, renewal, grace period or read-only. */
+function planPeriodText(data: BillingOverviewPayload) {
+  const access = data.subscription?.access;
+  const date = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "");
+  switch (access?.state) {
+    case "complimentary":
+      return "Complimentary access · no payment due";
+    case "trialing":
+      return `Free trial · ends ${date(access.periodEnd)} (${access.daysLeft === 1 ? "1 day" : `${access.daysLeft} days`} left)`;
+    case "past_due":
+      return `${access.reason === "trial_ended" ? "Trial ended" : "Payment due"} ${date(access.periodEnd)} · read-only from ${date(access.lockAt)}`;
+    case "cancelled":
+      return `Cancelled · access until ${date(access.periodEnd)}`;
+    case "locked":
+      return "Read-only · choose a plan to make changes again";
+    default:
+      return `Billed ${data.kpis.billingCycle.toLowerCase()} · next renewal ${data.kpis.nextBillingDate}`;
+  }
+}
+
 export function LiveBillingPage() {
   const [data, setData] = useState<BillingOverviewPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -401,26 +430,15 @@ export function LiveBillingPage() {
                     <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
                       {data.kpis.currentPlanName} Plan
                     </h3>
-                    <StatusBadge
-                      status={
-                        data.subscription?.cancelAtPeriodEnd
-                          ? "Pending"
-                          : data.subscription?.status === "ACTIVE"
-                          ? "Active"
-                          : "Paused"
-                      }
-                    />
-                    {data.subscription?.cancelAtPeriodEnd && (
+                    <StatusBadge status={PLAN_STATE_LABELS[data.subscription?.access?.state || "active"]} />
+                    {data.subscription?.cancelAtPeriodEnd && data.subscription?.access?.state !== "locked" && (
                       <span className="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
                         Cancelling at period end
                       </span>
                     )}
                   </div>
                   <p className="mt-0.5 text-xs text-zinc-500">
-                    Billed {data.kpis.billingCycle.toLowerCase()} · Next renewal:{" "}
-                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                      {data.kpis.nextBillingDate}
-                    </span>
+                    {planPeriodText(data)}
                     {(data.subscription?.payuPaymentId || data.subscription?.payuTxnId || data.subscription?.razorpayPaymentId) && (
                       <span className="ml-2 font-mono text-[10px] text-zinc-400">
                         (Ref: {data.subscription.payuPaymentId || data.subscription.payuTxnId || data.subscription.razorpayPaymentId})
@@ -573,7 +591,7 @@ export function LiveBillingPage() {
                   <div className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
                     {formatPriceForCurrency(data.subscription?.plan.monthlyPrice || 199, data?.billingContact?.currency)}/mo
                   </div>
-                  <span className="text-[11px] text-zinc-400">Renews on {data.kpis.nextBillingDate}</span>
+                  <span className="text-[11px] text-zinc-400">{planPeriodText(data)}</span>
                 </div>
               </div>
 
