@@ -67,7 +67,7 @@ jobs:
       GOOGLE_ADS_DEVELOPER_TOKEN: ci-stub-developer-token
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Secret scan (gitleaks)
         # Runs before npm ci so only the repository's own files are scanned (not node_modules). It checks the current
