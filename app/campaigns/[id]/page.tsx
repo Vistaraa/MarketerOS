@@ -5,6 +5,7 @@ export const metadata = {
   description: "View live campaign performance and platform breakdown."
 };
 
-export default function CampaignDetailPage({ params }: { params: { id: string } }) {
-  return <LiveCampaignDetail campaignId={params.id} />;
+export default async function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <LiveCampaignDetail campaignId={id} />;
 }

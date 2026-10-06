@@ -54,7 +54,7 @@ You will need 5 pieces of information for Google Ads:
 #### 2. Developer Token
 - In Google Ads, go to your **Manager Account (MCC)**.
 - In the top menu, click **Tools and Settings > SETUP > API Center**.
-- Copy the **Developer Token** shown on screen (e.g., `QvCJmKacfFBA_M9U1whlZg`).  
+- Copy the **Developer Token** shown on screen (e.g., `YOUR_DEVELOPER_TOKEN`).  
   *(Note: A Test Account token or Approved token both work).*
 
 #### 3. OAuth Client ID and Client Secret
@@ -164,11 +164,11 @@ You will see the **Create your account** form. Enter the following:
 | :--- | :--- | :--- |
 | **Account Label / Friendly Name** | `My Main Google Ads` | Any nickname for this account. |
 | **Customer ID (Optional)** | `123-456-7890` | Your 10-digit Google Ads ID (with or without dashes, optional). |
-| **Developer Token** <span style="color:red">*</span> | `QvCJmKacfFBA_M9U1whlZg` | From Google Ads MCC > API Center. *(Click the eye icon to reveal)*. |
-| **OAuth Client ID** <span style="color:red">*</span> | `668979121407-npcfjsh2ckhuvcbd2dtmk0dheh7aeb18.apps.googleusercontent.com` | From Google Cloud Console Credentials. |
-| **OAuth Client Secret** <span style="color:red">*</span> | `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` | Matching client secret from Google Cloud. |
+| **Developer Token** <span style="color:red">*</span> | `YOUR_DEVELOPER_TOKEN` | From Google Ads MCC > API Center. *(Click the eye icon to reveal)*. |
+| **OAuth Client ID** <span style="color:red">*</span> | `123456789012-yourclientid.apps.googleusercontent.com` | From Google Cloud Console Credentials. |
+| **OAuth Client Secret** <span style="color:red">*</span> | `GOCSPX-your-client-secret` | Matching client secret from Google Cloud. |
 | **OAuth Refresh Token** <span style="color:red">*</span> | `1//04xxxxxxxxxxxxxxxxxxxxxxxxx` | Starts with `1//`. Generated via OAuth Playground. |
-| **Login Customer ID (MCC)** | `915-288-8043` *(or leave blank)* | Only enter this if your account is managed under an MCC hierarchy. Otherwise leave blank! |
+| **Login Customer ID (MCC)** | `123-456-7890` *(or leave blank)* | Only enter this if your account is managed under an MCC hierarchy. Otherwise leave blank! |
 
 #### 🔘 Buttons to Press (In Order):
 1. **First, click the left button:** **`[ Test Live Connection ]`** (with refresh icon):

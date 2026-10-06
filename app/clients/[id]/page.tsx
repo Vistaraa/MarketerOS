@@ -1,5 +1,6 @@
 import { ClientWorkspaceDetail } from "@/components/clients/client-workspace-detail";
 
-export default function ClientDetailRoute({ params }: { params: { id: string } }) {
-  return <ClientWorkspaceDetail clientId={params.id} />;
+export default async function ClientDetailRoute({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <ClientWorkspaceDetail clientId={id} />;
 }

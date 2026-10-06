@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logServerError } from "@/lib/errors";
 import { getSession } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 import { getPlayConsoleApp } from "@/lib/google/play-console";
@@ -46,7 +47,7 @@ export async function GET(request: Request) {
       unreadCount: messages.filter((m) => !m.isRead).length
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || "Failed to fetch inbox." }, { status: 500 });
+    return NextResponse.json({ error: logServerError("v1/play-console/inbox", "Failed to fetch inbox.", error) }, { status: 500 });
   }
 }
 
@@ -75,6 +76,6 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || "Failed to update inbox message." }, { status: 500 });
+    return NextResponse.json({ error: logServerError("v1/play-console/inbox", "Failed to update inbox message.", error) }, { status: 500 });
   }
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logServerError } from "@/lib/errors";
 import { getSession } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 import { getPlayConsoleApp } from "@/lib/google/play-console";
@@ -84,6 +85,6 @@ export async function GET(request: Request) {
       allReleases: formattedReleases
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || "Failed to fetch releases." }, { status: 500 });
+    return NextResponse.json({ error: logServerError("v1/play-console/releases", "Failed to fetch releases.", error) }, { status: 500 });
   }
 }

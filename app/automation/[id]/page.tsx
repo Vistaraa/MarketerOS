@@ -1,5 +1,6 @@
 import { AutomationDetailView } from "@/components/automation/automation-detail-view";
 
-export default function AutomationDetailRoute({ params }: { params: { id: string } }) {
-  return <AutomationDetailView ruleId={params.id} />;
+export default async function AutomationDetailRoute({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <AutomationDetailView ruleId={id} />;
 }

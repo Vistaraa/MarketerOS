@@ -18,6 +18,7 @@ import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-s
 import { TrendChart } from "@/components/ui/marketeros-charts";
 import type { ApiResponse } from "@/lib/api-contracts";
 import { money } from "@/lib/utils";
+import Link from "next/link";
 
 export function ReportDetailView({ reportId }: { reportId: string }) {
   const [report, setReport] = useState<any | null>(null);
@@ -63,9 +64,9 @@ export function ReportDetailView({ reportId }: { reportId: string }) {
       title={`Report Document - ${report?.name || "Report"}`}
       action={
         <div className="flex items-center gap-2">
-          <a href="/reports" className="btn-secondary text-xs flex items-center gap-1">
+          <Link href="/reports" className="btn-secondary text-xs flex items-center gap-1">
             <ArrowLeft size={13} /> Back to Reports
-          </a>
+          </Link>
           <button onClick={() => window.print()} className="btn-secondary text-xs flex items-center gap-1">
             <Printer size={13} /> Print / Export PDF
           </button>

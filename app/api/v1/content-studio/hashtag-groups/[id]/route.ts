@@ -10,24 +10,26 @@ const patchInput = z.object({
   markUsed: z.boolean().optional()
 });
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const ctx = await contentStudioContext("content.edit");
   if ("response" in ctx) return ctx.response;
   const parsed = patchInput.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError(parsed.error.issues[0]?.message || "Invalid hashtag group update.");
   const { markUsed, ...rest } = parsed.data;
   const updated = await prisma.hashtagGroup.updateMany({
-    where: { id: params.id, workspaceId: ctx.session.workspaceId },
+    where: { id: id, workspaceId: ctx.session.workspaceId },
     data: { ...rest, ...(markUsed ? { usageCount: { increment: 1 }, lastUsedAt: new Date() } : {}) }
   });
   if (!updated.count) return apiError("Hashtag group not found.", 404, "NOT_FOUND");
-  return NextResponse.json({ data: hashtagGroupDto(await prisma.hashtagGroup.findUniqueOrThrow({ where: { id: params.id } })) });
+  return NextResponse.json({ data: hashtagGroupDto(await prisma.hashtagGroup.findUniqueOrThrow({ where: { id: id } })) });
 }
 
-export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const ctx = await contentStudioContext("content.edit");
   if ("response" in ctx) return ctx.response;
-  const deleted = await prisma.hashtagGroup.deleteMany({ where: { id: params.id, workspaceId: ctx.session.workspaceId } });
+  const deleted = await prisma.hashtagGroup.deleteMany({ where: { id: id, workspaceId: ctx.session.workspaceId } });
   if (!deleted.count) return apiError("Hashtag group not found.", 404, "NOT_FOUND");
-  return NextResponse.json({ data: { deleted: params.id } });
+  return NextResponse.json({ data: { deleted: id } });
 }

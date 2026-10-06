@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 
-// Browser errors are reported only when NEXT_PUBLIC_SENTRY_DSN is set at build time.
+// Browser-side setup (loaded by Next.js before the app). Browser errors are reported only when
+// NEXT_PUBLIC_SENTRY_DSN is set at build time.
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
 Sentry.init({
@@ -10,3 +11,6 @@ Sentry.init({
   tracesSampleRate: Number(process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE || 0),
   sendDefaultPii: false
 });
+
+// Lets Sentry trace client-side navigations (Next.js 15.3+).
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

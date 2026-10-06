@@ -29,6 +29,12 @@ export async function POST(request: Request) {
   const limit = await hitRateLimit(`media-upload:ws:${workspaceId}`, 200, 60 * 60);
   if (!limit.allowed) return apiError("Upload limit reached. Please try again later.", 429, "RATE_LIMITED");
 
+  // Reject oversized uploads before reading the body (and with a clear 413 rather than a parse failure).
+  const declaredLength = Number(request.headers.get("content-length") || 0);
+  if (declaredLength > MAX_UPLOAD_BYTES + 1024 * 1024) {
+    return apiError(`Files can be at most ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB.`, 413, "FILE_TOO_LARGE");
+  }
+
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
   if (!form || !(file instanceof File)) return apiError("Choose a file to upload.");

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { publicErrorMessage } from "@/lib/errors";
 import { getSession } from "@/lib/auth-server";
 import { listPersistedCampaigns, createPersistedCampaign } from "@/lib/repositories";
 
@@ -23,6 +24,6 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(created, { status: 201 });
   } catch (err: unknown) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to create campaign" }, { status: 400 });
+    return NextResponse.json({ error: publicErrorMessage(err, "Failed to create campaign", "campaigns") }, { status: 400 });
   }
 }

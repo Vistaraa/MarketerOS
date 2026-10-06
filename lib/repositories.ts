@@ -2,6 +2,7 @@
 import { Prisma, CampaignObjective, CampaignStatus, CampaignType, LeadSource, LeadStatus, Platform } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret } from "@/lib/crypto";
+import { normalizeMemberRole } from "@/lib/team-access";
 import type { Campaign, Integration, Insight, Lead, SocialPost } from "@/lib/types";
 
 const platformMap: Record<string, Platform> = {
@@ -842,34 +843,26 @@ export async function listPersistedTeam(workspaceId: string) {
   const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId }, include: { owner: true } });
   if (!workspace) return [];
 
-  // Fetch workspace memberships and active/pending invites
+  // This workspace's accepted members and pending invitations only. (A superseded or revoked invite is not
+  // membership, and other workspaces' invitees must never be listed here.)
   const memberships = await prisma.oAuthState.findMany({
-    where: {
-      workspaceId,
-      providerKey: { in: ["WORKSPACE_MEMBER", "TEAM_INVITE"] }
-    },
+    where: { workspaceId, OR: [{ providerKey: "WORKSPACE_MEMBER" }, { providerKey: "TEAM_INVITE", consumedAt: null }] },
     orderBy: { createdAt: "desc" }
   });
 
   const memberMeta = new Map<string, { role: string; isInvited: boolean }>();
   for (const m of memberships) {
-    if (m.userId && !memberMeta.has(m.userId)) {
-      memberMeta.set(m.userId, {
-        role: m.returnTo || "MANAGER",
-        isInvited: m.providerKey === "TEAM_INVITE" && !m.consumedAt
-      });
-    }
+    if (!m.userId) continue;
+    const existing = memberMeta.get(m.userId);
+    // An accepted membership wins over a pending (re-)invite for the same person.
+    if (existing && !existing.isInvited) continue;
+    if (existing && m.providerKey !== "WORKSPACE_MEMBER") continue;
+    memberMeta.set(m.userId, { role: normalizeMemberRole(m.returnTo), isInvited: m.providerKey === "TEAM_INVITE" });
   }
 
   const memberUserIds = Array.from(memberMeta.keys());
   const users = await prisma.user.findMany({
-    where: {
-      OR: [
-        { id: workspace.ownerId },
-        ...(memberUserIds.length > 0 ? [{ id: { in: memberUserIds } }] : []),
-        { status: "INVITED" }
-      ]
-    },
+    where: { id: { in: [workspace.ownerId, ...memberUserIds] } },
     orderBy: { createdAt: "asc" }
   });
 
@@ -879,7 +872,7 @@ export async function listPersistedTeam(workspaceId: string) {
     const role = isOwner ? "OWNER" : (meta?.role || "MANAGER");
     const status = isOwner
       ? u.status
-      : (meta?.isInvited || u.status === "INVITED" || !u.passwordHash ? "INVITED" : u.status);
+      : (meta?.isInvited || !u.passwordHash ? "INVITED" : u.status);
 
     return {
       id: u.id,
@@ -895,75 +888,4 @@ export async function listPersistedTeam(workspaceId: string) {
     };
   });
 }
-
-export async function invitePersistedTeamMember(input: {
-  workspaceId: string;
-  inviterUserId?: string;
-  inviterName?: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  jobTitle?: string;
-  role?: string;
-  baseUrl?: string;
-}) {
-  const { createTeamInvitation } = await import("@/lib/invite-service");
-  return createTeamInvitation(input);
-}
-
-export async function updatePersistedTeamMember(
-  id: string,
-  data: { role?: string; status?: string; jobTitle?: string },
-  workspaceId?: string
-) {
-  const updateData: Record<string, unknown> = {};
-  if (data.status !== undefined) updateData.status = data.status.toUpperCase() as never;
-  if (data.jobTitle !== undefined) updateData.jobTitle = data.jobTitle;
-
-  if (data.status?.toUpperCase() === "SUSPENDED") {
-    await prisma.session.deleteMany({ where: { userId: id } });
-  }
-
-  if (data.role && workspaceId) {
-    const updated = await prisma.oAuthState.updateMany({
-      where: {
-        workspaceId,
-        userId: id,
-        providerKey: { in: ["WORKSPACE_MEMBER", "TEAM_INVITE"] }
-      },
-      data: { returnTo: data.role.toUpperCase() }
-    });
-    if (!updated.count) {
-      await prisma.oAuthState.create({
-        data: {
-          workspaceId,
-          userId: id,
-          providerKey: "WORKSPACE_MEMBER",
-          returnTo: data.role.toUpperCase(),
-          state: `member_${id}_${Date.now()}`,
-          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-        }
-      });
-    }
-  }
-
-  return prisma.user.update({
-    where: { id },
-    data: updateData
-  });
-}
-
-export async function deletePersistedTeamMember(id: string, workspaceId?: string) {
-  if (workspaceId) {
-    await prisma.oAuthState.deleteMany({
-      where: { workspaceId, userId: id }
-    });
-  }
-
-  const ownedWorkspaces = await prisma.workspace.count({ where: { ownerId: id } });
-  if (ownedWorkspaces === 0) {
-    return prisma.user.delete({ where: { id } }).catch(() => null);
-  }
-}
-
 

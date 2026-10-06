@@ -5,6 +5,7 @@ export const metadata = {
   description: "Sign in or create an account on MarketerOS."
 };
 
-export default function AuthPage({ searchParams }: { searchParams: { mode?: "login" | "signup" | "forgot-password" | "reset-password" | "verify-email" } }) {
-  return <RealAuthPage mode={searchParams.mode || "login"} />;
+export default async function AuthPage({ searchParams }: { searchParams: Promise<{ mode?: "login" | "signup" | "forgot-password" | "reset-password" | "verify-email" }> }) {
+  const { mode } = await searchParams;
+  return <RealAuthPage mode={mode || "login"} />;
 }

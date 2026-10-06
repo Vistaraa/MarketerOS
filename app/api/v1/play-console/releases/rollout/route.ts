@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logServerError } from "@/lib/errors";
 import { getSession } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 
@@ -47,6 +48,6 @@ export async function POST(request: Request) {
       data: updated
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || "Failed to update release rollout." }, { status: 500 });
+    return NextResponse.json({ error: logServerError("v1/play-console/releases/rollout", "Failed to update release rollout.", error) }, { status: 500 });
   }
 }

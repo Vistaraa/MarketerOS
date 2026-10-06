@@ -23,6 +23,7 @@ import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-s
 import { CustomDialog } from "@/components/ui/custom-dialog";
 import type { ApiResponse } from "@/lib/api-contracts";
 import { money } from "@/lib/utils";
+import Link from "next/link";
 
 export function LeadDetailView({ leadId }: { leadId: string }) {
   const [lead, setLead] = useState<any | null>(null);
@@ -100,9 +101,9 @@ export function LeadDetailView({ leadId }: { leadId: string }) {
     <AppShell
       title={`Lead Profile - ${lead?.name || "Lead"}`}
       action={
-        <a href="/leads" className="btn-secondary text-xs flex items-center gap-1">
+        <Link href="/leads" className="btn-secondary text-xs flex items-center gap-1">
           <ArrowLeft size={13} /> Back to Leads CRM
-        </a>
+        </Link>
       }
     >
       <div className="space-y-6">

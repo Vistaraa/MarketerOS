@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logServerError } from "@/lib/errors";
 import { getSession } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 
@@ -32,6 +33,6 @@ export async function POST(request: Request) {
       data: updated
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || "Failed to save KPI preferences." }, { status: 500 });
+    return NextResponse.json({ error: logServerError("v1/play-console/kpis/preferences", "Failed to save KPI preferences.", error) }, { status: 500 });
   }
 }

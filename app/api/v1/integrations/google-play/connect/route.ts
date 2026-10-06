@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logServerError } from "@/lib/errors";
 import { getSession } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 import { encryptCredentialFields } from "@/lib/google/client";
@@ -134,6 +135,6 @@ export async function POST(request: Request) {
       data: integration
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || "Failed to save Google Play integration." }, { status: 500 });
+    return NextResponse.json({ error: logServerError("v1/integrations/google-play/connect", "Failed to save Google Play integration.", error) }, { status: 500 });
   }
 }

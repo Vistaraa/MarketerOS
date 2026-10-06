@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logServerError, publicErrorMessage } from "@/lib/errors";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { can, requireTenant } from "@/lib/auth-server";
@@ -75,6 +76,37 @@ async function context(permission = "analytics.view") {
   }
 }
 
+/** A lead can only be assigned to someone in the same workspace (an outside ID would expose their name/email). */
+async function isLeadOwnerAllowed(workspaceId: string, ownerId: string) {
+  const { isWorkspaceMember } = await import("@/lib/team-access");
+  return isWorkspaceMember(workspaceId, ownerId);
+}
+
+/** AIError messages are written for users; anything else is logged and reported generically. */
+async function aiErrorResponse(cause: unknown) {
+  const { AIError } = await import("@/lib/ai");
+  if (cause instanceof AIError) {
+    return NextResponse.json(
+      { error: { code: cause.code, message: cause.message } },
+      { status: cause.status, headers: cause.retryAfterSeconds ? { "Retry-After": String(cause.retryAfterSeconds) } : undefined }
+    );
+  }
+  console.error("[ai] Unexpected failure:", cause);
+  return error("AI generation failed. Please try again.", 502, "AI_FAILED");
+}
+
+function teamActor(session: { userId: string; workspaceId: string; role: string; name?: string }) {
+  return { userId: session.userId, workspaceId: session.workspaceId, role: session.role, name: session.name };
+}
+
+/** Base URL for emailed links: the request origin only for local development, otherwise APP_URL. */
+function inviteBaseUrl(request: Request, url: URL) {
+  const reqProto = request.headers.get("x-forwarded-proto") || (url.protocol.replace(":", "") || "http");
+  const reqHost = request.headers.get("x-forwarded-host") || request.headers.get("host") || url.host;
+  const isLocal = reqHost?.includes("localhost") || reqHost?.includes("127.0.0.1");
+  return isLocal ? `${reqProto}://${reqHost}` : (process.env.APP_URL || `${reqProto}://${reqHost}`);
+}
+
 async function resolveV1Path(
   request: Request,
   params: { path: string[] } | Promise<{ path: string[] }>
@@ -123,7 +155,7 @@ function getRequiredPermission(path: string, method: "GET" | "POST" = "GET"): st
 
 export async function GET(
   request: Request,
-  { params }: { params: { path: string[] } | Promise<{ path: string[] }> }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   const path = await resolveV1Path(request, params);
   const url = new URL(request.url);
@@ -230,7 +262,7 @@ export async function GET(
       }
       return error("Unknown action. Use: profile, insights, or media.", 400);
     } catch (e) {
-      return error(`Instagram API failed: ${e instanceof Error ? e.message : String(e)}`, 502, "INSTAGRAM_API_FAILED");
+      return error(`Instagram API failed: ${publicErrorMessage(e, "the request could not be completed", "instagram")}`, 502, "INSTAGRAM_API_FAILED");
     }
   }
   if (path === "content") return ok(await cacheGetOrSet(`ws:${auth.session.workspaceId}:v1:content:${url.search}`, async () => ({ items: await listPersistedContent(auth.session.workspaceId, query) }), 15_000));
@@ -273,7 +305,7 @@ export async function GET(
       return ok(data);
     } catch (cause) {
       console.error("Billing overview failed:", cause);
-      return error(cause instanceof Error ? cause.message : "Failed to load billing details.", 500, "BILLING_LOAD_FAILED");
+      return error(logServerError("billing", "Failed to load billing details.", cause), 500, "BILLING_LOAD_FAILED");
     }
   }
   if (path.startsWith("billing/invoices/")) {
@@ -302,7 +334,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { path: string[] } | Promise<{ path: string[] }> }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   const path = await resolveV1Path(request, params);
   const url = new URL(request.url);
@@ -329,14 +361,14 @@ export async function POST(
     if (auth.error) return auth.error;
     const parsed = aiInput.safeParse(body);
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid AI request.");
-    try { return ok(await generateText({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, kind: parsed.data.kind, prompt: parsed.data.prompt }), undefined, { status: 201 }); } catch (cause) { return error(cause instanceof Error ? cause.message : "AI generation failed.", 503, "PROVIDER_NOT_CONFIGURED"); }
+    try { return ok(await generateText({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, kind: parsed.data.kind, prompt: parsed.data.prompt }), undefined, { status: 201 }); } catch (cause) { return aiErrorResponse(cause); }
   }
   if (path === "ai/insights/generate") {
     const auth = await context("analytics.view");
     if (auth.error) return auth.error;
     const parsed = z.object({ context: z.string().min(3).max(20000) }).safeParse(body);
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid insight context.");
-    try { return ok(await generateInsight({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, context: parsed.data.context }), undefined, { status: 201 }); } catch (cause) { return error(cause instanceof Error ? cause.message : "AI insight generation failed.", 503, "PROVIDER_NOT_CONFIGURED"); }
+    try { return ok(await generateInsight({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, context: parsed.data.context }), undefined, { status: 201 }); } catch (cause) { return aiErrorResponse(cause); }
   }
   if (path === "billing/payu/create-payment" || path === "billing/razorpay/create-order") {
     const auth = await context("billing.manage");
@@ -436,7 +468,7 @@ export async function POST(
         receipt: paymentPayload.txnid
       });
     } catch (err) {
-      return error(err instanceof Error ? err.message : "Failed to create PayU payment request.", 500, "PAYMENT_CREATION_FAILED");
+      return error(logServerError("billing", "Failed to create PayU payment request.", err), 500, "PAYMENT_CREATION_FAILED");
     }
   }
   if (path === "billing/payu/verify-payment" || path === "billing/razorpay/verify-payment") {
@@ -527,7 +559,7 @@ export async function POST(
 
       return ok({ success: true, ...result, message: "PayU payment verified and processed successfully." });
     } catch (cause) {
-      return error(cause instanceof Error ? cause.message : "Payment processing failed.", 500, "BILLING_PROCESSING_FAILED");
+      return error(logServerError("billing", "Payment processing failed.", cause), 500, "BILLING_PROCESSING_FAILED");
     }
   }
   if (path === "billing/settings") {
@@ -548,7 +580,7 @@ export async function POST(
       const updated = await updatePersistedBillingContact(auth.session.workspaceId, auth.session.userId, parsed.data);
       return ok({ success: true, workspace: updated, message: "Billing settings updated successfully." });
     } catch (cause) {
-      return error(cause instanceof Error ? cause.message : "Failed to save billing settings.", 500, "BILLING_SETTINGS_FAILED");
+      return error(logServerError("billing", "Failed to save billing settings.", cause), 500, "BILLING_SETTINGS_FAILED");
     }
   }
   if (path === "billing/checkout") {
@@ -568,7 +600,7 @@ export async function POST(
       });
       return ok({ success: true, ...result, message: `Successfully updated plan to ${parsed.data.planId.toUpperCase()}.` });
     } catch (cause) {
-      return error(cause instanceof Error ? cause.message : "Unable to update subscription plan.", 500, "BILLING_UPDATE_FAILED");
+      return error(logServerError("billing", "Unable to update subscription plan.", cause), 500, "BILLING_UPDATE_FAILED");
     }
   }
   if (path === "billing/portal") {
@@ -584,7 +616,7 @@ export async function POST(
       await cancelPersistedSubscription(auth.session.workspaceId, auth.session.userId);
       return ok({ cancelAtPeriodEnd: true, message: "Subscription cancelled successfully." });
     } catch (cause) {
-      return error(cause instanceof Error ? cause.message : "Failed to cancel subscription.", 500, "BILLING_CANCEL_FAILED");
+      return error(logServerError("billing", "Failed to cancel subscription.", cause), 500, "BILLING_CANCEL_FAILED");
     }
   }
   if (path === "settings/api-keys") {
@@ -679,58 +711,31 @@ export async function POST(
     return ok(result);
   }
   if (path === "team") {
-    const auth = await context("settings.manage"); if (auth.error) return auth.error;
+    const auth = await context("team.manage"); if (auth.error) return auth.error;
     const parsed = teamInviteInput.safeParse(body);
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid team invitation.");
-    const { invitePersistedTeamMember } = await import("@/lib/repositories");
-    const reqProto = request.headers.get("x-forwarded-proto") || (url.protocol.replace(":", "") || "http");
-    const reqHost = request.headers.get("x-forwarded-host") || request.headers.get("host") || url.host;
-    const isLocal = reqHost?.includes("localhost") || reqHost?.includes("127.0.0.1");
-    const origin = isLocal ? `${reqProto}://${reqHost}` : (process.env.APP_URL || `${reqProto}://${reqHost}`);
-
-    const created = await invitePersistedTeamMember({
-      workspaceId: auth.session.workspaceId,
-      inviterUserId: auth.session.userId,
-      inviterName: auth.session.name,
-      baseUrl: origin,
-      ...parsed.data
-    });
+    const { inviteTeamMember } = await import("@/lib/team-service");
+    const result = await inviteTeamMember(teamActor(auth.session), parsed.data, inviteBaseUrl(request, url));
+    if (!result.ok) return error(result.message, result.status);
     return ok({
-      item: created.user,
-      delivered: created.emailResult.delivered,
-      message: created.emailResult.delivered
-        ? `Invitation email successfully sent to ${created.user.email}.`
-        : `Invitation created for ${created.user.email}. Configure SMTP to enable automatic email delivery.`
+      item: result.data.user,
+      delivered: result.data.delivered,
+      message: result.data.delivered
+        ? `Invitation email successfully sent to ${result.data.user.email}.`
+        : `Invitation created for ${result.data.user.email}. Configure SMTP to enable automatic email delivery.`
     }, undefined, { status: 201 });
   }
   if (path.startsWith("team/") && path.endsWith("/resend")) {
-    const auth = await context("settings.manage"); if (auth.error) return auth.error;
-    const memberId = path.split("/")[1];
-    const member = await prisma.user.findUnique({ where: { id: memberId } });
-    if (!member) return error("Team member not found.", 404);
-
-    const reqProto = request.headers.get("x-forwarded-proto") || (url.protocol.replace(":", "") || "http");
-    const reqHost = request.headers.get("x-forwarded-host") || request.headers.get("host") || url.host;
-    const isLocal = reqHost?.includes("localhost") || reqHost?.includes("127.0.0.1");
-    const origin = isLocal ? `${reqProto}://${reqHost}` : (process.env.APP_URL || `${reqProto}://${reqHost}`);
-
-    const { invitePersistedTeamMember } = await import("@/lib/repositories");
-    const created = await invitePersistedTeamMember({
-      workspaceId: auth.session.workspaceId,
-      inviterUserId: auth.session.userId,
-      inviterName: auth.session.name,
-      firstName: member.firstName,
-      lastName: member.lastName,
-      email: member.email,
-      jobTitle: member.jobTitle || undefined,
-      baseUrl: origin
-    });
+    const auth = await context("team.manage"); if (auth.error) return auth.error;
+    const { resendTeamInvite } = await import("@/lib/team-service");
+    const result = await resendTeamInvite(teamActor(auth.session), path.split("/")[1], inviteBaseUrl(request, url));
+    if (!result.ok) return error(result.message, result.status);
     return ok({
       success: true,
-      delivered: created.emailResult.delivered,
-      message: created.emailResult.delivered
-        ? `Invitation re-sent to ${member.email}.`
-        : `Invitation refreshed for ${member.email}. Configure SMTP to enable automatic email delivery.`
+      delivered: result.data.delivered,
+      message: result.data.delivered
+        ? `Invitation re-sent to ${result.data.email}.`
+        : `Invitation refreshed for ${result.data.email}. Configure SMTP to enable automatic email delivery.`
     });
   }
   if (path === "integrations" || path === "integrations/connect-credentials") {
@@ -844,12 +849,15 @@ export async function POST(
       await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CREATE", module: "campaigns", entityType: "Campaign", entityId: created.id, afterData: created });
       return ok(created, undefined, { status: 201 });
     } catch (err) {
-      return error(err instanceof Error ? err.message : "Failed to create campaign record.", 400, "CAMPAIGN_CREATE_ERROR");
+      return error(publicErrorMessage(err, "Failed to create campaign record.", "campaigns"), 400, "CAMPAIGN_CREATE_ERROR");
     }
   }
   if (path === "leads") {
     const parsed = leadInput.safeParse(body);
     if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid lead.");
+    if (parsed.data.ownerId && !(await isLeadOwnerAllowed(auth.session.workspaceId, parsed.data.ownerId))) {
+      return error("The lead owner must be a member of this workspace.", 400, "INVALID_LEAD_OWNER");
+    }
     const created = await createPersistedLead({ workspaceId: auth.session.workspaceId, ...parsed.data });
     await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "CREATE", module: "leads", entityType: "Lead", entityId: created.id, afterData: created });
     return ok(created, undefined, { status: 201 });
@@ -919,7 +927,7 @@ export async function POST(
     try {
       const channel = await fetchChannelInfo(parsed.data.channelId, parsed.data.apiKey);
       return ok(channel);
-    } catch (e) { return error(e instanceof Error ? e.message : "Failed to fetch channel", 502, "YOUTUBE_API_ERROR"); }
+    } catch (e) { return error(publicErrorMessage(e, "Failed to fetch channel", "youtube"), 502, "YOUTUBE_API_ERROR"); }
   }
 
   if (path === "youtube/videos") {
@@ -928,7 +936,7 @@ export async function POST(
     try {
       const videos = await fetchRecentVideos(parsed.data.channelId, parsed.data.apiKey, parsed.data.maxResults);
       return ok({ items: videos });
-    } catch (e) { return error(e instanceof Error ? e.message : "Failed to fetch videos", 502, "YOUTUBE_API_ERROR"); }
+    } catch (e) { return error(publicErrorMessage(e, "Failed to fetch videos", "youtube"), 502, "YOUTUBE_API_ERROR"); }
   }
 
   if (path === "youtube/analytics") {
@@ -941,7 +949,7 @@ export async function POST(
     try {
       const analytics = await fetchAllYouTubeAnalytics(accessToken, start, end);
       return ok(analytics);
-    } catch (e) { return error(e instanceof Error ? e.message : "Failed to fetch analytics", 502, "YOUTUBE_ANALYTICS_ERROR"); }
+    } catch (e) { return error(publicErrorMessage(e, "Failed to fetch analytics", "youtube"), 502, "YOUTUBE_ANALYTICS_ERROR"); }
   }
 
   if (path === "youtube/dashboard") {
@@ -966,7 +974,7 @@ export async function POST(
           defaultLanguage: meta.defaultLanguage
         }
       });
-    } catch (e) { return error(e instanceof Error ? e.message : "Failed to load dashboard", 502, "YOUTUBE_API_ERROR"); }
+    } catch (e) { return error(publicErrorMessage(e, "Failed to load dashboard", "youtube"), 502, "YOUTUBE_API_ERROR"); }
   }
 
   // ==================== YOUTUBE ADS ROUTES ====================
@@ -1005,7 +1013,7 @@ export async function POST(
       const { fetchYouTubeAdCampaigns } = await import("@/lib/youtube/ads");
       const campaigns = await fetchYouTubeAdCampaigns(apiKeyRaw, String(integration.accountId));
       return ok({ campaigns });
-    } catch (e) { return error(e instanceof Error ? e.message : "Failed to fetch campaigns", 502, "YOUTUBE_ADS_API_ERROR"); }
+    } catch (e) { return error(publicErrorMessage(e, "Failed to fetch campaigns", "youtube"), 502, "YOUTUBE_ADS_API_ERROR"); }
   }
 
   if (path === "youtube-ads/dashboard") {
@@ -1017,7 +1025,7 @@ export async function POST(
       const { fetchYouTubeAdsDashboard } = await import("@/lib/youtube/ads");
       const dashboard = await fetchYouTubeAdsDashboard(apiKeyRaw, String(integration.accountId));
       return ok({ dashboard, integration: { id: integration.id, accountName: integration.accountName, status: integration.status, lastSyncedAt: integration.lastSyncedAt } });
-    } catch (e) { return error(e instanceof Error ? e.message : "Failed to load dashboard", 502, "YOUTUBE_ADS_API_ERROR"); }
+    } catch (e) { return error(publicErrorMessage(e, "Failed to load dashboard", "youtube"), 502, "YOUTUBE_ADS_API_ERROR"); }
   }
 
   if (path === "youtube-ads/metrics") {
@@ -1029,15 +1037,15 @@ export async function POST(
       const { fetchYouTubeAdsMetrics } = await import("@/lib/youtube/ads");
       const metrics = await fetchYouTubeAdsMetrics(apiKeyRaw, String(integration.accountId), 30);
       return ok({ metrics });
-    } catch (e) { return error(e instanceof Error ? e.message : "Failed to fetch metrics", 502, "YOUTUBE_ADS_API_ERROR"); }
+    } catch (e) { return error(publicErrorMessage(e, "Failed to fetch metrics", "youtube"), 502, "YOUTUBE_ADS_API_ERROR"); }
   }
 
   return error("Action not found.", 404);
 }
 
-export async function PATCH(request: Request, { params }: { params: { path: string[] } }) {
-  const path = params.path.join("/");
-  const auth = await context(path.startsWith("notifications") ? "notifications.view" : (path === "settings/profile" || path === "settings/notifications") ? "settings.view" : path === "settings" ? "settings.manage" : path.startsWith("content/") ? "content.edit" : path.startsWith("social/posts/") ? "social.edit" : path.startsWith("clients/") ? "client.edit" : path.startsWith("automation/") ? "automation.manage" : path.startsWith("ai/insights/") ? "analytics.view" : "campaign.edit");
+export async function PATCH(request: Request, { params }: { params: Promise<{ path: string[] }> }) {
+  const path = (await params).path.join("/");
+  const auth = await context(path.startsWith("notifications") ? "notifications.view" : (path === "settings/profile" || path === "settings/notifications") ? "settings.view" : path === "settings" ? "settings.manage" : path.startsWith("content/") ? "content.edit" : path.startsWith("social/posts/") ? "social.edit" : path.startsWith("clients/") ? "client.edit" : path.startsWith("automation/") ? "automation.manage" : path.startsWith("ai/insights/") ? "analytics.view" : path.startsWith("team/") ? "team.manage" : "campaign.edit");
   if (auth.error) return auth.error;
   cacheInvalidatePrefix(`ws:${auth.session.workspaceId}`);
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
@@ -1045,7 +1053,12 @@ export async function PATCH(request: Request, { params }: { params: { path: stri
   if (path.startsWith("leads/")) {
     const id = path.split("/")[1];
     if (body && Object.keys(body).length > 0) {
-      const updated = await updatePersistedLead(auth.session.workspaceId, id, body as never);
+      const parsed = leadInput.partial().safeParse(body);
+      if (!parsed.success) return error(parsed.error.issues[0]?.message || "Invalid lead update.");
+      if (parsed.data.ownerId && !(await isLeadOwnerAllowed(auth.session.workspaceId, parsed.data.ownerId))) {
+        return error("The lead owner must be a member of this workspace.", 400, "INVALID_LEAD_OWNER");
+      }
+      const updated = await updatePersistedLead(auth.session.workspaceId, id, parsed.data);
       if (!updated.count) return error("Lead not found.", 404);
       await recordAudit({ workspaceId: auth.session.workspaceId, userId: auth.session.userId, action: "UPDATE", module: "leads", entityType: "Lead", entityId: id, afterData: body });
       return ok({ id, updated: true });
@@ -1079,29 +1092,23 @@ export async function PATCH(request: Request, { params }: { params: { path: stri
   }
   if (path.startsWith("team/")) {
     const id = path.split("/")[1];
-    const { updatePersistedTeamMember } = await import("@/lib/repositories");
-    const updated = await updatePersistedTeamMember(id, body as never, auth.session.workspaceId);
+    const { changeTeamMember } = await import("@/lib/team-service");
+    const result = await changeTeamMember(teamActor(auth.session), id, { role: body?.role, status: body?.status, jobTitle: body?.jobTitle });
+    if (!result.ok) return error(result.message, result.status);
 
     let emailDelivered = false;
-    if (body?.role) {
+    if (result.data.roleChanged) {
       try {
-        const memberUser = await prisma.user.findUnique({ where: { id } });
         const workspace = await prisma.workspace.findUnique({ where: { id: auth.session.workspaceId } });
-        if (memberUser && workspace) {
+        if (workspace) {
           const { sendRoleUpdateEmail } = await import("@/lib/email");
-          const reqUrl = new URL(request.url);
-          const reqProto = request.headers.get("x-forwarded-proto") || (reqUrl.protocol.replace(":", "") || "http");
-          const reqHost = request.headers.get("x-forwarded-host") || request.headers.get("host") || reqUrl.host;
-          const isLocal = reqHost?.includes("localhost") || reqHost?.includes("127.0.0.1");
-          const origin = isLocal ? `${reqProto}://${reqHost}` : (process.env.APP_URL || `${reqProto}://${reqHost}`);
-
           const emailResult = await sendRoleUpdateEmail({
-            to: memberUser.email,
-            recipientName: memberUser.firstName,
+            to: result.data.email,
+            recipientName: result.data.firstName,
             updatedByName: auth.session.name || "Workspace Administrator",
             workspaceName: workspace.name,
-            newRole: String(body.role),
-            loginUrl: `${origin}/auth/login`
+            newRole: result.data.roleChanged,
+            loginUrl: `${inviteBaseUrl(request, new URL(request.url))}/auth/login`
           });
           emailDelivered = emailResult.delivered;
         }
@@ -1189,12 +1196,12 @@ export async function PATCH(request: Request, { params }: { params: { path: stri
   return error("Action not found.", 404);
 }
 
-export async function DELETE(request: Request, { params }: { params: { path: string[] } }) {
-  const path = params.path.join("/");
+export async function DELETE(request: Request, { params }: { params: Promise<{ path: string[] }> }) {
+  const parts = (await params).path;
+  const path = parts.join("/");
   const auth = await context("campaign.delete");
   if (auth.error) return auth.error;
   cacheInvalidatePrefix(`ws:${auth.session.workspaceId}`);
-  const parts = params.path;
   const entity = parts[0];
   const id = parts[1];
 
@@ -1240,8 +1247,10 @@ export async function DELETE(request: Request, { params }: { params: { path: str
     return ok({ deleted: id });
   }
   if (entity === "team") {
-    const { deletePersistedTeamMember } = await import("@/lib/repositories");
-    await deletePersistedTeamMember(id, auth.session.workspaceId);
+    if (!can(auth.session.role, "team.manage")) return error("You do not have permission to perform this action.", 403);
+    const { removeTeamMember } = await import("@/lib/team-service");
+    const result = await removeTeamMember(teamActor(auth.session), id);
+    if (!result.ok) return error(result.message, result.status);
     return ok({ deleted: id });
   }
   if (entity === "content") {

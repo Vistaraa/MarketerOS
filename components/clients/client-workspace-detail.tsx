@@ -27,6 +27,7 @@ import { CustomDialog } from "@/components/ui/custom-dialog";
 import type { ApiResponse } from "@/lib/api-contracts";
 import { money } from "@/lib/utils";
 import { TrendChart } from "@/components/ui/marketeros-charts";
+import Link from "next/link";
 
 interface ClientDetailPayload {
   id: string;
@@ -109,9 +110,9 @@ export function ClientWorkspaceDetail({ clientId }: { clientId: string }) {
     <AppShell
       title={`Client Workspace - ${client.name}`}
       action={
-        <a href="/clients" className="btn-secondary text-xs flex items-center gap-1">
+        <Link href="/clients" className="btn-secondary text-xs flex items-center gap-1">
           <ArrowLeft size={13} /> Back to Clients
-        </a>
+        </Link>
       }
     >
       <div className="space-y-6">
@@ -268,9 +269,9 @@ export function ClientWorkspaceDetail({ clientId }: { clientId: string }) {
           <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 text-xs">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
               <h2 className="font-bold text-zinc-900 dark:text-zinc-100">Client Campaigns</h2>
-              <a href="/campaigns/create" className="btn-primary py-1 text-xs">
+              <Link href="/campaigns/create" className="btn-primary py-1 text-xs">
                 <Plus size={13} /> Create Campaign
-              </a>
+              </Link>
             </div>
 
             <div className="mt-4 space-y-3">

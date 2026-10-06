@@ -80,18 +80,9 @@ export async function createTeamInvitation(input: CreateInviteInput) {
         status: "INVITED"
       }
     });
-  } else {
-    // If user already exists, update name/jobTitle if pending
-    user = await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        firstName: input.firstName.trim() || user.firstName,
-        lastName: input.lastName.trim() || user.lastName,
-        jobTitle: input.jobTitle || user.jobTitle,
-        status: user.passwordHash ? user.status : "INVITED"
-      }
-    });
   }
+  // An existing account is never modified by an invitation: another workspace must not be able to rename
+  // someone or change their status. The invite only takes effect once the person accepts it.
 
   // 2. Generate signed token
   const exp = Date.now() + SEVEN_DAYS_MS;
@@ -125,7 +116,7 @@ export async function createTeamInvitation(input: CreateInviteInput) {
   // Store new invite record in OAuthState
   await prisma.oAuthState.create({
     data: {
-      state: signedToken,
+      // Only the hash is stored; the token itself exists only in the emailed link.
       stateHash: tokenHash,
       workspaceId: workspace.id,
       userId: user.id,
@@ -215,8 +206,15 @@ export async function verifyInvitationToken(token: string): Promise<VerifyInvite
     }
   });
 
-  if (state && state.consumedAt) {
+  // The invite row must still exist: revoking an invitation (or removing the member) deletes it.
+  if (!state) {
+    return { valid: false, reason: "This invitation is no longer valid. Please ask your workspace admin for a new one." };
+  }
+  if (state.consumedAt) {
     return { valid: false, reason: "This invitation link has already been used. Please log in with your credentials." };
+  }
+  if (state.expiresAt.getTime() < Date.now()) {
+    return { valid: false, reason: "This invitation link has expired. Please request a new invite from your workspace admin." };
   }
 
   const [user, workspace] = await Promise.all([
@@ -257,11 +255,14 @@ export async function consumeInvitationToken(token: string, newPassword: string)
   const passwordHash = await bcrypt.hash(newPassword, 12);
   const tokenHash = hashSecret(token);
 
-  // 1. Mark OAuthState invitation consumed
-  await prisma.oAuthState.updateMany({
-    where: { stateHash: tokenHash },
+  // 1. Claim the invitation atomically, so a link can only be used once even under concurrent requests.
+  const claimed = await prisma.oAuthState.updateMany({
+    where: { stateHash: tokenHash, providerKey: "TEAM_INVITE", consumedAt: null },
     data: { consumedAt: new Date() }
   });
+  if (!claimed.count) {
+    throw new Error("This invitation link has already been used. Please log in with your credentials.");
+  }
 
   // 2. Activate user & set password
   const updatedUser = await prisma.user.update({

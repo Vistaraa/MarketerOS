@@ -11,21 +11,23 @@ const patchInput = z.object({
   isFavorite: z.boolean().optional()
 });
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const ctx = await contentStudioContext("content.edit");
   if ("response" in ctx) return ctx.response;
   const parsed = patchInput.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError(parsed.error.issues[0]?.message || "Invalid media update.");
-  const updated = await prisma.mediaAsset.updateMany({ where: { id: params.id, workspaceId: ctx.session.workspaceId }, data: parsed.data });
+  const updated = await prisma.mediaAsset.updateMany({ where: { id: id, workspaceId: ctx.session.workspaceId }, data: parsed.data });
   if (!updated.count) return apiError("Media asset not found.", 404, "NOT_FOUND");
-  const row = await prisma.mediaAsset.findUniqueOrThrow({ where: { id: params.id } });
+  const row = await prisma.mediaAsset.findUniqueOrThrow({ where: { id: id } });
   return NextResponse.json({ data: mediaDto(row, await userNames([row.uploadedById])) });
 }
 
-export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const ctx = await contentStudioContext("content.edit");
   if ("response" in ctx) return ctx.response;
-  const row = await prisma.mediaAsset.findFirst({ where: { id: params.id, workspaceId: ctx.session.workspaceId } });
+  const row = await prisma.mediaAsset.findFirst({ where: { id: id, workspaceId: ctx.session.workspaceId } });
   if (!row) return apiError("Media asset not found.", 404, "NOT_FOUND");
   await prisma.mediaAsset.delete({ where: { id: row.id } });
   await objectStorage().delete(row.storageKey).catch((error) => console.error("Failed to delete stored media", row.storageKey, error));

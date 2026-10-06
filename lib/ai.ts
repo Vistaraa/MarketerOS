@@ -1,12 +1,48 @@
 import OpenAI from "openai";
 import { prisma } from "@/lib/prisma";
+import { getAICreditStatus } from "@/lib/ai-credits";
+import { hitRateLimit } from "@/lib/rate-limit";
+
+/**
+ * An AI failure with a message that is safe to show users. Provider details (which can include account or
+ * quota specifics) are logged server-side instead.
+ */
+export class AIError extends Error {
+  constructor(public code: string, message: string, public status: number, public retryAfterSeconds?: number) {
+    super(message);
+    this.name = "AIError";
+  }
+}
+
+const AI_REQUESTS_PER_USER_PER_MINUTE = 20;
+const AI_REQUESTS_PER_WORKSPACE_PER_HOUR = 300;
 
 function client() {
-  if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured.");
+  if (!process.env.OPENAI_API_KEY) throw new AIError("AI_NOT_CONFIGURED", "AI features aren't configured on this server.", 503);
   return new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
-    baseURL: process.env.OPENAI_BASE_URL || undefined
+    baseURL: process.env.OPENAI_BASE_URL || undefined,
+    timeout: 60_000,
+    maxRetries: 1
   });
+}
+
+/** Maps provider/SDK errors to a stable code and a user-safe message. */
+function toAIError(error: unknown): AIError {
+  if (error instanceof AIError) return error;
+  if (error instanceof OpenAI.APIConnectionTimeoutError) return new AIError("AI_TIMEOUT", "The AI provider took too long to respond. Please try again.", 504);
+  if (error instanceof OpenAI.APIConnectionError) return new AIError("AI_PROVIDER_UNAVAILABLE", "The AI provider couldn't be reached. Please try again shortly.", 503);
+  if (error instanceof OpenAI.APIError) {
+    const text = `${error.message || ""} ${JSON.stringify(error.error || "")}`.toLowerCase();
+    if (error.status === 429 && /quota|billing|exceeded your current/.test(text)) {
+      return new AIError("AI_QUOTA_EXCEEDED", "The AI provider's usage quota for this server is used up. Please try again later.", 503);
+    }
+    if (error.status === 429) return new AIError("AI_PROVIDER_BUSY", "The AI provider is rate-limiting requests right now. Please try again in a minute.", 503, 60);
+    if (error.status === 401 || error.status === 403) return new AIError("AI_PROVIDER_AUTH", "The AI provider rejected this server's API key.", 503);
+    if (error.status === 404) return new AIError("AI_MODEL_NOT_FOUND", "The configured AI model isn't available from the provider.", 503);
+    if (error.status === 400) return new AIError("AI_REQUEST_REJECTED", "The AI provider rejected this request. Try shortening or rephrasing the prompt.", 400);
+  }
+  return new AIError("AI_FAILED", "AI generation failed. Please try again.", 502);
 }
 
 export async function generateText(input: {
@@ -16,7 +52,18 @@ export async function generateText(input: {
   prompt: string;
   feature?: string;
 }) {
+  // Cost controls: per-user burst limit, per-workspace hourly limit, and the plan's monthly AI credits.
+  const perUser = await hitRateLimit(`ai:user:${input.userId}`, AI_REQUESTS_PER_USER_PER_MINUTE, 60);
+  if (!perUser.allowed) throw new AIError("AI_RATE_LIMITED", "You're sending AI requests too quickly. Please wait a moment.", 429, perUser.retryAfterSeconds);
+  const perWorkspace = await hitRateLimit(`ai:ws:${input.workspaceId}`, AI_REQUESTS_PER_WORKSPACE_PER_HOUR, 60 * 60);
+  if (!perWorkspace.allowed) throw new AIError("AI_RATE_LIMITED", "Your workspace has reached its hourly AI request limit. Please try again later.", 429, perWorkspace.retryAfterSeconds);
+  const credits = await getAICreditStatus(input.workspaceId);
+  if (credits.remaining <= 0) {
+    throw new AIError("AI_CREDITS_EXHAUSTED", "You've used all AI credits for this billing period. Upgrade your plan or buy a credit pack to continue.", 402);
+  }
+
   const model = process.env.OPENAI_MODEL || "gemini-3.6-flash";
+  const ai = client();
   const feature = input.feature || (input.kind === "insight" ? "AI Insights" : "Content Studio");
   const request = await prisma.aIRequest.create({
     data: {
@@ -35,9 +82,9 @@ export async function generateText(input: {
     let inputTokens = 0;
     let outputTokens = 0;
 
-    // Standard Chat Completions API (Supported by OpenAI, Google Gemini, Groq, OpenRouter)
+    // Standard Chat Completions API (supported by OpenAI, Google Gemini, Groq, OpenRouter).
     try {
-      const completion = await client().chat.completions.create({
+      const completion = await ai.chat.completions.create({
         model,
         messages: [{ role: "user", content: input.prompt }],
         temperature: 0.7
@@ -46,11 +93,17 @@ export async function generateText(input: {
       inputTokens = completion.usage?.prompt_tokens || 0;
       outputTokens = completion.usage?.completion_tokens || 0;
     } catch (chatError) {
-      // Fallback for providers or models supporting responses.create
-      const response = await client().responses.create({ model, input: input.prompt });
-      output = response.output_text || "";
-      inputTokens = (response.usage as any)?.input_tokens || 0;
-      outputTokens = (response.usage as any)?.output_tokens || 0;
+      // Only providers without a chat endpoint get the Responses API fallback. For any other failure (quota,
+      // auth, rate limit...) report the original error: falling back used to hide it behind a misleading 404.
+      if (!(chatError instanceof OpenAI.NotFoundError)) throw chatError;
+      try {
+        const response = await ai.responses.create({ model, input: input.prompt });
+        output = response.output_text || "";
+        inputTokens = (response.usage as any)?.input_tokens || 0;
+        outputTokens = (response.usage as any)?.output_tokens || 0;
+      } catch {
+        throw chatError;
+      }
     }
 
     const tokensTotal = inputTokens + outputTokens;
@@ -73,12 +126,14 @@ export async function generateText(input: {
       usage: { inputTokens, outputTokens, tokensTotal }
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "AI generation failed.";
+    const aiError = toAIError(error);
+    // Full provider detail for operators (and Sentry); users only ever see aiError.message.
+    console.error(`[ai] ${aiError.code} for workspace ${input.workspaceId}:`, error);
     await prisma.aIRequest.update({
       where: { id: request.id },
-      data: { status: "failed", errorMessage: message }
+      data: { status: "failed", errorMessage: `${aiError.code}: ${error instanceof Error ? error.message : String(error)}`.slice(0, 1000) }
     });
-    throw new Error(message);
+    throw aiError;
   }
 }
 

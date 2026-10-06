@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logServerError } from "@/lib/errors";
 import { getSession } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 import { getPlayConsoleApp } from "@/lib/google/play-console";
@@ -128,7 +129,7 @@ export async function GET(request: Request) {
       }))
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || "Failed to fetch Google Play KPIs." }, { status: 500 });
+    return NextResponse.json({ error: logServerError("v1/play-console/kpis", "Failed to fetch Google Play KPIs.", error) }, { status: 500 });
   }
 }
 

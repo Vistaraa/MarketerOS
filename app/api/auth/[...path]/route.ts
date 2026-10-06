@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { logServerError, publicErrorMessage } from "@/lib/errors";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { authenticatePersistedUser, clearSession, createPersistedUser, getSession, setSession } from "@/lib/auth-server";
+import { AccountSuspendedError, authenticatePersistedUser, clearSession, createPersistedUser, getSession, setSession, verifySessionToken } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, clearRateLimit, clientIp, formatRetryAfter, hitRateLimit } from "@/lib/rate-limit";
 
@@ -64,7 +65,7 @@ async function resolvePath(
 
 export async function GET(
   request: Request,
-  { params }: { params: { path: string[] } | Promise<{ path: string[] }> }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
     const path = await resolvePath(request, params);
@@ -85,18 +86,13 @@ export async function GET(
       let suspendedUser: { email?: string; name?: string } | null = null;
       try {
         const store = await cookies();
-        const raw = store.get("marketeros_session")?.value;
-        if (raw) {
-          const [payload] = raw.split(".");
-          if (payload) {
-            const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf-8"));
-            if (parsed?.userId) {
-              const u = await prisma.user.findUnique({ where: { id: parsed.userId }, select: { status: true, email: true, firstName: true, lastName: true } });
-              if (u && u.status === "SUSPENDED") {
-                isSuspended = true;
-                suspendedUser = { email: u.email, name: `${u.firstName} ${u.lastName}`.trim() };
-              }
-            }
+        // Only a correctly signed cookie may identify the user; a forged one must not reveal anything.
+        const parsed = verifySessionToken(store.get("marketeros_session")?.value);
+        if (parsed?.userId) {
+          const u = await prisma.user.findUnique({ where: { id: parsed.userId }, select: { status: true, email: true, firstName: true, lastName: true } });
+          if (u && u.status === "SUSPENDED") {
+            isSuspended = true;
+            suspendedUser = { email: u.email, name: `${u.firstName} ${u.lastName}`.trim() };
           }
         }
       } catch {
@@ -124,7 +120,7 @@ export async function GET(
   } catch (err: any) {
     console.error("Auth GET error:", err);
     return NextResponse.json(
-      { error: { message: err?.message || "Authentication service failed." } },
+      { error: { message: logServerError("auth", "Authentication service failed.", err) } },
       { status: 500 }
     );
   }
@@ -132,7 +128,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { path: string[] } | Promise<{ path: string[] }> }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
     const path = await resolvePath(request, params);
@@ -153,7 +149,13 @@ export async function POST(
         return NextResponse.json({ error: { message: parsed.error.issues[0]?.message || "Invalid payload." } }, { status: 400 });
       }
       const { consumeInvitationToken } = await import("@/lib/invite-service");
-      const result = await consumeInvitationToken(parsed.data.token, parsed.data.password);
+      let result;
+      try {
+        result = await consumeInvitationToken(parsed.data.token, parsed.data.password);
+      } catch (err) {
+        // Invalid, revoked, expired or already-used links are the caller's problem, not a server error.
+        return NextResponse.json({ error: { message: publicErrorMessage(err, "Invalid invitation token.", "auth") } }, { status: 400 });
+      }
       const { getDefaultRouteForRole, setSession } = await import("@/lib/auth-server");
 
       const sessionInput = {
@@ -215,7 +217,15 @@ export async function POST(
       if (!lockout.allowed) {
         return tooManyRequests(lockout.retryAfterSeconds, `Too many failed sign-in attempts for this account. Try again in ${formatRetryAfter(lockout.retryAfterSeconds)}, or reset your password.`);
       }
-      const session = await authenticatePersistedUser(email, parsed.data.password);
+      let session;
+      try {
+        session = await authenticatePersistedUser(email, parsed.data.password);
+      } catch (err) {
+        if (err instanceof AccountSuspendedError) {
+          return NextResponse.json({ error: { code: "ACCOUNT_SUSPENDED", message: err.message } }, { status: 403 });
+        }
+        throw err;
+      }
       if (!session) {
         await hitRateLimit(failureKey, MAX_FAILED_LOGINS, FAILED_LOGIN_WINDOW_SECONDS);
         return NextResponse.json({ error: { message: "Email or password is incorrect." } }, { status: 401 });
@@ -302,7 +312,7 @@ export async function POST(
   } catch (err: any) {
     console.error("Auth POST error:", err);
     return NextResponse.json(
-      { error: { message: err?.message || "Authentication service failed. Please verify your database connection and environment variables." } },
+      { error: { message: logServerError("auth", "Authentication service failed. Please try again.", err) } },
       { status: 500 }
     );
   }

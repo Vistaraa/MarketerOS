@@ -427,12 +427,10 @@ export async function getPersistedBillingOverview(workspaceId: string): Promise<
     where: { ownedWorkspaces: { some: { id: workspaceId } } }
   });
 
-  // Calculate live AI Token Consumption
-  const aiTokensResult = await prisma.aIRequest.aggregate({
-    where: { workspaceId },
-    _sum: { tokensTotal: true }
-  });
-  const aiCreditsUsed = Math.round((aiTokensResult._sum.tokensTotal || 0) / 100);
+  // AI credit usage for the current billing period (the same figures generation is limited by).
+  const { getAICreditStatus } = await import("@/lib/ai-credits");
+  const aiCreditStatus = await getAICreditStatus(workspaceId);
+  const aiCreditsUsed = aiCreditStatus.used;
 
   const activePlanSlug = subscription.plan.slug || "pro";
   const currentPlan = subscription.plan;

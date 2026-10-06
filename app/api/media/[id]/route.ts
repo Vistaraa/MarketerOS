@@ -5,10 +5,11 @@ import { apiError, contentStudioContext } from "@/lib/content-studio-api";
 export const runtime = "nodejs";
 
 /** Serves an uploaded file to members of the workspace that owns it. */
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const ctx = await contentStudioContext("content.view");
   if ("response" in ctx) return ctx.response;
-  const asset = await prisma.mediaAsset.findFirst({ where: { id: params.id, workspaceId: ctx.session.workspaceId } });
+  const asset = await prisma.mediaAsset.findFirst({ where: { id: id, workspaceId: ctx.session.workspaceId } });
   if (!asset) return apiError("Media asset not found.", 404, "NOT_FOUND");
   const stored = await objectStorage().get(asset.storageKey);
   if (!stored) return apiError("The file for this asset is missing from storage.", 404, "NOT_FOUND");

@@ -150,10 +150,11 @@ function templatePayload(t: Partial<Template>) {
 }
 
 /** Uploads with real progress events (fetch can't report upload progress). */
-function uploadWithProgress(url: string, form: FormData, onProgress?: (percent: number) => void) {
+function uploadWithProgress(method: string, url: string, body: FormData | File, headers: Record<string, string>, onProgress?: (percent: number) => void) {
   return new Promise<{ status: number; json: any }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", url);
+    xhr.open(method, url);
+    for (const [name, value] of Object.entries(headers)) xhr.setRequestHeader(name, value);
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
     };
@@ -163,8 +164,29 @@ function uploadWithProgress(url: string, form: FormData, onProgress?: (percent: 
       resolve({ status: xhr.status, json });
     };
     xhr.onerror = () => reject(new Error("Network error during upload."));
-    xhr.send(form);
+    xhr.send(body);
   });
+}
+
+/**
+ * Direct upload: get a presigned URL, PUT the file straight to storage, then ask the server to verify and
+ * register it. Returns null when the server has no direct-upload storage, so the caller can fall back.
+ */
+async function uploadDirect(file: File, folder: string | undefined, measured: { width?: number; height?: number; duration?: number }, onProgress?: (percent: number) => void): Promise<MediaAsset | null> {
+  const res = await fetch("/api/v1/content-studio/media/upload-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: file.name, type: file.type, size: file.size, folder: folder || null, width: measured.width ?? null, height: measured.height ?? null, duration: measured.duration ?? null })
+  });
+  const json = await res.json().catch(() => null);
+  if (res.status === 409 && json?.error?.code === "DIRECT_UPLOAD_UNAVAILABLE") return null;
+  if (!res.ok) throw new Error(json?.error?.message || `Upload failed (${res.status}).`);
+
+  const { uploadUrl, headers, token } = json.data as { uploadUrl: string; headers: Record<string, string>; token: string };
+  const put = await uploadWithProgress("PUT", uploadUrl, file, headers, onProgress);
+  if (put.status < 200 || put.status >= 300) throw new Error(`Upload to storage failed (${put.status}).`);
+
+  return apiJson<MediaAsset>("/api/v1/content-studio/media/complete", "POST", { token });
 }
 
 /** Reads real dimensions/duration in the browser; returns {} when the file can't be decoded. */
@@ -646,9 +668,13 @@ export function ContentStudioProvider({ children }: { children: React.ReactNode 
       if (measured.height) form.append("height", String(measured.height));
       if (measured.duration) form.append("duration", String(measured.duration));
 
-      const { status, json } = await uploadWithProgress("/api/v1/content-studio/media", form, options?.onProgress);
-      if (status < 200 || status >= 300) throw new Error(json?.error?.message || `Upload failed (${status}).`);
-      const asset = json.data as MediaAsset;
+      // Prefer a direct upload to storage (no app-server size limits); fall back to uploading through the app.
+      let asset = await uploadDirect(file, options?.folder, measured, options?.onProgress);
+      if (!asset) {
+        const { status, json } = await uploadWithProgress("POST", "/api/v1/content-studio/media", form, {}, options?.onProgress);
+        if (status < 200 || status >= 300) throw new Error(json?.error?.message || `Upload failed (${status}).`);
+        asset = json.data as MediaAsset;
+      }
       setMediaAssets((prev) => [asset, ...prev]);
       showToast("Media Uploaded", `"${asset.name}" added to Media Library.`);
       return asset;

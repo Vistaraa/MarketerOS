@@ -278,6 +278,18 @@ export function TeamManagementPage() {
     }
   }
 
+  // The server refuses unsafe team changes with a reason (e.g. "Only the workspace owner can change an Admin.").
+  async function showRefusal(res: Response, fallback: string) {
+    const payload = await res.json().catch(() => null);
+    setDialogConfig({
+      isOpen: true,
+      title: "Change Not Allowed",
+      message: payload?.error?.message || fallback,
+      type: "error",
+      confirmText: "OK"
+    });
+  }
+
   async function handleUpdateRole(id: string, newRole: string) {
     try {
       const targetMember = members.find((m) => m.id === id);
@@ -299,6 +311,14 @@ export function TeamManagementPage() {
             : `Successfully updated ${targetMember?.name || "member"}'s role to ${newRole.replace(/_/g, " ").toUpperCase()}. (Email notification pending SMTP configuration).`,
           type: "success",
           confirmText: "Got It"
+        });
+      } else {
+        setDialogConfig({
+          isOpen: true,
+          title: "Change Not Allowed",
+          message: (payload as { error?: { message?: string } })?.error?.message || "The role could not be updated.",
+          type: "error",
+          confirmText: "OK"
         });
       }
     } catch (err) {
@@ -334,6 +354,8 @@ export function TeamManagementPage() {
             confirmText: "Got It"
           });
         }
+      } else {
+        await showRefusal(res, "The member's status could not be updated.");
       }
     } catch (err) {
       console.error("Failed to update status:", err);
@@ -353,6 +375,8 @@ export function TeamManagementPage() {
           const res = await fetch(`/api/v1/team/${id}`, { method: "DELETE" });
           if (res.ok) {
             setMembers((prev) => prev.filter((m) => m.id !== id));
+          } else {
+            await showRefusal(res, "The member could not be removed.");
           }
         } catch (err) {
           console.error("Failed to delete member:", err);

@@ -1,8 +1,17 @@
 import { cookies, headers } from "next/headers";
-import { createHash, createHmac, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { Prisma, prisma } from "@/lib/prisma";
 import { cacheGet, cacheInvalidateKey, cacheSet } from "@/lib/cache";
+import { MEMBERSHIP_KEY, normalizeMemberRole } from "@/lib/team-access";
+
+/** Thrown by authenticatePersistedUser for a correct password on a suspended account. */
+export class AccountSuspendedError extends Error {
+  constructor() {
+    super("Your account has been suspended by your workspace administrator. Please contact your administrator.");
+    this.name = "AccountSuspendedError";
+  }
+}
 
 const COOKIE = "marketeros_session";
 
@@ -58,6 +67,21 @@ export async function revokeAllUserSessions(userId: string) {
   await prisma.session.deleteMany({ where: { userId } });
 }
 
+/** Returns the session token's payload only if its signature is valid; never trust an unverified payload. */
+export function verifySessionToken(raw: string | undefined | null): Partial<SessionInput> | null {
+  if (!raw) return null;
+  const [payload, signature] = raw.split(".");
+  if (!payload || !signature) return null;
+  const expected = Buffer.from(sign(payload));
+  const received = Buffer.from(signature);
+  if (expected.length !== received.length || !timingSafeEqual(expected, received)) return null;
+  try {
+    return JSON.parse(Buffer.from(payload, "base64url").toString("utf-8"));
+  } catch {
+    return null;
+  }
+}
+
 export async function getSession(explicitToken?: string) {
   let raw = explicitToken;
   if (!raw) {
@@ -77,7 +101,7 @@ export async function getSession(explicitToken?: string) {
   }
   if (!raw) return null;
   const [payload, signature] = raw.split(".");
-  if (!payload || !signature || sign(payload) !== signature) return null;
+  if (!payload || !signature || !verifySessionToken(raw)) return null;
   const tokenHash = hashSession(raw);
   const cached = cacheGet<{ userId: string; workspaceId: string; role: string; email: string; name: string }>(sessionCacheKey(tokenHash));
   if (cached) {
@@ -108,11 +132,11 @@ export async function getSession(explicitToken?: string) {
   let workspace: any = null;
   let role = "OWNER";
 
-  // 1. Check workspace membership via OAuthState (WORKSPACE_MEMBER or TEAM_INVITE)
+  // 1. Check accepted workspace membership. Pending invites never grant access.
   const membership = await prisma.oAuthState.findFirst({
     where: {
       userId: active.userId,
-      providerKey: { in: ["WORKSPACE_MEMBER", "TEAM_INVITE"] },
+      providerKey: MEMBERSHIP_KEY,
       workspace: { status: "ACTIVE" },
       ...(sessionPayload?.workspaceId ? { workspaceId: sessionPayload.workspaceId } : {})
     },
@@ -122,7 +146,7 @@ export async function getSession(explicitToken?: string) {
 
   if (membership?.workspace) {
     workspace = membership.workspace;
-    role = (membership.returnTo || "MANAGER").toUpperCase();
+    role = normalizeMemberRole(membership.returnTo);
     if (workspace.ownerId === active.userId) {
       role = "OWNER";
     }
@@ -289,13 +313,13 @@ export async function authenticatePersistedUser(email: string, password: string)
   });
   if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) return null;
   if (user.status === "SUSPENDED") {
-    throw new Error("Your account has been suspended by your workspace administrator. Please contact your administrator.");
+    throw new AccountSuspendedError();
   }
-  // 1. Check workspace membership via OAuthState (WORKSPACE_MEMBER or TEAM_INVITE)
+  // 1. Check accepted workspace membership. Pending invites never decide which workspace a login lands in.
   const membership = await prisma.oAuthState.findFirst({
     where: {
       userId: user.id,
-      providerKey: { in: ["WORKSPACE_MEMBER", "TEAM_INVITE"] },
+      providerKey: MEMBERSHIP_KEY,
       workspace: { status: "ACTIVE" }
     },
     include: { workspace: true },
@@ -307,7 +331,7 @@ export async function authenticatePersistedUser(email: string, password: string)
 
   if (membership?.workspace) {
     workspace = membership.workspace;
-    role = (membership.returnTo || "MANAGER").toUpperCase();
+    role = normalizeMemberRole(membership.returnTo);
     if (workspace.ownerId === user.id) {
       role = "OWNER";
     }

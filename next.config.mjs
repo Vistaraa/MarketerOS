@@ -1,6 +1,17 @@
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const isDev = process.env.NODE_ENV !== "production";
+
+// Browsers upload media straight to S3-compatible storage via presigned URLs, so that origin must be allowed in
+// connect-src. Derived from the storage settings at build time; S3_PUBLIC_UPLOAD_ORIGIN overrides it.
+function storageUploadOrigins() {
+  if (process.env.STORAGE_DRIVER !== "s3") return [];
+  if (process.env.S3_PUBLIC_UPLOAD_ORIGIN) return [process.env.S3_PUBLIC_UPLOAD_ORIGIN];
+  if (process.env.S3_ENDPOINT) return [new URL(process.env.S3_ENDPOINT).origin];
+  const bucket = process.env.S3_BUCKET;
+  const region = process.env.S3_REGION || "us-east-1";
+  return bucket ? [`https://${bucket}.s3.${region}.amazonaws.com`, `https://${bucket}.s3.amazonaws.com`] : [];
+}
 
 // Next.js and the theme script in app/layout.tsx use inline scripts, so script-src needs 'unsafe-inline'
 // until nonces are introduced. The rest of the policy still blocks framing, plugins, base-tag hijacking,
@@ -13,7 +24,7 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob: https:",
   "media-src 'self' data: blob: https:",
   "font-src 'self' data: https://fonts.gstatic.com",
-  `connect-src 'self'${isDev ? " ws: wss:" : ""}`,
+  ["connect-src 'self'", ...storageUploadOrigins(), ...(isDev ? ["ws:", "wss:"] : [])].join(" "),
   "frame-src 'self'",
   "frame-ancestors 'none'",
   "form-action 'self' https://secure.payu.in https://test.payu.in",
@@ -30,15 +41,30 @@ const securityHeaders = [
   ...(isDev ? [] : [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }])
 ];
 
+// Uploaded media is served under /api/media. Even though only allowlisted, content-checked files are stored,
+// they get a fully sandboxed policy so a file can never run as a page on this origin. (Listed after the global
+// rule: when several rules set the same header, Next.js uses the last one.)
+const mediaHeaders = [
+  { key: "Content-Security-Policy", value: "default-src 'none'; sandbox" },
+  { key: "X-Content-Type-Options", value: "nosniff" }
+];
+
+const maxUploadBytes = Number(process.env.MAX_UPLOAD_BYTES || 25 * 1024 * 1024);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  // instrumentation.ts is loaded automatically since Next.js 15 (no experimental flag needed).
   experimental: {
-    typedRoutes: false,
-    instrumentationHook: true
+    // Next.js 15 buffers request bodies for middleware and truncates them past 10 MB by default, which broke
+    // media uploads between 10 MB and the upload cap. Allow the cap plus room for multipart overhead.
+    middlewareClientMaxBodySize: maxUploadBytes + 1024 * 1024
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      { source: "/api/media/:path*", headers: mediaHeaders }
+    ];
   }
 };
 
@@ -53,5 +79,5 @@ export default withSentryConfig(nextConfig, {
   // Browser events go through this app's own domain, so the CSP needs no Sentry hosts and ad blockers don't drop them.
   tunnelRoute: "/monitoring",
   sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
-  disableLogger: true
+  webpack: { treeshake: { removeDebugLogging: true } }
 });

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logServerError } from "@/lib/errors";
 import { getSession } from "@/lib/auth-server";
 import { getDecryptedGooglePlayIntegration } from "@/lib/google/play-console";
 
@@ -25,6 +26,6 @@ export async function POST() {
       message: `Connected to ${decrypted.packageName || "your app"}. Importing releases, inbox messages and KPIs from Google Play isn't available yet, so no data was synced.`
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || "Failed to sync Google Play Console." }, { status: 500 });
+    return NextResponse.json({ error: logServerError("v1/play-console/sync", "Failed to sync Google Play Console.", error) }, { status: 500 });
   }
 }

@@ -17,6 +17,7 @@ import {
 import { AppShell, PageHeading, StatusBadge } from "@/components/ui/marketeros-shell";
 import { CustomDialog } from "@/components/ui/custom-dialog";
 import type { ApiResponse } from "@/lib/api-contracts";
+import Link from "next/link";
 
 export function AutomationDetailView({ ruleId }: { ruleId: string }) {
   const [rule, setRule] = useState<any | null>(null);
@@ -93,9 +94,9 @@ export function AutomationDetailView({ ruleId }: { ruleId: string }) {
             <Play size={12} className={testing ? "animate-spin" : ""} />
             <span>{testing ? "Evaluating Rule…" : "Run Rule Now"}</span>
           </button>
-          <a href="/automation" className="btn-secondary text-xs flex items-center gap-1">
+          <Link href="/automation" className="btn-secondary text-xs flex items-center gap-1">
             <ArrowLeft size={13} /> Back to Automations
-          </a>
+          </Link>
         </div>
       }
     >

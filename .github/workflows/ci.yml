@@ -38,6 +38,15 @@ jobs:
       ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
       APP_URL: http://localhost:3000
       NEXT_TELEMETRY_DISABLED: "1"
+      # End-to-end tests run against S3-compatible storage (a local moto server), like production.
+      # These are build-time too: the CSP's connect-src includes the storage origin for direct uploads.
+      STORAGE_DRIVER: s3
+      S3_ENDPOINT: http://localhost:5055
+      S3_BUCKET: marketeros-ci
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY_ID: ci-only
+      S3_SECRET_ACCESS_KEY: ci-only
+      CRON_SECRET: ci-only-cron-secret
 
     steps:
       - uses: actions/checkout@v4
@@ -68,3 +77,26 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Start S3-compatible test storage
+        run: |
+          pip install --quiet "moto[server]"
+          moto_server -p 5055 > moto.log 2>&1 &
+          for i in $(seq 1 30); do curl -s -o /dev/null http://localhost:5055 && break; sleep 1; done
+          node tests/e2e/setup-s3.mjs
+
+      - name: Start app for end-to-end tests
+        run: |
+          npm start > app.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:3000/api/health > /dev/null && exit 0; sleep 1; done
+          cat app.log; exit 1
+
+      - name: End-to-end tests (API, security, browser)
+        run: npm run test:e2e
+        env:
+          BASE_URL: http://localhost:3000
+          CHROME_PATH: /usr/bin/google-chrome
+
+      - name: Show app log on failure
+        if: failure()
+        run: tail -n 200 app.log || true

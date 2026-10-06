@@ -1,6 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 /**
  * Object storage for uploaded media. Keys are always generated server-side (never from user input).
@@ -19,6 +20,15 @@ export interface ObjectStorage {
   put(key: string, body: Buffer, contentType: string): Promise<void>;
   get(key: string): Promise<StoredObject | null>;
   delete(key: string): Promise<void>;
+  /** Present when browsers can upload straight to storage (S3), bypassing the app server's body-size limits. */
+  direct?: DirectUploadSupport;
+}
+
+export interface DirectUploadSupport {
+  /** A short-lived URL that accepts exactly one PUT of this key, content type and byte length. */
+  presignPut(key: string, contentType: string, contentLength: number, expiresInSeconds: number): Promise<string>;
+  /** Size and leading bytes of an uploaded object, to verify it before it is registered. */
+  inspect(key: string, headBytes: number): Promise<{ size: number; head: Buffer } | null>;
 }
 
 class LocalDiskStorage implements ObjectStorage {
@@ -67,6 +77,10 @@ class S3Storage implements ObjectStorage {
       region: process.env.S3_REGION || "auto",
       endpoint: process.env.S3_ENDPOINT || undefined,
       forcePathStyle: Boolean(process.env.S3_ENDPOINT),
+      // Newer SDKs add checksums to every upload by default, which breaks presigned browser uploads and
+      // S3-compatible providers (R2, Supabase). Only send them when an operation requires it.
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED",
       credentials: process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY
         ? { accessKeyId: process.env.S3_ACCESS_KEY_ID, secretAccessKey: process.env.S3_SECRET_ACCESS_KEY }
         : undefined
@@ -91,6 +105,26 @@ class S3Storage implements ObjectStorage {
   async delete(key: string) {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
+
+  direct: DirectUploadSupport = {
+    presignPut: (key, contentType, contentLength, expiresInSeconds) =>
+      getSignedUrl(this.client, new PutObjectCommand({ Bucket: this.bucket, Key: key, ContentType: contentType, ContentLength: contentLength }), {
+        expiresIn: expiresInSeconds,
+        // Signing these headers means the upload must use exactly this type and size.
+        signableHeaders: new Set(["content-type", "content-length"])
+      }),
+    inspect: async (key, headBytes) => {
+      try {
+        const head = await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
+        const range = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key, Range: `bytes=0-${headBytes - 1}` }));
+        const bytes = range.Body ? Buffer.from(await range.Body.transformToByteArray()) : Buffer.alloc(0);
+        return { size: Number(head.ContentLength || 0), head: bytes };
+      } catch (error: any) {
+        if (error?.name === "NotFound" || error?.name === "NoSuchKey" || error?.$metadata?.httpStatusCode === 404) return null;
+        throw error;
+      }
+    }
+  };
 }
 
 let instance: ObjectStorage | null = null;
