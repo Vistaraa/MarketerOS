@@ -80,6 +80,38 @@ test("browser", { skip: chromePath ? false : "no Chrome/Chromium found (set CHRO
     });
   }
 
+  await t.test("App KPIs are part of the Overview on phones only", async () => {
+    const probe = `(() => {
+      const section = document.querySelector('[aria-labelledby="overview-app-kpis"]');
+      const spend = [...document.querySelectorAll("p, span, h3")].find((e) => e.textContent.trim() === "Total Spend");
+      return {
+        sectionShown: !!section && getComputedStyle(section).display !== "none",
+        heading: document.getElementById("overview-app-kpis")?.textContent.trim() || null,
+        afterOverviewCards: !!spend && !!section && Boolean(spend.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING),
+        overviewShown: !!spend && spend.offsetParent !== null,
+        oldSwitch: [...document.querySelectorAll("button")].some((b) => b.textContent.trim() === "App KPIs")
+      };
+    })()`;
+    try {
+      await browser.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+      browser.events.length = 0;
+      await browser.send("Page.navigate", { url: BASE + "/overview" });
+      await sleep(4000);
+      assert.deepEqual(await browser.evaluate(probe), { sectionShown: true, heading: "App KPIs", afterOverviewCards: true, overviewShown: true, oldSwitch: false });
+      assert.deepEqual(browser.problems(), []);
+
+      await browser.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
+      await browser.send("Page.navigate", { url: BASE + "/overview" });
+      await sleep(3500);
+      const desktop = await browser.evaluate(probe);
+      assert.equal(desktop.sectionShown, false, "not shown on desktop");
+      assert.equal(desktop.overviewShown, true);
+      assert.equal(desktop.oldSwitch, false);
+    } finally {
+      await browser.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
+    }
+  });
+
   await t.test("Content Studio imports legacy browser-only data once", async () => {
     await browser.send("Page.navigate", { url: BASE + "/auth/login" });
     await sleep(2000);

@@ -3,11 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell, PageHeading } from "@/components/ui/marketeros-shell";
-import { PlayConsoleKpisTab } from "@/components/play-console/kpis-tab";
 import { PlayConsoleReleasesTab } from "@/components/play-console/releases-tab";
 import { PlayConsoleInboxTab } from "@/components/play-console/inbox-tab";
 import { GooglePlayConnectModal } from "@/components/integrations/google-play-connect-modal";
-import { RefreshCw, Smartphone, Layers, Inbox, LineChart, KeyRound, ArrowLeft, Building2 } from "lucide-react";
+import { RefreshCw, Smartphone, Layers, Inbox, KeyRound, ArrowLeft, Building2 } from "lucide-react";
 
 export default function PlayConsolePage() {
   const router = useRouter();
