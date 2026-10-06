@@ -23,7 +23,6 @@ import {
   InstagramIcon,
   FacebookIcon,
   LinkedinIcon,
-  TiktokIcon,
   TwitterXIcon
 } from "../content-studio-dashboard";
 import { Platform, ContentStatus } from "../types/content-studio-types";
@@ -38,8 +37,6 @@ export function PlatformIcon({ platform, className = "w-4 h-4" }: { platform: Pl
       return <FacebookIcon className={className} />;
     case "linkedin":
       return <LinkedinIcon className={className} />;
-    case "tiktok":
-      return <TiktokIcon className={className} />;
     case "twitter":
       return <TwitterXIcon className={className} />;
     case "youtube":
@@ -58,7 +55,6 @@ export function PlatformBadge({ platform }: { platform: Platform }) {
     instagram: "bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950/60 dark:text-pink-300 dark:border-pink-900",
     facebook: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-900",
     linkedin: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-900",
-    tiktok: "bg-zinc-100 text-zinc-800 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700",
     twitter: "bg-zinc-100 text-zinc-800 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700",
     youtube: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-900"
   };
@@ -67,7 +63,6 @@ export function PlatformBadge({ platform }: { platform: Platform }) {
     instagram: "Instagram",
     facebook: "Facebook",
     linkedin: "LinkedIn",
-    tiktok: "TikTok",
     twitter: "X (Twitter)",
     youtube: "YouTube"
   };

@@ -220,61 +220,6 @@ async function validateLinkedIn(fields: ValidationFields): Promise<ValidationRes
   }
 }
 
-async function validateShopify(fields: ValidationFields): Promise<ValidationResult> {
-  const domain = fields.accountId.replace(/^https?:\/\//, "").replace(/\/$/, "");
-  if (!domain.endsWith(".myshopify.com")) {
-    return { valid: false, error: "Shopify domain must end with .myshopify.com (e.g. mystore.myshopify.com)" };
-  }
-  try {
-    const url = `https://${domain}/admin/api/2024-10/shop.json`;
-    const res = await fetchWithTimeout(url, {
-      headers: { "X-Shopify-Access-Token": fields.apiKey },
-    });
-    if (res.status === 401 || res.status === 403) {
-      return { valid: false, error: "Invalid Shopify access token" };
-    }
-    if (!res.ok) {
-      return { valid: false, error: `Shopify API returned status ${res.status}` };
-    }
-    const data = await res.json() as Record<string, unknown>;
-    const shop = data.shop as Record<string, unknown> | undefined;
-    if (shop && isNonEmptyString(shop.name)) {
-      const verifiedName = isNonEmptyString(shop.email)
-        ? `${shop.name} (${shop.email})`
-        : String(shop.name);
-      return { valid: true, verifiedName };
-    }
-    return { valid: false, error: "No Shopify shop found for the given domain and token" };
-  } catch (err) {
-    return { valid: false, error: `Shopify validation failed: ${err instanceof Error ? err.message : String(err)}` };
-  }
-}
-
-async function validateTikTok(fields: ValidationFields): Promise<ValidationResult> {
-  try {
-    const url = `https://business-api.tiktok.com/open_api/v1.3/business/get/?advertiser_ids=["${encodeURIComponent(fields.accountId)}"]`;
-    const res = await fetchWithTimeout(url, {
-      headers: { "Access-Token": fields.apiKey },
-    });
-    const data = await res.json() as Record<string, unknown>;
-    if (data.code !== 0 || isNonEmptyString(data.message)) {
-      const code = data.code as number | undefined;
-      const msg = isNonEmptyString(data.message) ? data.message : "TikTok API error";
-      if (code !== 0) {
-        return { valid: false, error: String(msg) };
-      }
-    }
-    const innerData = data.data as Record<string, unknown> | undefined;
-    const list = innerData?.list as Array<Record<string, unknown>> | undefined;
-    if (list && list.length > 0 && isNonEmptyString(list[0].name)) {
-      return { valid: true, verifiedName: list[0].name };
-    }
-    return { valid: false, error: "No TikTok advertiser account found for the given ID and token" };
-  } catch (err) {
-    return { valid: false, error: `TikTok validation failed: ${err instanceof Error ? err.message : String(err)}` };
-  }
-}
-
 const platformValidators: Record<string, Validator> = {
   GOOGLE_ADS: validateGoogleAds,
   GOOGLE_ANALYTICS: validateGoogleAnalytics,
@@ -288,8 +233,6 @@ const platformValidators: Record<string, Validator> = {
   MESSENGER: validateMessenger,
   WHATSAPP: validateWhatsApp,
   LINKEDIN: validateLinkedIn,
-  SHOPIFY: validateShopify,
-  TIKTOK: validateTikTok,
 };
 
 export const PLATFORM_VALIDATORS_MAP: Record<string, Validator> = {
@@ -319,10 +262,6 @@ export const PLATFORM_VALIDATORS_MAP: Record<string, Validator> = {
   "WhatsApp": platformValidators.WHATSAPP,
   "LinkedIn": platformValidators.LINKEDIN,
   "LinkedIn Ads & Pages": platformValidators.LINKEDIN,
-  "Shopify": platformValidators.SHOPIFY,
-  "Shopify Store": platformValidators.SHOPIFY,
-  "TikTok": platformValidators.TIKTOK,
-  "TikTok for Business": platformValidators.TIKTOK,
 };
 
 export async function validateCredentials(
@@ -343,8 +282,6 @@ export async function validateCredentials(
     else if (pLower.includes("instagram")) validator = platformValidators.INSTAGRAM;
     else if (pLower.includes("linkedin")) validator = platformValidators.LINKEDIN;
     else if (pLower.includes("facebook")) validator = platformValidators.FACEBOOK;
-    else if (pLower.includes("shopify")) validator = platformValidators.SHOPIFY;
-    else if (pLower.includes("tiktok")) validator = platformValidators.TIKTOK;
   }
 
   if (!validator) {

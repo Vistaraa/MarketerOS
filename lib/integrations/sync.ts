@@ -33,8 +33,6 @@ const manualSyncPlatforms = [
   "MESSENGER",
   "WHATSAPP",
   "YOUTUBE",
-  "SHOPIFY",
-  "TIKTOK",
   "LINKEDIN",
 ] as const
 
@@ -352,116 +350,6 @@ async function syncYoutube(params: SyncParams): Promise<SyncResult> {
   }
 }
 
-async function syncShopify(params: SyncParams): Promise<SyncResult> {
-  const { accountId, apiKey, from, to } = params
-  const headers = { "X-Shopify-Access-Token": apiKey }
-  const fromISO = formatISO(from)
-  const toISO = formatISO(to)
-
-  const [countRes, ordersRes] = await Promise.allSettled([
-    fetchWithTimeout(
-      `https://${accountId}/admin/api/2024-10/orders/count.json?status=any&created_at_min=${fromISO}&created_at_max=${toISO}`,
-      { headers }
-    ),
-    fetchWithTimeout(
-      `https://${accountId}/admin/api/2024-10/orders.json?status=any&created_at_min=${fromISO}&created_at_max=${toISO}&fields=id,total_price,total_discounts,created_at,line_items`,
-      { headers }
-    ),
-  ])
-
-  const countJson =
-    countRes.status === "fulfilled" ? await countRes.value.json() : null
-  const ordersJson =
-    ordersRes.status === "fulfilled" ? await ordersRes.value.json() : null
-
-  if (countJson?.errors) throw new Error(JSON.stringify(countJson.errors))
-  if (ordersJson?.errors) throw new Error(JSON.stringify(ordersJson.errors))
-
-  const orders = ordersJson?.orders || []
-  const dateMap = new Map<string, NormalizedMetric>()
-  for (const d of generateDateRange(from, to)) {
-    dateMap.set(d, emptyMetricForDate(d))
-  }
-
-  for (const order of orders) {
-    const date = order.created_at?.split("T")[0]
-    const entry = dateMap.get(date)
-    if (!entry) continue
-    entry.impressions += 1
-    entry.conversions += 1
-    entry.spend += Number(order.total_discounts || 0)
-    entry.revenue += Number(order.total_price || 0)
-    const lineItemCount = (order.line_items || []).length
-    entry.clicks += lineItemCount
-  }
-
-  return {
-    metrics: Array.from(dateMap.values()),
-    summary: {
-      orderCount: countJson?.count ?? orders.length,
-      fetchedOrders: orders.length,
-    },
-  }
-}
-
-async function syncTiktok(params: SyncParams): Promise<SyncResult> {
-  const { accountId, apiKey, from, to } = params
-  const body = {
-    advertiser_ids: [accountId],
-    report_type: "BASIC",
-    data_level: "AUCTION_ADVERTISER",
-    dimensions: ["stat_time_day"],
-    metrics: [
-      "spend",
-      "impressions",
-      "clicks",
-      "conversion",
-      "conversion_rate",
-      "cost_per_conversion",
-      "campaign_name",
-    ],
-    start_date: formatDate(from),
-    end_date: formatDate(to),
-    page: 1,
-    page_size: 100,
-  }
-
-  const res = await fetchWithTimeout(
-    "https://business-api.tiktok.com/open_api/v1.3/report/integrated/get/",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Token": apiKey,
-      },
-      body: JSON.stringify(body),
-    }
-  )
-  const json = await res.json()
-  if (json.code !== 0) throw new Error(json.message || "TikTok API error")
-
-  const metrics: NormalizedMetric[] = (
-    json.data?.list || []
-  ).map((row: Record<string, unknown>) => {
-    const dims = (row.dimensions || {}) as Record<string, string>
-    const mets = (row.metrics || {}) as Record<string, number>
-    return {
-      externalId: String(dims.advertiser_id || accountId),
-      date: String(dims.stat_time_day || formatDate(from)),
-      impressions: Number(mets.impressions || 0),
-      clicks: Number(mets.clicks || 0),
-      conversions: Number(mets.conversion || 0),
-      spend: Number(mets.spend || 0),
-      revenue: 0,
-    }
-  })
-
-  return {
-    metrics,
-    summary: { rowCount: metrics.length },
-  }
-}
-
 async function syncLinkedin(params: SyncParams): Promise<SyncResult> {
   const { accountId, apiKey, from, to } = params
   const headers = {
@@ -524,8 +412,6 @@ const syncers: Record<string, (params: SyncParams) => Promise<SyncResult>> = {
   MESSENGER: syncMessenger,
   WHATSAPP: syncWhatsApp,
   YOUTUBE: syncYoutube,
-  SHOPIFY: syncShopify,
-  TIKTOK: syncTiktok,
   LINKEDIN: syncLinkedin,
 }
 

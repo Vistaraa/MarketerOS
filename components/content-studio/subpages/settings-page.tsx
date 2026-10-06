@@ -187,11 +187,11 @@ export function SettingsPage() {
                   <div>
                     <h4 className="font-bold text-zinc-900 dark:text-zinc-100">No Connected Channels</h4>
                     <p className="text-xs text-zinc-400 max-w-sm mx-auto mt-0.5">
-                      Connect your Instagram, Facebook, LinkedIn, TikTok, or X accounts to begin publishing and scheduling posts.
+                      Connect your Instagram, Facebook, LinkedIn, or X accounts to begin publishing and scheduling posts.
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                    {(["instagram", "facebook", "linkedin", "tiktok", "twitter"] as Platform[]).map((plat) => (
+                    {(["instagram", "facebook", "linkedin", "twitter"] as Platform[]).map((plat) => (
                       <button
                         key={plat}
                         onClick={() => openConnectModal(plat)}

@@ -155,7 +155,6 @@ export function AnalyticsCenterPage() {
               <option value="GOOGLE_ADS">Google Ads</option>
               <option value="META_ADS">Meta Ads</option>
               <option value="YOUTUBE">YouTube</option>
-              <option value="TIKTOK">TikTok</option>
               <option value="LINKEDIN">LinkedIn</option>
             </select>
           </div>

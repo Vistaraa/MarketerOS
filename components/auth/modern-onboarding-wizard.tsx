@@ -296,9 +296,7 @@ export function ModernOnboardingWizard({ initialStep = "brand" }: { initialStep?
                 "Instagram",
                 "LinkedIn",
                 "YouTube",
-                "TikTok",
-                "Google Analytics",
-                "Shopify"
+                "Google Analytics"
               ].map((plat) => {
                 const isSelected = selectedChannels.includes(plat);
                 const isConnected = connectedPlatforms.includes(plat);

@@ -173,8 +173,6 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
         ? "Sponsored Lead Gen"
         : platName.includes("YouTube")
         ? "In-Stream Video"
-        : platName.includes("TikTok")
-        ? "Spark Ads"
         : "Digital Ads";
 
       return {

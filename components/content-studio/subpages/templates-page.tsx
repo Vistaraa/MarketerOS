@@ -209,7 +209,6 @@ export function TemplatesPage() {
             <option value="instagram">Instagram</option>
             <option value="facebook">Facebook</option>
             <option value="linkedin">LinkedIn</option>
-            <option value="tiktok">TikTok</option>
           </select>
 
           <select

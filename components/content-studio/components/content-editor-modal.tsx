@@ -25,7 +25,6 @@ const PLATFORM_LIMITS: Record<string, { charLimit: number; name: string }> = {
   instagram: { charLimit: 2200, name: "Instagram" },
   facebook: { charLimit: 63206, name: "Facebook" },
   linkedin: { charLimit: 3000, name: "LinkedIn" },
-  tiktok: { charLimit: 2200, name: "TikTok" },
   twitter: { charLimit: 280, name: "X (Twitter)" },
   youtube: { charLimit: 5000, name: "YouTube" }
 };
@@ -261,7 +260,6 @@ Platform requirements: Keep within character limit for ${platform}, use 3-5 rele
                   <option value="instagram">Instagram</option>
                   <option value="facebook">Facebook</option>
                   <option value="linkedin">LinkedIn</option>
-                  <option value="tiktok">TikTok</option>
                   <option value="twitter">X (Twitter)</option>
                   <option value="youtube">YouTube</option>
                 </select>

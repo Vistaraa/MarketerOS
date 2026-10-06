@@ -18,7 +18,7 @@ const input = z.object({
 });
 
 /**
- * Connects LinkedIn Ads, TikTok Ads or Shopify with a pasted token: the token must be able to read the account
+ * Connects LinkedIn Ads with a pasted token: the token must be able to read the account
  * (nothing is saved otherwise), is stored encrypted, and the first 30-day sync is queued.
  */
 export async function connectChannel(request: Request, key: ChannelKey) {
@@ -30,7 +30,6 @@ export async function connectChannel(request: Request, key: ChannelKey) {
   if (blocked) return blocked;
 
   const raw = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-  // The Shopify form sends its Admin API token as `apiKey`.
   const parsed = input.safeParse({ ...raw, accessToken: raw?.accessToken ?? raw?.apiKey });
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid request." }, { status: 400 });
 
@@ -45,7 +44,7 @@ export async function connectChannel(request: Request, key: ChannelKey) {
   try {
     const integration = await connectPersistedIntegrationCredentials({
       workspaceId: session.workspaceId,
-      platform: channel.label === "LinkedIn Ads" ? "LinkedIn" : channel.label === "TikTok Ads" ? "TikTok" : "Shopify",
+      platform: "LinkedIn",
       providerKey: key,
       accountName: parsed.data.accountName || account.name,
       accountId: account.id,

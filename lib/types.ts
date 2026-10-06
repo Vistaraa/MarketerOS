@@ -1,4 +1,4 @@
-export type Platform = "Google Ads" | "Meta Ads" | "Instagram" | "Facebook" | "LinkedIn" | "TikTok" | "GA4" | "Google Analytics" | "Google Search Console" | "Firebase" | "AdMob" | "Google Business Profile" | "YouTube" | "Google Play Console" | "X" | "Messenger" | "WhatsApp Business" | "Shopify" | "WordPress";
+export type Platform = "Google Ads" | "Meta Ads" | "Instagram" | "Facebook" | "LinkedIn" | "GA4" | "Google Analytics" | "Google Search Console" | "Firebase" | "AdMob" | "Google Business Profile" | "YouTube" | "Google Play Console" | "X" | "Messenger" | "WhatsApp Business" | "WordPress";
 export type CampaignStatus = "Active" | "Paused" | "Draft" | "Completed" | "Archived";
 export type LeadStatus = "New" | "Contacted" | "Qualified" | "Proposal sent" | "Converted" | "Lost";
 
@@ -68,7 +68,7 @@ export type Insight = {
 export type SocialPost = {
   id: string;
   title: string;
-  platform: "Instagram" | "LinkedIn" | "Facebook" | "X" | "TikTok";
+  platform: "Instagram" | "LinkedIn" | "Facebook" | "X";
   status: "Published" | "Scheduled" | "Draft" | "In review";
   date: string;
   engagement: string;

@@ -167,7 +167,7 @@ export function CalendarPage() {
                     <div className="px-2 py-1 text-[10px] font-semibold text-zinc-400 uppercase">
                       Filter Platform
                     </div>
-                    {["all", "instagram", "facebook", "linkedin", "tiktok", "twitter", "youtube"].map((plat) => (
+                    {["all", "instagram", "facebook", "linkedin", "twitter", "youtube"].map((plat) => (
                       <button
                         key={plat}
                         onClick={() => {
@@ -279,7 +279,7 @@ export function CalendarPage() {
                             if (post.platform === "instagram") bgClass = "bg-pink-50 text-pink-900 border-pink-200 dark:bg-pink-950/50 dark:text-pink-200";
                             if (post.platform === "linkedin") bgClass = "bg-sky-50 text-sky-900 border-sky-200 dark:bg-sky-950/50 dark:text-sky-200";
                             if (post.platform === "facebook") bgClass = "bg-blue-50 text-blue-900 border-blue-200 dark:bg-blue-950/50 dark:text-blue-200";
-                            if (post.platform === "tiktok" || post.platform === "twitter") bgClass = "bg-zinc-100 text-zinc-900 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-100";
+                            if (post.platform === "twitter") bgClass = "bg-zinc-100 text-zinc-900 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-100";
                             if (post.platform === "youtube") bgClass = "bg-rose-50 text-rose-900 border-rose-200 dark:bg-rose-950/50 dark:text-rose-200";
 
                             return (

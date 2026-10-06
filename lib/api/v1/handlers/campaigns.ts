@@ -51,9 +51,7 @@ export async function POST({ path, auth, body }: V1Context): Promise<Response | 
       "Facebook Messenger": "MESSENGER",
       WhatsApp: "WHATSAPP",
       "WhatsApp Business": "WHATSAPP",
-      LinkedIn: "LINKEDIN",
-      TikTok: "TIKTOK",
-      Shopify: "SHOPIFY"
+      LinkedIn: "LINKEDIN"
     };
 
     const platformList: string[] = parsed.data.platforms && parsed.data.platforms.length > 0

@@ -34,8 +34,6 @@ const platformMap: Record<string, Platform> = {
   "WhatsApp Business": Platform.WHATSAPP,
   LinkedIn: Platform.LINKEDIN,
   "LinkedIn Ads & Pages": Platform.LINKEDIN,
-  TikTok: Platform.TIKTOK,
-  Shopify: Platform.SHOPIFY,
   X: Platform.X,
   Twitter: Platform.X,
   "X (Twitter)": Platform.X
@@ -54,9 +52,7 @@ const platformName: Partial<Record<Platform, Campaign["platform"]>> = {
   MESSENGER: "Messenger" as unknown as Campaign["platform"],
   WHATSAPP: "WhatsApp" as unknown as Campaign["platform"],
   LINKEDIN: "LinkedIn",
-  TIKTOK: "TikTok",
   X: "X",
-  SHOPIFY: "Shopify",
   OTHER: "WordPress"
 };
 const titleStatus: Record<string, Campaign["status"]> = { DRAFT: "Draft", ACTIVE: "Active", PAUSED: "Paused", COMPLETED: "Completed", ARCHIVED: "Archived", DELETED: "Archived" };
@@ -318,8 +314,8 @@ export async function convertPersistedLeadToClient(workspaceId: string, leadId: 
   return client;
 }
 
-const integrationPlatform: Partial<Record<Platform, Integration["platform"]>> = { GOOGLE_ADS: "Google Ads", META_ADS: "Meta Ads", GOOGLE_ANALYTICS: "Google Analytics", INSTAGRAM: "Instagram", FACEBOOK: "Facebook", LINKEDIN: "LinkedIn", TIKTOK: "TikTok", YOUTUBE: "YouTube", X: "X", SHOPIFY: "Shopify", OTHER: "WordPress" };
-const integrationColor: Record<string, string> = { "Google Ads": "#4285f4", "Meta Ads": "#1877f2", Instagram: "#e4405f", Facebook: "#1877f2", LinkedIn: "#0a66c2", TikTok: "#111827", YouTube: "#ff0000", "Google Analytics": "#f9ab00", Shopify: "#96bf48" };
+const integrationPlatform: Partial<Record<Platform, Integration["platform"]>> = { GOOGLE_ADS: "Google Ads", META_ADS: "Meta Ads", GOOGLE_ANALYTICS: "Google Analytics", INSTAGRAM: "Instagram", FACEBOOK: "Facebook", LINKEDIN: "LinkedIn", YOUTUBE: "YouTube", X: "X", OTHER: "WordPress" };
+const integrationColor: Record<string, string> = { "Google Ads": "#4285f4", "Meta Ads": "#1877f2", Instagram: "#e4405f", Facebook: "#1877f2", LinkedIn: "#0a66c2", YouTube: "#ff0000", "Google Analytics": "#f9ab00" };
 
 function integrationFromRow(row: { id: string; platform: Platform; accountName: string | null; accountId: string | null; status: string; lastSyncedAt: Date | null; providerKey: string | null; errorMessage: string | null }): Integration & { providerKey?: string; error?: string } {
   const providerLabels: Record<string, Integration["platform"]> = { google_ads: "Google Ads", google_analytics: "Google Analytics", google_search_console: "Google Search Console", google_firebase: "Firebase", google_admob: "AdMob", google_youtube: "YouTube", google_business_profile: "Google Business Profile", meta_ads: "Meta Ads", meta_facebook: "Facebook", meta_instagram: "Instagram", meta_messenger: "Messenger", meta_whatsapp: "WhatsApp Business" };
@@ -745,7 +741,7 @@ export async function listPersistedSocialAccountsMerged(workspaceId: string) {
     prisma.integration.findMany({
       where: {
         workspaceId,
-        platform: { in: [Platform.INSTAGRAM, Platform.FACEBOOK, Platform.LINKEDIN, Platform.TIKTOK, Platform.X, Platform.YOUTUBE] },
+        platform: { in: [Platform.INSTAGRAM, Platform.FACEBOOK, Platform.LINKEDIN, Platform.X, Platform.YOUTUBE] },
         status: "CONNECTED"
       },
       orderBy: { createdAt: "desc" }

@@ -100,11 +100,14 @@ export function hashtagGroupDto(row: HashtagGroup) {
   };
 }
 
+/** Platforms Content Studio publishes to; anything else (e.g. from an old browser-only import) is dropped. */
+const CONTENT_PLATFORMS = new Set(["instagram", "facebook", "linkedin", "twitter", "youtube"]);
+
 /** Fields accepted when creating or updating a template. */
 export const templateFields = {
   name: z.string().trim().min(1).max(120),
   category: z.string().trim().min(1).max(60).optional(),
-  platforms: z.array(z.string().max(40)).max(20).optional(),
+  platforms: z.array(z.string().max(40)).max(20).transform((list) => list.filter((p) => CONTENT_PLATFORMS.has(p))).optional(),
   // Rendered in <img src>: only site-relative paths (e.g. uploaded media) or https URLs.
   thumbnail: z.string().max(2000).refine((v) => v === "" || (v.startsWith("/") && !v.startsWith("//")) || v.startsWith("https://"), "Thumbnail must be an uploaded file or an https URL.").optional(),
   width: z.number().int().positive().max(10000).optional(),

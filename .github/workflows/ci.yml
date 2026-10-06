@@ -58,8 +58,6 @@ jobs:
       GOOGLE_PLAY_API_BASE_URL: http://127.0.0.1:5077/play
       PLAY_REPORTING_API_BASE_URL: http://127.0.0.1:5077/reporting
       LINKEDIN_API_BASE_URL: http://127.0.0.1:5077/linkedin
-      TIKTOK_API_BASE_URL: http://127.0.0.1:5077/tiktok
-      SHOPIFY_API_BASE_URL: http://127.0.0.1:5077/shopify
       META_CLIENT_ID: ci-stub-meta-app
       META_CLIENT_SECRET: ci-stub-meta-secret
       GOOGLE_OAUTH_CLIENT_ID: ci-stub-google-client

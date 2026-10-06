@@ -76,20 +76,6 @@ const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
     usernamePlaceholder: "Brand Inc.",
     docsHelp: "Post thought leadership articles, company news, and B2B carousels directly to LinkedIn."
   },
-  tiktok: {
-    id: "tiktok",
-    name: "TikTok for Business",
-    badge: "TikTok Open API",
-    accountLabel: "TikTok Advertiser ID / Account ID",
-    accountPlaceholder: "e.g. 7019283746192837461",
-    accountHelp: "19-digit Advertiser ID from your TikTok for Business Ads Manager profile.",
-    tokenLabel: "Long-Term Access Token",
-    tokenPlaceholder: "act.XXXXXXXXXXXX...",
-    tokenHelp: "Developer token generated in TikTok for Business Developer portal.",
-    usernameLabel: "TikTok Username / Handle",
-    usernamePlaceholder: "@brand_tiktok",
-    docsHelp: "Schedule short-form video content and monitor organic video metrics."
-  },
   twitter: {
     id: "twitter",
     name: "X (Twitter)",

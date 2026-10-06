@@ -143,7 +143,7 @@ You will see the **Create your account** form. Enter the following:
 - At the top right, you will see two view mode buttons:
   - **`Directory View`** (Selected by default — shows cards for all advertising platforms).
   - **`⚡ Live Google Hub`** (A unified live dashboard showing real-time metrics).
-- You will see cards for **Google Ads**, **Google Analytics**, **Google Search Console**, **Firebase (AdMob)**, Meta Ads, TikTok, etc.
+- You will see cards for **Google Ads**, **Google Analytics**, **Google Search Console**, **Firebase (AdMob)**, Meta Ads, LinkedIn Ads, etc.
 
 ---
 

@@ -35,7 +35,7 @@ const META_GRAPH_BASE_URL = process.env.META_GRAPH_BASE_URL || "https://graph.fa
 const metaUrl = (path: string) => new URL(`${META_GRAPH_BASE_URL}/${META_GRAPH_VERSION}/${path.replace(/^\//, "")}`);
 
 const googleScopes: Record<ProviderKey, string[]> = {
-  google_ads: ["https://www.googleapis.com/auth/adwords"], google_analytics: ["https://www.googleapis.com/auth/analytics.readonly"], google_search_console: ["https://www.googleapis.com/auth/webmasters.readonly"], google_firebase: ["https://www.googleapis.com/auth/firebase.readonly"], google_admob: ["https://www.googleapis.com/auth/admob.readonly"], google_youtube: ["https://www.googleapis.com/auth/youtube.readonly"], google_business_profile: ["https://www.googleapis.com/auth/business.manage"], meta_ads: [], meta_facebook: [], meta_instagram: [], meta_messenger: [], meta_whatsapp: [], linkedin_ads: [], tiktok_ads: [], shopify_store: []
+  google_ads: ["https://www.googleapis.com/auth/adwords"], google_analytics: ["https://www.googleapis.com/auth/analytics.readonly"], google_search_console: ["https://www.googleapis.com/auth/webmasters.readonly"], google_firebase: ["https://www.googleapis.com/auth/firebase.readonly"], google_admob: ["https://www.googleapis.com/auth/admob.readonly"], google_youtube: ["https://www.googleapis.com/auth/youtube.readonly"], google_business_profile: ["https://www.googleapis.com/auth/business.manage"], meta_ads: [], meta_facebook: [], meta_instagram: [], meta_messenger: [], meta_whatsapp: [], linkedin_ads: []
 };
 const metaScopes = ["ads_read", "ads_management", "pages_read_engagement", "pages_manage_posts", "instagram_basic", "instagram_content_publish", "business_management"];
 
@@ -46,7 +46,7 @@ export function googleOAuthClient() {
 
 /** What starting an OAuth connection needs (syncing with an existing token needs less; see each provider). */
 export function providerConfiguration(providerKey: ProviderKey) {
-  // LinkedIn, TikTok and Shopify connect with a pasted access token (see their /api/<channel>/connect routes).
+  // LinkedIn connects with a pasted access token (see /api/linkedin/connect).
   if (providerKey in CHANNELS) return { configured: false, missing: ["token connection (no OAuth app)"] };
   const google = googleOAuthClient();
   const checks: Array<[string, boolean]> = providerKey.startsWith("google_")
@@ -236,14 +236,14 @@ export function providerKeyForPlatform(platform: Platform): ProviderKey { return
 
 /** Providers by key or platform name. OAuth routes check providerConfiguration() first; syncing needs only a token. */
 /** Database platform values (Integration.platform) that have a provider. */
-const PLATFORM_ENUM_KEYS: Record<string, ProviderKey> = { GOOGLE_ADS: "google_ads", META_ADS: "meta_ads", GOOGLE_ANALYTICS: "google_analytics", INSTAGRAM: "meta_instagram", FACEBOOK: "meta_facebook", YOUTUBE: "google_youtube", FIREBASE_ADMOB: "google_admob", LINKEDIN: "linkedin_ads", TIKTOK: "tiktok_ads", SHOPIFY: "shopify_store" };
+const PLATFORM_ENUM_KEYS: Record<string, ProviderKey> = { GOOGLE_ADS: "google_ads", META_ADS: "meta_ads", GOOGLE_ANALYTICS: "google_analytics", INSTAGRAM: "meta_instagram", FACEBOOK: "meta_facebook", YOUTUBE: "google_youtube", FIREBASE_ADMOB: "google_admob", LINKEDIN: "linkedin_ads" };
 
-/** LinkedIn / TikTok / Shopify: token-connected, metrics only (no OAuth flow here). */
+/** LinkedIn: token-connected, metrics only (no OAuth flow here). */
 class ChannelProvider implements MarketingProvider {
   readonly supportsMetrics = true;
   readonly platform: Platform;
   constructor(public readonly providerKey: ChannelKey) {
-    this.platform = ({ linkedin_ads: "LinkedIn", tiktok_ads: "TikTok", shopify_store: "Shopify" } as Record<ChannelKey, Platform>)[providerKey];
+    this.platform = ({ linkedin_ads: "LinkedIn" } as Record<ChannelKey, Platform>)[providerKey];
   }
   getAuthorizationUrl(): string { throw new ProviderError(`${CHANNELS[this.providerKey].label} connects with an access token, not OAuth.`, 400); }
   exchangeCode(): Promise<ProviderToken> { throw new ProviderError(`${CHANNELS[this.providerKey].label} connects with an access token, not OAuth.`, 400); }

@@ -24,8 +24,6 @@ import {
   SiInstagram,
   SiMessenger,
   SiMeta,
-  SiShopify,
-  SiTiktok,
   SiWhatsapp,
   SiWordpress,
   SiX,
@@ -95,12 +93,6 @@ const brandMap: Record<string, BrandConfig> = {
     bgLight: "bg-blue-50 text-blue-700 border-blue-100",
     bgDark: "dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900/50"
   },
-  TikTok: {
-    icon: SiTiktok,
-    color: "#000000",
-    bgLight: "bg-zinc-100 text-zinc-900 border-zinc-200",
-    bgDark: "dark:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-700"
-  },
   GA4: {
     icon: SiGoogleanalytics,
     color: "#E37400",
@@ -130,12 +122,6 @@ const brandMap: Record<string, BrandConfig> = {
     color: "#000000",
     bgLight: "bg-zinc-100 text-zinc-900 border-zinc-200",
     bgDark: "dark:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-700"
-  },
-  Shopify: {
-    icon: SiShopify,
-    color: "#7AB55C",
-    bgLight: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    bgDark: "dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50"
   },
   Firebase: {
     icon: SiFirebase,
@@ -175,8 +161,6 @@ export function PlatformIcon({
     else if (p.includes("messenger")) config = brandMap["Messenger"];
     else if (p.includes("whatsapp")) config = brandMap["WhatsApp"];
     else if (p.includes("linkedin")) config = brandMap["LinkedIn"];
-    else if (p.includes("tiktok")) config = brandMap["TikTok"];
-    else if (p.includes("shopify")) config = brandMap["Shopify"];
     else if (p.includes("wordpress")) config = brandMap["WordPress"];
     else if (p === "x" || p.includes("twitter")) config = brandMap["X"];
   }

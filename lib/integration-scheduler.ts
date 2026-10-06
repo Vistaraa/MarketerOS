@@ -5,7 +5,7 @@ import { sendNoticeEmail } from "@/lib/email";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Platforms imported automatically each day, and the job that imports each. */
-const SYNCED_PLATFORMS = ["GOOGLE_ADS", "META_ADS", "LINKEDIN", "TIKTOK", "SHOPIFY", "GOOGLE_PLAY"] as const;
+const SYNCED_PLATFORMS = ["GOOGLE_ADS", "META_ADS", "LINKEDIN", "GOOGLE_PLAY"] as const;
 const jobFor = (platform: string) => (platform === "GOOGLE_PLAY" ? "play.import" : "integration.sync");
 /** First sync backfills this much history; later syncs re-read a few days so late conversions are counted. */
 const BACKFILL_DAYS = 30;

@@ -20,7 +20,7 @@ const change = (current: number, previous: number) => (previous > 0 ? round(((cu
  * Account-level performance for one ad platform from synced daily metrics: totals, ratios, the change against the
  * previous period of the same length, and the daily trend. Nothing is estimated; days without data are absent.
  */
-export type SyncedPlatform = "GOOGLE_ADS" | "META_ADS" | "LINKEDIN" | "TIKTOK" | "SHOPIFY";
+export type SyncedPlatform = "GOOGLE_ADS" | "META_ADS" | "LINKEDIN";
 
 export async function platformPerformance(workspaceId: string, platform: SyncedPlatform, days: number) {
   const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00.000Z");

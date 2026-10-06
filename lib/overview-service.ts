@@ -142,8 +142,7 @@ function buildPlatformSpend(campaignRows: Campaign[], query: OverviewQuery, metr
     ["Google Ads", "#4285f4"],
     ["Meta Ads", "#1877f2"],
     ["Instagram Ads", "#e4405f"],
-    ["LinkedIn", "#0a66c2"],
-    ["TikTok", "#111111"]
+    ["LinkedIn", "#0a66c2"]
   ]);
   return selected.map(([label, value]): PlatformSpendItem => ({
     label,
@@ -161,10 +160,8 @@ function persistedPlatform(platform: string): Integration["platform"] {
     INSTAGRAM: "Instagram",
     FACEBOOK: "Facebook",
     LINKEDIN: "LinkedIn",
-    TIKTOK: "TikTok",
     YOUTUBE: "YouTube",
     X: "X",
-    SHOPIFY: "Shopify",
     OTHER: "WordPress"
   };
   return map[platform] || "WordPress";
@@ -270,12 +267,9 @@ export async function buildPersistedOverview(
       orderBy: { updatedAt: "desc" }
     }),
     prisma.aIInsight.findMany({ where: { workspaceId }, orderBy: { updatedAt: "desc" }, take: 4 }),
-    // Shopify rows are store sales, already counted as ad conversions/revenue by the ad platforms: they stay
-    // on the Shopify dashboard and out of these advertising totals.
     prisma.platformMetricDaily.findMany({
       where: {
         workspaceId,
-        platform: { not: "SHOPIFY" },
         date: { gte: dateOnly(query.dateFrom), lte: dateOnly(query.dateTo) },
         ...(query.clientId ? { clientId: query.clientId } : {}),
         ...(query.platform ? { platform: query.platform.toUpperCase().replace(" ", "_") as never } : {})
@@ -285,7 +279,6 @@ export async function buildPersistedOverview(
     prisma.platformMetricDaily.findMany({
       where: {
         workspaceId,
-        platform: { not: "SHOPIFY" },
         date: { gte: dateOnly(query.compareFrom), lte: dateOnly(query.compareTo) },
         ...(query.clientId ? { clientId: query.clientId } : {}),
         ...(query.platform ? { platform: query.platform.toUpperCase().replace(" ", "_") as never } : {})
