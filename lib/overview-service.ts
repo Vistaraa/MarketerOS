@@ -120,12 +120,18 @@ function aggregateSeries(source: ChartPoint[], query: OverviewQuery) {
   return Array.from(buckets.values());
 }
 
-function buildPlatformSpend(campaignRows: Campaign[], query: OverviewQuery): PlatformSpendItem[] {
-  const source = campaignRows.reduce<Map<string, number>>((map, item) => {
+/** Spend per channel: synced daily metrics where a platform has them, campaign totals for the rest. */
+function buildPlatformSpend(campaignRows: Campaign[], query: OverviewQuery, metrics: Array<{ platform: string; spend: unknown }> = []): PlatformSpendItem[] {
+  const source = new Map<string, number>();
+  for (const row of metrics) {
+    const label = campaignPlatformLabel(persistedPlatform(row.platform));
+    source.set(label, (source.get(label) || 0) + Number(row.spend));
+  }
+  const synced = new Set(source.keys());
+  for (const item of campaignRows) {
     const label = campaignPlatformLabel(item.platform);
-    map.set(label, (map.get(label) || 0) + item.spend);
-    return map;
-  }, new Map());
+    if (!synced.has(label)) source.set(label, (source.get(label) || 0) + item.spend);
+  }
   const selected = query.platform
     ? Array.from(source.entries()).filter(
         ([label]) => normalizePlatform(label) === normalizePlatform(query.platform)
@@ -264,9 +270,12 @@ export async function buildPersistedOverview(
       orderBy: { updatedAt: "desc" }
     }),
     prisma.aIInsight.findMany({ where: { workspaceId }, orderBy: { updatedAt: "desc" }, take: 4 }),
+    // Shopify rows are store sales, already counted as ad conversions/revenue by the ad platforms: they stay
+    // on the Shopify dashboard and out of these advertising totals.
     prisma.platformMetricDaily.findMany({
       where: {
         workspaceId,
+        platform: { not: "SHOPIFY" },
         date: { gte: dateOnly(query.dateFrom), lte: dateOnly(query.dateTo) },
         ...(query.clientId ? { clientId: query.clientId } : {}),
         ...(query.platform ? { platform: query.platform.toUpperCase().replace(" ", "_") as never } : {})
@@ -276,6 +285,7 @@ export async function buildPersistedOverview(
     prisma.platformMetricDaily.findMany({
       where: {
         workspaceId,
+        platform: { not: "SHOPIFY" },
         date: { gte: dateOnly(query.compareFrom), lte: dateOnly(query.compareTo) },
         ...(query.clientId ? { clientId: query.clientId } : {}),
         ...(query.platform ? { platform: query.platform.toUpperCase().replace(" ", "_") as never } : {})
@@ -360,32 +370,33 @@ export async function buildPersistedOverview(
   const persistedSeries = Array.from(metricByDate.values());
   const series = query.granularity === "daily" ? persistedSeries : aggregateSeries(persistedSeries, query);
 
+  // Platforms with synced daily metrics are counted from those (date-accurate); campaign totals only fill in for
+  // platforms that aren't synced, so nothing is counted twice.
+  const syncedLabels = new Set(metrics.map((row) => persistedPlatform(row.platform)));
+  const unsynced = campaigns.filter((row) => !syncedLabels.has(row.platform));
+
   const spend =
     metrics.reduce((sum, row) => sum + Number(row.spend), 0) +
-    campaigns.reduce((sum, row) => sum + row.spend, 0);
+    unsynced.reduce((sum, row) => sum + row.spend, 0);
 
   const clicks =
     metrics.reduce((sum, row) => sum + row.clicks, 0) +
-    campaigns.reduce((sum, row) => sum + row.clicks, 0);
+    unsynced.reduce((sum, row) => sum + row.clicks, 0);
 
   const conversions =
     metrics.reduce((sum, row) => sum + row.conversions, 0) +
-    campaigns.reduce((sum, row) => sum + row.conversions, 0);
+    unsynced.reduce((sum, row) => sum + row.conversions, 0);
 
+  // Campaign impressions are only known through their CTR; never estimated.
   const impressions =
     metrics.reduce((sum, row) => sum + row.impressions, 0) +
-    campaigns.reduce((sum, row) => sum + (row.clicks > 0 && row.ctr > 0 ? Math.round(row.clicks / (row.ctr / 100)) : row.clicks * 20), 0);
+    unsynced.reduce((sum, row) => sum + (row.clicks > 0 && row.ctr > 0 ? Math.round(row.clicks / (row.ctr / 100)) : 0), 0);
 
   const revenue =
     metrics.reduce((sum, row) => sum + Number(row.revenue), 0) +
-    campaigns.reduce((sum, row) => sum + Number(row.spend * (row.roas || 0)), 0);
+    unsynced.reduce((sum, row) => sum + Number(row.spend * (row.roas || 0)), 0);
 
-  const roas =
-    metrics.length && spend
-      ? metrics.reduce((sum, row) => sum + Number(row.revenue), 0) / spend
-      : campaigns.length && spend
-      ? campaigns.reduce((sum, row) => sum + (row.roas || 0), 0) / campaigns.length
-      : 0;
+  const roas = spend > 0 ? revenue / spend : 0;
 
   const ctr = impressions > 0 ? Number(((clicks / impressions) * 100).toFixed(2)) : 0;
   const cpa = conversions > 0 ? Number((spend / conversions).toFixed(2)) : 0;
@@ -464,7 +475,7 @@ export async function buildPersistedOverview(
     revenue
   };
 
-  const platformSpend = buildPlatformSpend(rawCampaigns, query);
+  const platformSpend = buildPlatformSpend(rawCampaigns, query, metrics);
 
   return {
     kpis,

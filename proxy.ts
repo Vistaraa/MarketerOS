@@ -7,6 +7,8 @@ const COOKIE_NAME = "marketeros_session";
 const PUBLIC_PREFIXES = [
   "/auth",
   "/api/auth",
+  // Terms, Privacy and Cookie policies must be readable before signing up.
+  "/legal",
   "/api/health",
   "/favicon.ico",
   "/_next",
@@ -60,15 +62,65 @@ async function hasValidSignature(token: string | undefined) {
   }
 }
 
-export async function middleware(request: NextRequest) {
+/**
+ * Page Content-Security-Policy with a per-request nonce: only scripts carrying it (Next.js adds it to its own, and
+ * app/layout.tsx to the theme script) or loaded by them ('strict-dynamic') can run, so injected inline scripts
+ * can't. Styles still allow inline attributes, which React components use.
+ */
+function pageContentSecurityPolicy(nonce: string) {
+  const isDev = process.env.NODE_ENV !== "production";
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
+    // Google Fonts is loaded via @import in app/globals.css.
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "img-src 'self' data: blob: https:",
+    "media-src 'self' data: blob: https:",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    `connect-src ${process.env.MARKETEROS_CSP_CONNECT_SRC || "'self'"}`,
+    "frame-src 'self'",
+    "frame-ancestors 'none'",
+    "form-action 'self' https://secure.payu.in https://test.payu.in",
+    "base-uri 'self'",
+    "object-src 'none'"
+  ].join("; ");
+}
+
+/** Continues to the page with its nonce and CSP (API routes get their static policy from next.config.mjs). */
+function nextWithCsp(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith("/api/")) return NextResponse.next();
+  const nonce = btoa(crypto.randomUUID());
+  const csp = pageContentSecurityPolicy(nonce);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  // Next.js reads the nonce from the request's CSP header and applies it to the scripts it renders.
+  requestHeaders.set("Content-Security-Policy", csp);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", csp);
+  return response;
+}
+
+/** Next.js 16 "proxy" (formerly middleware): runs before every matched request. */
+export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const sessionCookie = request.cookies.get(COOKIE_NAME)?.value;
   const authHeader = request.headers.get("authorization");
   const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : undefined;
 
+  // Developer API keys are read-only and only valid for the /api/v1 data endpoints (the key itself is checked there).
+  if (bearer?.startsWith("mk_live_")) {
+    if (!pathname.startsWith("/api/v1/")) {
+      return NextResponse.json({ error: { code: "API_KEY_NOT_ALLOWED", message: "API keys can only be used with /api/v1 endpoints." } }, { status: 403 });
+    }
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return NextResponse.json({ error: { code: "API_KEY_READ_ONLY", message: "API keys are read-only." } }, { status: 403 });
+    }
+    return NextResponse.next();
+  }
+
   // 1. Allow public routes (/auth, /api/auth, etc.)
   if (isPublic(pathname)) {
-    return NextResponse.next();
+    return nextWithCsp(request);
   }
 
   const hasToken = (await hasValidSignature(sessionCookie)) || (await hasValidSignature(bearer));
@@ -99,7 +151,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/overview", request.url));
   }
 
-  return NextResponse.next();
+  return nextWithCsp(request);
 }
 
 export const config = {

@@ -140,7 +140,7 @@ export function CommandPalette({ open, onClose, role }: { open: boolean; onClose
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/60 p-4 pt-20 backdrop-blur-md sm:p-6 sm:pt-28">
+    <div className="fixed inset-0 z-100 flex items-start justify-center bg-black/60 p-4 pt-20 backdrop-blur-md sm:p-6 sm:pt-28">
       <div
         className="w-full max-w-xl overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl transition-all dark:border-zinc-800 dark:bg-zinc-900"
         onClick={(e) => e.stopPropagation()}
@@ -153,9 +153,9 @@ export function CommandPalette({ open, onClose, role }: { open: boolean; onClose
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Type a command or search pages…"
-            className="ml-3 flex-1 text-xs font-medium text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100"
+            className="ml-3 flex-1 text-xs font-medium text-zinc-900 outline-hidden placeholder:text-zinc-400 dark:text-zinc-100"
           />
-          <kbd className="hidden rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-mono text-zinc-500 sm:inline-block dark:border-zinc-700 dark:bg-zinc-800">
+          <kbd className="hidden rounded-sm border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-mono text-zinc-500 sm:inline-block dark:border-zinc-700 dark:bg-zinc-800">
             ESC
           </kbd>
         </div>
@@ -177,7 +177,7 @@ export function CommandPalette({ open, onClose, role }: { open: boolean; onClose
                     className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="grid h-6 w-6 place-items-center rounded bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                      <div className="grid h-6 w-6 place-items-center rounded-sm bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
                         <Icon size={14} />
                       </div>
                       <span className="font-medium text-xs">{item.label}</span>
@@ -263,7 +263,7 @@ export function ModernSidebar({
                 <>
                   <span className="truncate">{label}</span>
                   {badge && (
-                    <span className="ml-auto rounded bg-zinc-200/80 px-1 py-0.2 text-[9px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                    <span className="ml-auto rounded-sm bg-zinc-200/80 px-1 py-0.2 text-[9px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
                       {badge}
                     </span>
                   )}
@@ -335,13 +335,13 @@ export function ModernSidebar({
               {!collapsed && <span className="text-[11px]">Search…</span>}
             </div>
             {!collapsed && (
-              <kbd className="rounded border border-zinc-200 bg-white px-1 py-0.2 text-[9px] font-mono text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800">⌘K</kbd>
+              <kbd className="rounded-sm border border-zinc-200 bg-white px-1 py-0.2 text-[9px] font-mono text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800">⌘K</kbd>
             )}
           </button>
         </div>
 
         {/* Navigation Sections */}
-        <div className="mt-4 flex-1 space-y-4 overflow-y-auto [scrollbar-width:none]">
+        <div className="mt-4 flex-1 space-y-4 overflow-y-auto scrollbar-none">
           <div>
             {!collapsed && (
               <div className="mb-1.5 px-2 text-[10px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
@@ -396,7 +396,7 @@ export function ModernSidebar({
               <button
                 onClick={handleLogout}
                 title="Log out"
-                className="rounded p-1 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                className="rounded-sm p-1 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
               >
                 <LogOut size={13} />
               </button>
@@ -421,7 +421,7 @@ export function ModernSidebar({
       {mobileOpen && (
         <div
           onClick={onMobileClose}
-          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-xs lg:hidden"
         />
       )}
     </>
@@ -502,7 +502,7 @@ export function ModernTopbar({
   };
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-zinc-200/80 bg-white/95 px-2.5 sm:px-6 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/95">
+    <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-zinc-200/80 bg-white/95 px-2.5 sm:px-6 backdrop-blur-xs dark:border-zinc-800 dark:bg-zinc-950/95">
       {/* Left: Mobile Menu Trigger & Page Title */}
       <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 pr-1">
         <button
@@ -743,7 +743,7 @@ export function AppShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [loadingSession, setLoadingSession] = useState(true);
-  const [session, setSession] = useState<{ authenticated?: boolean; suspended?: boolean; user?: { role?: string; name?: string; email?: string; emailVerified?: boolean }; subscription?: SubscriptionSummary } | null>(null);
+  const [session, setSession] = useState<{ authenticated?: boolean; suspended?: boolean; user?: { role?: string; name?: string; email?: string; emailVerified?: boolean }; subscription?: SubscriptionSummary; workspaceDeletionAt?: string | null } | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/session")
@@ -767,6 +767,16 @@ export function AppShell({
       });
   }, [pathname, router]);
 
+  // A session that ended (expired, revoked, signed out elsewhere): clear the cookie and go to sign-in with a full page
+  // load, so no state from the old session survives.
+  const signedOut = !loadingSession && Boolean(session) && session?.authenticated === false && !session?.suspended;
+  useEffect(() => {
+    if (!signedOut) return;
+    fetch("/api/auth/logout", { method: "POST" }).finally(() => {
+      window.location.assign(new URL("/auth/login", window.location.origin).toString());
+    });
+  }, [signedOut]);
+
   // Global Keyboard shortcut (Cmd+K / Ctrl+K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -782,7 +792,7 @@ export function AppShell({
   // Handle Suspended User Screen
   if (session?.suspended) {
     return (
-      <div className="fixed inset-0 z-[999] flex items-center justify-center bg-zinc-950 p-4 text-zinc-100 antialiased font-sans">
+      <div className="fixed inset-0 z-999 flex items-center justify-center bg-zinc-950 p-4 text-zinc-100 antialiased font-sans">
         <div className="w-full max-w-md space-y-6 rounded-2xl border border-rose-900/50 bg-zinc-900/90 p-7 shadow-2xl backdrop-blur-xl text-center">
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-rose-500/10 text-rose-500 border border-rose-500/20">
             <Shield size={34} />
@@ -814,7 +824,7 @@ export function AppShell({
             <button
               onClick={() => {
                 fetch("/api/auth/logout", { method: "POST" }).finally(() => {
-                  window.location.href = "/auth/login";
+                  window.location.assign(new URL("/auth/login", window.location.origin).toString());
                 });
               }}
               className="w-full rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-rose-600/20 transition hover:bg-rose-500"
@@ -827,15 +837,8 @@ export function AppShell({
     );
   }
 
-  // Handle Unauthenticated Session
-  if (!loadingSession && session && session.authenticated === false && !session.suspended) {
-    if (typeof window !== "undefined") {
-      fetch("/api/auth/logout", { method: "POST" }).finally(() => {
-        window.location.href = "/auth/login";
-      });
-    }
-    return null;
-  }
+  // Handle Unauthenticated Session (the sign-out and redirect run in an effect above)
+  if (signedOut) return null;
 
   const isAllowed = isNavAllowed(pathname, session?.user?.role);
   const role = session?.user?.role || "USER";
@@ -860,6 +863,13 @@ export function AppShell({
         />
 
         {session?.authenticated && session.user?.emailVerified === false && <VerifyEmailBanner email={session.user.email} />}
+        {session?.authenticated && session.workspaceDeletionAt && (
+          <div role="alert" className="flex flex-wrap items-center gap-2 border-b border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
+            <Shield size={14} className="shrink-0" />
+            <span className="min-w-0 flex-1">This workspace and all its data will be permanently deleted on {bannerDate(session.workspaceDeletionAt)}.</span>
+            {session.user?.role?.toUpperCase() === "OWNER" && <Link href="/settings?tab=privacy" className="font-semibold underline hover:no-underline">Cancel deletion</Link>}
+          </div>
+        )}
         {session?.authenticated && session.subscription && <SubscriptionBanner subscription={session.subscription} />}
 
         <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 pb-24 lg:pb-8">
@@ -1088,7 +1098,7 @@ export function Tabs({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="flex gap-1 overflow-x-auto border-b border-zinc-200 dark:border-zinc-800 [scrollbar-width:none]">
+    <div className="flex gap-1 overflow-x-auto border-b border-zinc-200 dark:border-zinc-800 scrollbar-none">
       {items.map((tab) => (
         <button
           key={tab}

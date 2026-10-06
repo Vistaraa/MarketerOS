@@ -28,6 +28,7 @@ export function SetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -76,7 +77,7 @@ export function SetPasswordPage() {
       const res = await fetch("/api/auth/set-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password })
+        body: JSON.stringify({ token, password, acceptTerms })
       });
 
       const payload = await safeFetchJson<ApiResponse<{ success: boolean; next?: string }>>(res);
@@ -304,10 +305,18 @@ export function SetPasswordPage() {
                     </div>
                   </div>
 
+                  <label className="flex items-start gap-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+                    <input type="checkbox" required checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} className="mt-0.5 h-3.5 w-3.5 rounded-sm border-zinc-300" />
+                    <span>
+                      I agree to the <a href="/legal/terms" target="_blank" rel="noopener" className="font-semibold underline">Terms of Service</a> and{" "}
+                      <a href="/legal/privacy" target="_blank" rel="noopener" className="font-semibold underline">Privacy Policy</a>.
+                    </span>
+                  </label>
+
                   <div className="pt-2">
                     <button
                       type="submit"
-                      disabled={!isFormValid || submitting}
+                      disabled={!isFormValid || !acceptTerms || submitting}
                       className="btn-primary w-full py-2.5 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {submitting ? "Setting Password…" : "Set Password & Activate Account"}

@@ -63,3 +63,6 @@ export function findChrome() {
   const candidates = [process.env.CHROME_PATH, "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium", "/usr/bin/chromium-browser"];
   return candidates.find((p) => p && fs.existsSync(p)) || null;
 }
+
+/** Marks a test account's email as confirmed (payments, invitations and integrations require it). */
+export const verifyEmail = (email) => sql(`update "User" set "emailVerifiedAt" = timezone('utc', now()) where email = '${email.replaceAll("'", "''")}'`);

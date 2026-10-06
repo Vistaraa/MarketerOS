@@ -2,4 +2,5 @@ export type { YouTubeChannelInfo, YouTubeVideo, YouTubeAnalyticsData, YouTubeCon
 export type { YouTubeAdCampaign, YouTubeAdGroup, YouTubeAd, YouTubeChannelPerformance, YouTubeAdsMetrics, YouTubeAdsConnectInput } from "./ads-types";
 export { validateYouTubeApiKey, validateYouTubeChannel, fetchChannelInfo, fetchRecentVideos, fetchPlaylists } from "./api";
 export { fetchAllYouTubeAnalytics, fetchDailyAnalytics, fetchSubscriberGains, fetchTopCountries, fetchTrafficSources, fetchDemographics, fetchEngagementMetrics } from "./analytics";
-export { validateYouTubeAdsCredentials, fetchYouTubeAdCampaigns, fetchYouTubeAdsDashboard, fetchYouTubeAdsMetrics } from "./ads";
+export { validateYouTubeAdsCredentials, fetchYouTubeAdsDashboard } from "./ads";
+export { youtubeAdsFromGoogleAds } from "./google-ads-video";

@@ -29,7 +29,7 @@ async function req(base, method, p, { cookie, body, form, headers = {} } = {}) {
 
 async function signup(base, tag) {
   const email = `e2e-${ts}-${tag}@example.test`;
-  const r = await req(base, "POST", "/api/auth/signup", { body: { email, password: "Passw0rd!e2e", firstName: "E2E", lastName: tag, workspaceName: `E2E S4 ${tag} ${ts}` } });
+  const r = await req(base, "POST", "/api/auth/signup", { body: { email, password: "Passw0rd!e2e", firstName: "E2E", lastName: tag, acceptTerms: true, workspaceName: `E2E S4 ${tag} ${ts}` } });
   return { email, cookie: ck(r.setCookie), ws: r.json?.data?.user?.workspaceId };
 }
 
@@ -127,5 +127,5 @@ test("Content Studio storage and background jobs (step 4)", async (t) => {
     r = await req(BASE, "GET", "/api/cron/jobs", { headers: { authorization: `Bearer ${CRON_SECRET}` } });
     await rec("Jobs", "Cron run processes the queued job", r.status === 200 && r.json?.data?.processed?.some((j) => j.status === "COMPLETED"), JSON.stringify(r.json?.data));
     r = await req(BASE, "GET", `/api/v1/reports/${reportId}`, { cookie: J.cookie });
-    await rec("Jobs", "Report is READY with its CSV (no longer stuck on Generating)", r.json?.data?.status === "READY" && /^data:text\/csv/.test(r.json?.data?.generatedUrl || ""), `status=${r.json?.data?.status}`);
+    await rec("Jobs", "Report is READY with a download link (no longer stuck on Generating)", r.json?.data?.status === "READY" && /^\/api\/v1\/reports\/[^/]+\/download\?format=pdf$/.test(r.json?.data?.generatedUrl || ""), `status=${r.json?.data?.status} url=${r.json?.data?.generatedUrl}`);
 });

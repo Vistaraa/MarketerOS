@@ -124,7 +124,7 @@ export function GooglePlayConnectModal({ isOpen, onClose, onSuccess, initialData
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 dark:bg-black/85 p-3 sm:p-6 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/75 dark:bg-black/85 p-3 sm:p-6 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200">
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden my-auto">
         {/* Header */}
         <div className="p-4 sm:p-6 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30 flex items-center justify-between">
@@ -175,7 +175,7 @@ export function GooglePlayConnectModal({ isOpen, onClose, onSuccess, initialData
               value={accountLabel}
               onChange={(e) => setAccountLabel(e.target.value)}
               placeholder="e.g. My Production App"
-              className="w-full px-3.5 py-2 text-xs bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 outline-none"
+              className="w-full px-3.5 py-2 text-xs bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 outline-hidden"
             />
           </div>
 
@@ -189,7 +189,7 @@ export function GooglePlayConnectModal({ isOpen, onClose, onSuccess, initialData
               value={packageName}
               onChange={(e) => setPackageName(e.target.value)}
               placeholder="e.g. com.company.appname"
-              className="w-full px-3.5 py-2 text-xs bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white font-mono focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 outline-none"
+              className="w-full px-3.5 py-2 text-xs bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white font-mono focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 outline-hidden"
             />
           </div>
 
@@ -202,7 +202,7 @@ export function GooglePlayConnectModal({ isOpen, onClose, onSuccess, initialData
             <select
               value={targetClientId}
               onChange={(e) => setTargetClientId(e.target.value)}
-              className="w-full px-3.5 py-2 text-xs bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 outline-none cursor-pointer"
+              className="w-full px-3.5 py-2 text-xs bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 outline-hidden cursor-pointer"
             >
               <option value="">Workspace Default / All Clients</option>
               {clients.map((c) => (
@@ -256,7 +256,7 @@ export function GooglePlayConnectModal({ isOpen, onClose, onSuccess, initialData
                 value={serviceAccountJson}
                 onChange={(e) => setServiceAccountJson(e.target.value)}
                 placeholder='Paste your downloaded Google Cloud Service Account JSON key content here...'
-                className="w-full px-3.5 py-2 text-xs bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white font-mono focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 outline-none"
+                className="w-full px-3.5 py-2 text-xs bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white font-mono focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 outline-hidden"
               />
             </div>
           )}

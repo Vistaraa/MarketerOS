@@ -6,12 +6,12 @@ MarketerOS is an all-in-one marketing operating system designed for managing mul
 
 ## 🚀 Tech Stack
 
-- **Framework:** Next.js 15 (App Router), React 19
+- **Framework:** Next.js 16 (App Router, Turbopack), React 19 — Node.js 22.12+
 - **Language:** TypeScript
-- **Styling:** Tailwind CSS, Lucide Icons
+- **Styling:** Tailwind CSS 4, Lucide Icons
 - **Database & ORM:** PostgreSQL, Prisma ORM
 - **Charts:** Recharts
-- **Testing:** Vitest
+- **Testing:** Vitest (unit), node:test end-to-end suites against a production build (`npm run test:e2e`), k6 load test (`tests/load`)
 
 ---
 
@@ -124,7 +124,7 @@ Report generation and integration syncs are queued as background jobs. Something
 
 ## 🚀 Deploying to Production
 
-The full step-by-step runbook (accounts, environment variables, first launch, every release, verification, rollback) is in **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**. Summary:
+The full step-by-step runbook (accounts, environment variables, first launch, every release, verification, rollback) is in **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**. The read-only developer API is described in **[docs/API.md](docs/API.md)**. Summary:
 
 
 1. **Configuration:** set `DATABASE_URL`, `DIRECT_URL`, `SESSION_SECRET`, `ENCRYPTION_KEY` and `APP_URL`. The server refuses to start without them. See `.env.example` for email, storage, jobs and monitoring settings.
@@ -151,7 +151,7 @@ AI generation is limited per user (20 requests/minute) and per workspace (300/ho
 | `npm run build` | Creates a production build |
 | `npm run start` | Starts the production server |
 | `npm run typecheck` | Validates TypeScript types |
-| `npm run lint` | Runs ESLint |
+| `npm run lint` | Runs ESLint (flat config, `eslint.config.mjs`) |
 | `npm test` | Runs the Vitest test suite |
 | `npm run test:e2e` | Runs end-to-end security tests against a running app (`BASE_URL`, default `http://localhost:3000`) |
 | `npm run prisma:migrate:dev` | Creates and applies a migration after a schema change (development) |

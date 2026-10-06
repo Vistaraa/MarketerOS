@@ -18,7 +18,7 @@ async function call(cookie, method, path, body) {
 }
 
 async function signup(tag) {
-  const res = await fetch(BASE + "/api/auth/signup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: `e2e-${ts}-${tag}@example.test`, password: "Passw0rd!e2e", firstName: "Hard", lastName: tag, workspaceName: `Hardening ${tag}` }) });
+  const res = await fetch(BASE + "/api/auth/signup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: `e2e-${ts}-${tag}@example.test`, password: "Passw0rd!e2e", firstName: "Hard", lastName: tag, acceptTerms: true, workspaceName: `Hardening ${tag}` }) });
   const json = await res.json();
   assert.equal(res.status, 201, JSON.stringify(json));
   return { cookie: cookieFrom(res), ws: json.data.user.workspaceId, id: json.data.user.userId };

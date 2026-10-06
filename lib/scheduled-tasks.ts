@@ -1,11 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { runBillingLifecycle } from "@/lib/billing-lifecycle";
+import { purgeDueDeletions } from "@/lib/account-deletion";
 
 const HOUR_MS = 60 * 60 * 1000;
 
 /** System-wide periodic tasks, run from the job batch (cron endpoint or worker) at most once per interval. */
 const TASKS: Array<{ name: string; everyMs: number; run: () => Promise<unknown> }> = [
-  { name: "billing.lifecycle", everyMs: HOUR_MS, run: () => runBillingLifecycle() }
+  { name: "billing.lifecycle", everyMs: HOUR_MS, run: () => runBillingLifecycle() },
+  { name: "deletions.purge", everyMs: HOUR_MS, run: () => purgeDueDeletions() },
+  // Imported lazily: the scheduler enqueues jobs, and lib/jobs.ts runs these tasks.
+  { name: "integrations.schedule", everyMs: HOUR_MS, run: async () => (await import("@/lib/integration-scheduler")).scheduleIntegrationSyncs() },
+  { name: "integrations.token-warnings", everyMs: 6 * HOUR_MS, run: async () => (await import("@/lib/integration-scheduler")).warnExpiringTokens() },
+  { name: "reports.schedule", everyMs: HOUR_MS, run: async () => (await import("@/lib/integration-scheduler")).runScheduledReports() }
 ];
 
 /**

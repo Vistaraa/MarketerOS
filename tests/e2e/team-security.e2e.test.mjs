@@ -43,8 +43,9 @@ const emailFor = (tag) => { const email = `e2e-sec-${RUN}-${tag}@example.test`; 
 
 async function signup(tag) {
   const email = emailFor(tag);
-  const { status, json, res } = await call("POST", "/api/auth/signup", { body: { email, password: PASSWORD, firstName: "Sec", lastName: tag, workspaceName: `Security ${tag}` } });
+  const { status, json, res } = await call("POST", "/api/auth/signup", { body: { email, password: PASSWORD, firstName: "Sec", lastName: tag, acceptTerms: true, workspaceName: `Security ${tag}` } });
   assert.equal(status, 201, `signup ${tag}: ${JSON.stringify(json)}`);
+  await prisma.user.update({ where: { email }, data: { emailVerifiedAt: new Date() } }); // invites need a verified email
   return { email, cookie: cookieFrom(res), id: json.data.user.userId, ws: json.data.user.workspaceId };
 }
 
@@ -174,14 +175,14 @@ test("Invitation links: single use, and revoked links stop working", async () =>
   const user = await prisma.user.create({ data: { email: emailFor("token-x"), firstName: "Tok", lastName: "X", status: "INVITED" } });
   const token = inviteToken({ userId: user.id, workspaceId: A.ws, email: user.email, role: "VIEWER" });
   await prisma.oAuthState.create({ data: { userId: user.id, workspaceId: A.ws, providerKey: "TEAM_INVITE", returnTo: "VIEWER", stateHash: createHash("sha256").update(token).digest("hex"), expiresAt: new Date(Date.now() + 3_600_000) } });
-  assert.equal((await call("POST", "/api/auth/set-password", { body: { token, password: PASSWORD } })).status, 200);
-  assert.equal((await call("POST", "/api/auth/set-password", { body: { token, password: "Another123!" } })).status, 400, "second use rejected");
+  assert.equal((await call("POST", "/api/auth/set-password", { body: { token, password: PASSWORD, acceptTerms: true } })).status, 200);
+  assert.equal((await call("POST", "/api/auth/set-password", { body: { token, password: "Another123!", acceptTerms: true } })).status, 400, "second use rejected");
   assert.equal((await login(user.email)).user.workspaceId, A.ws);
 
   // A token whose invitation row was removed (revoked) must not be accepted.
   const revoked = inviteToken({ userId: user.id, workspaceId: A.ws, email: user.email, role: "VIEWER" });
   assert.equal((await call("GET", `/api/auth/set-password?token=${encodeURIComponent(revoked)}`)).status, 400);
-  assert.equal((await call("POST", "/api/auth/set-password", { body: { token: revoked, password: PASSWORD } })).status, 400);
+  assert.equal((await call("POST", "/api/auth/set-password", { body: { token: revoked, password: PASSWORD, acceptTerms: true } })).status, 400);
 });
 
 test("Stored roles are not trusted blindly: a planted OWNER role grants nothing", async () => {

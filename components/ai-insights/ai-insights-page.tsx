@@ -190,7 +190,7 @@ function FormattedMarkdown({ text }: { text: string }) {
             return (
               <span
                 key={i}
-                className="mx-0.5 inline-block rounded bg-indigo-50 px-1.5 py-0.5 font-bold text-indigo-700 border border-indigo-200/60 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-900/60 text-[11px]"
+                className="mx-0.5 inline-block rounded-sm bg-indigo-50 px-1.5 py-0.5 font-bold text-indigo-700 border border-indigo-200/60 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-900/60 text-[11px]"
               >
                 {inner}
               </span>
@@ -642,7 +642,7 @@ export function AiInsightsPage() {
         {mounted && selectedInsight && parsedModal && typeof document !== "undefined"
           ? createPortal(
               <div
-                className="fixed inset-0 top-0 left-0 right-0 bottom-0 w-screen h-screen z-[99999] flex items-center justify-center bg-black/80 dark:bg-black/90 p-3 sm:p-5 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200"
+                className="fixed inset-0 top-0 left-0 right-0 bottom-0 w-screen h-screen z-99999 flex items-center justify-center bg-black/80 dark:bg-black/90 p-3 sm:p-5 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200"
                 onClick={() => setSelectedInsight(null)}
               >
                 <div
@@ -751,7 +751,7 @@ export function AiInsightsPage() {
                         </div>
                         <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500 transition-all duration-500"
+                            className="h-full rounded-full bg-linear-to-r from-indigo-500 to-emerald-500 transition-all duration-500"
                             style={{ width: `${Math.min(100, selectedInsight.confidence)}%` }}
                           />
                         </div>
@@ -840,7 +840,7 @@ export function AiInsightsPage() {
         {mounted && showGenerateModal && typeof document !== "undefined"
           ? createPortal(
               <div
-                className="fixed inset-0 top-0 left-0 right-0 bottom-0 w-screen h-screen z-[99999] flex items-center justify-center bg-black/80 dark:bg-black/90 p-3 sm:p-5 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200"
+                className="fixed inset-0 top-0 left-0 right-0 bottom-0 w-screen h-screen z-99999 flex items-center justify-center bg-black/80 dark:bg-black/90 p-3 sm:p-5 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200"
                 onClick={() => setShowGenerateModal(false)}
               >
                 <div

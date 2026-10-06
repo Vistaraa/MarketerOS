@@ -21,9 +21,9 @@ describe("server-side secrets", () => {
     expect(() => decryptSecret(parts.join("."))).toThrow();
   });
 
-  it("reports partial provider configuration instead of creating a fake adapter", () => {
-    delete process.env.GOOGLE_CLIENT_ID; delete process.env.GOOGLE_CLIENT_SECRET; delete process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+  it("reports partial provider configuration, and syncing without it fails with a clear error (no fake adapter)", async () => {
+    for (const name of ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET", "GOOGLE_ADS_DEVELOPER_TOKEN"]) delete process.env[name];
     expect(providerConfiguration("google_ads")).toMatchObject({ configured: false });
-    expect(() => getProvider("google_ads")).toThrow(/configuration required/i);
+    await expect(getProvider("google_ads").syncMetrics("token", "1234567890", new Date(), new Date())).rejects.toThrow(/GOOGLE_ADS_DEVELOPER_TOKEN/);
   });
 });

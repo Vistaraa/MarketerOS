@@ -225,7 +225,7 @@ export function MediaLibraryPage() {
               <span>Folder Directory</span>
               <button
                 onClick={() => setShowCreateFolderModal(true)}
-                className="text-zinc-600 hover:bg-zinc-100 p-1 rounded dark:text-zinc-400 dark:hover:bg-zinc-800"
+                className="text-zinc-600 hover:bg-zinc-100 p-1 rounded-sm dark:text-zinc-400 dark:hover:bg-zinc-800"
               >
                 <FolderPlus size={14} />
               </button>
@@ -419,7 +419,7 @@ export function MediaLibraryPage() {
                       <td className="py-3.5 px-3 font-mono">{formatBytes(asset.size)}</td>
                       <td className="py-3.5 px-3 text-zinc-400">{new Date(asset.createdAt).toLocaleDateString()}</td>
                       <td className="py-3.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => deleteMediaAsset(asset.id)} className="text-rose-500 p-1 hover:bg-rose-50 rounded">
+                        <button onClick={() => deleteMediaAsset(asset.id)} className="text-rose-500 p-1 hover:bg-rose-50 rounded-sm">
                           <Trash2 size={13} />
                         </button>
                       </td>
@@ -434,7 +434,7 @@ export function MediaLibraryPage() {
 
       {/* MEDIA PREVIEW DRAWER */}
       {selectedMediaItem && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-[100] flex justify-end bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-100 flex justify-end bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-white p-6 shadow-2xl dark:bg-zinc-900 overflow-y-auto space-y-5 animate-in slide-in-from-right duration-200 text-xs">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
               <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Media Preview</h3>
@@ -479,7 +479,7 @@ export function MediaLibraryPage() {
 
       {/* UPLOAD MEDIA MODAL */}
       {isUploadModalOpen && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
             <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3.5 shrink-0 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40">
               <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Upload Media Assets</h3>
@@ -540,10 +540,10 @@ export function MediaLibraryPage() {
                     <div className="font-bold">Similar file already exists</div>
                     <div className="text-[11px]">A file with the same name exists in Media Library. What would you like to do?</div>
                     <div className="mt-2 flex gap-2">
-                      <button onClick={() => handleStartUpload(pendingFile ?? undefined, true)} className="rounded bg-amber-600 text-white px-2 py-1 font-bold">
+                      <button onClick={() => handleStartUpload(pendingFile ?? undefined, true)} className="rounded-sm bg-amber-600 text-white px-2 py-1 font-bold">
                         Keep Both
                       </button>
-                      <button onClick={() => setIsUploadModalOpen(false)} className="rounded border border-amber-400 px-2 py-1">
+                      <button onClick={() => setIsUploadModalOpen(false)} className="rounded-sm border border-amber-400 px-2 py-1">
                         Cancel
                       </button>
                     </div>
@@ -558,7 +558,7 @@ export function MediaLibraryPage() {
 
       {/* CREATE FOLDER MODAL */}
       {showCreateFolderModal && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs space-y-4">
             <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Create New Folder</h3>
             <input

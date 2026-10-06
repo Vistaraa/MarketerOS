@@ -91,7 +91,7 @@ export function CustomDialog({
   };
 
   return typeof document !== "undefined" ? createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 dark:bg-black/85 backdrop-blur-2xl backdrop-saturate-150 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/75 dark:bg-black/85 backdrop-blur-2xl backdrop-saturate-150 animate-in fade-in duration-200">
       <div 
         className="relative w-full max-w-md overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 p-6 shadow-2xl backdrop-blur-xl transition-all scale-100"
         role="dialog"

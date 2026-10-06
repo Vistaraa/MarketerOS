@@ -72,7 +72,7 @@ export function SearchPage() {
               placeholder="Search anything in MarketerOS (e.g. Acme, Summer Sale, Google Ads)…"
               className="input-clean pl-10 pr-20 text-xs py-2.5"
             />
-            <kbd className="absolute right-3 top-3 hidden rounded bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-400 dark:bg-zinc-800 sm:inline-block">
+            <kbd className="absolute right-3 top-3 hidden rounded-sm bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-400 dark:bg-zinc-800 sm:inline-block">
               ⌘ K
             </kbd>
           </div>
@@ -107,7 +107,7 @@ export function SearchPage() {
                   <span>{item.name}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">
+                  <span className="rounded-sm bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">
                     {item.type}
                   </span>
                   <ArrowRight size={13} className="text-zinc-400" />

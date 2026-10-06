@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   BarChart3,
   TrendingUp,
@@ -46,7 +46,7 @@ export function AnalyticsCenterPage() {
   // Expanded row state for drill-down
   const [expandedCampaigns, setExpandedCampaigns] = useState<Record<string, boolean>>({ "c-1": true });
 
-  async function loadAnalytics() {
+  const loadAnalytics = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -78,11 +78,11 @@ export function AnalyticsCenterPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [dateRange, selectedPlatform]);
 
   useEffect(() => {
     loadAnalytics();
-  }, [dateRange, selectedPlatform]);
+  }, [loadAnalytics]);
 
   function toggleCampaign(id: string) {
     setExpandedCampaigns((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -306,7 +306,7 @@ export function AnalyticsCenterPage() {
                         <div className="flex items-center gap-2 font-bold text-zinc-900 dark:text-zinc-100">
                           {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                           <span>{campaign.name}</span>
-                          <span className="rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">
+                          <span className="rounded-sm bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">
                             {campaign.platform}
                           </span>
                         </div>

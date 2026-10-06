@@ -159,7 +159,7 @@ ORDER BY metrics.cost_micros DESC`;
                 <span>Create OAuth Client ID</span>
               </div>
               <p className="mt-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-                In Cloud Console &gt; <strong>Credentials</strong> &gt; <strong>Create Credentials</strong> &gt; <strong>OAuth client ID (Web application)</strong>. Add redirect URI: <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">/api/google-ads/callback</code>.
+                In Cloud Console &gt; <strong>Credentials</strong> &gt; <strong>Create Credentials</strong> &gt; <strong>OAuth client ID (Web application)</strong>. Add redirect URI: <code className="rounded-sm bg-zinc-100 px-1 dark:bg-zinc-800">/api/google-ads/callback</code>.
               </p>
             </div>
 
@@ -273,7 +273,7 @@ ORDER BY metrics.cost_micros DESC`;
           </pre>
 
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-            Calls endpoint: <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">https://googleads.googleapis.com/v18/customers/{"{customerId}"}/googleAds:searchStream</code> with <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">Authorization: Bearer {"{accessToken}"}</code> and <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">developer-token: {"{developerToken}"}</code>.
+            Calls endpoint: <code className="rounded-sm bg-zinc-100 px-1 dark:bg-zinc-800">https://googleads.googleapis.com/v18/customers/{"{customerId}"}/googleAds:searchStream</code> with <code className="rounded-sm bg-zinc-100 px-1 dark:bg-zinc-800">Authorization: Bearer {"{accessToken}"}</code> and <code className="rounded-sm bg-zinc-100 px-1 dark:bg-zinc-800">developer-token: {"{developerToken}"}</code>.
           </p>
         </div>
       )}

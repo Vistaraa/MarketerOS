@@ -555,7 +555,7 @@ export async function sendVerificationEmail(params: SendVerificationEmailParams)
   });
 }
 
-export interface SendBillingNoticeEmailParams {
+export interface SendNoticeEmailParams {
   to: string;
   recipientName: string;
   subject: string;
@@ -563,9 +563,11 @@ export interface SendBillingNoticeEmailParams {
   body: string;
   actionLabel: string;
   actionUrl: string;
+  /** Why the recipient gets this email (the small print). */
+  footer?: string;
 }
 
-function generateBillingNoticeEmailHtml(params: SendBillingNoticeEmailParams): string {
+function generateNoticeEmailHtml(params: SendNoticeEmailParams): string {
   const name = escapeHtml(params.recipientName || "there");
   const url = escapeHtml(params.actionUrl);
   return `
@@ -577,17 +579,17 @@ function generateBillingNoticeEmailHtml(params: SendBillingNoticeEmailParams): s
     <h1 style="margin:0 0 12px;font-size:20px;">${escapeHtml(params.heading)}</h1>
     <p style="margin:0 0 16px;font-size:14px;line-height:1.6;">Hi ${name}, ${escapeHtml(params.body)}</p>
     <p style="margin:24px 0;"><a href="${url}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600;">${escapeHtml(params.actionLabel)}</a></p>
-    <p style="margin:0 0 8px;font-size:12px;color:#71717a;line-height:1.6;">You're receiving this because you own a MarketerOS workspace.</p>
+    <p style="margin:0 0 8px;font-size:12px;color:#71717a;line-height:1.6;">${escapeHtml(params.footer || "You're receiving this because you own a MarketerOS workspace.")}</p>
   </div>
 </body>
 </html>
   `.trim();
 }
 
-/** Trial and subscription reminders (ending soon, ended, read-only). */
-export async function sendBillingNoticeEmail(params: SendBillingNoticeEmailParams): Promise<EmailSendResult> {
-  return deliverTransactionalEmail(params.to, params.subject, generateBillingNoticeEmailHtml(params), {
-    label: "BILLING NOTICE EMAIL",
+/** One-off account notices: trial and subscription reminders, export ready, deletion scheduled. */
+export async function sendNoticeEmail(params: SendNoticeEmailParams): Promise<EmailSendResult> {
+  return deliverTransactionalEmail(params.to, params.subject, generateNoticeEmailHtml(params), {
+    label: "NOTICE EMAIL",
     url: params.actionUrl
   });
 }

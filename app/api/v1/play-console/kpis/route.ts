@@ -73,47 +73,66 @@ export async function GET(request: Request) {
       return NextResponse.json({ ...base, hasData: false, latestDateLabel: null, rolling28: {}, latest: {}, timeSeries: [] });
     }
 
-    // Everything below comes straight from stored daily snapshots.
+    // Everything below comes straight from stored daily snapshots. A null column means the figure wasn't imported
+    // (store-listing data needs Play's Cloud Storage reports), so it stays null rather than becoming 0.
     const last28 = dailyKpis.slice(-28);
-    const count = last28.length;
-    const avg = (pick: (row: (typeof last28)[number]) => number) => last28.reduce((acc, row) => acc + pick(row), 0) / count;
+    type Row = (typeof dailyKpis)[number];
+    const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+    const avg = (pick: (row: Row) => number | null, digits = 1) => {
+      const values = last28.map(pick).filter((v): v is number => v !== null);
+      return values.length ? round(values.reduce((a, b) => a + b, 0) / values.length, digits) : null;
+    };
+    const sum = (pick: (row: Row) => number | null) => {
+      const values = last28.map(pick).filter((v): v is number => v !== null);
+      return values.length ? values.reduce((a, b) => a + b, 0) : null;
+    };
     const latest = dailyKpis[dailyKpis.length - 1];
-    const first = dailyKpis[0];
-    const growthRate = first.totalAudienceSize > 0
-      ? round(((latest.totalAudienceSize - first.totalAudienceSize) / first.totalAudienceSize) * 100)
-      : null;
+    const firstAudience = dailyKpis.find((row) => row.totalAudienceSize !== null)?.totalAudienceSize ?? null;
+    const latestAudience = latest.totalAudienceSize;
+    const growthRate = firstAudience && latestAudience !== null ? round(((latestAudience - firstAudience) / firstAudience) * 100) : null;
+    const pct = (fraction: unknown) => (fraction === null || fraction === undefined ? null : round(Number(fraction) * 100, 2));
 
-    const metricsFor = (row: (typeof dailyKpis)[number]) => ({
+    const metricsFor = (row: Row) => ({
       userAcquisitions: row.storeListingAcquisitions,
       storeListingVisitors: row.storeListingVisitors,
       storeListingAcquisitions: row.storeListingAcquisitions,
-      storeListingConversionRate: Number(row.storeListingConversionRate),
+      storeListingConversionRate: num(row.storeListingConversionRate),
       totalAudienceSize: row.totalAudienceSize,
       activeDevices: row.activeDevices,
       userLoss: row.uninstallsCount,
-      uninstallRate: row.activeDevices > 0 ? round((row.uninstallsCount / row.activeDevices) * 100, 2) : null,
-      // revenue defaults to 0 when nothing imported it, so 0 means "unknown" here rather than "earned nothing".
-      arpu: Number(row.revenue) > 0 && row.activeDevices > 0 ? round(Number(row.revenue) / row.activeDevices, 2) : null,
-      crashesAndAnrs: row.crashesCount + row.anrsCount
+      uninstallRate: row.uninstallsCount !== null && row.activeDevices ? round((row.uninstallsCount / row.activeDevices) * 100, 2) : null,
+      arpu: num(row.revenue) && row.activeDevices ? round(Number(row.revenue) / row.activeDevices, 2) : null,
+      crashesAndAnrs: row.crashesCount !== null && row.anrsCount !== null ? row.crashesCount + row.anrsCount : null,
+      crashRate: pct(row.crashRate),
+      anrRate: pct(row.anrRate),
+      ratingAverage: num(row.ratingAverage),
+      ratingsCount: row.ratingsCount
     });
 
-    const sumActiveDevices = last28.reduce((acc, row) => acc + row.activeDevices, 0);
-    const sumRevenue = last28.reduce((acc, row) => acc + Number(row.revenue || 0), 0);
-    const hasRevenue = last28.some((row) => Number(row.revenue) > 0);
+    const sumActiveDevices = sum((r) => r.activeDevices);
+    const sumUninstalls = sum((r) => r.uninstallsCount);
+    const sumRevenue = sum((r) => num(r.revenue));
+    const rated = last28.filter((r) => r.ratingsCount && r.ratingAverage !== null);
+    const ratingsTotal = rated.reduce((acc, r) => acc + (r.ratingsCount || 0), 0);
 
     const rolling28 = {
       ...UNAVAILABLE_METRICS,
-      userAcquisitions: Math.round(avg((r) => r.storeListingAcquisitions)),
-      storeListingVisitors: Math.round(avg((r) => r.storeListingVisitors)),
-      storeListingAcquisitions: Math.round(avg((r) => r.storeListingAcquisitions)),
-      storeListingConversionRate: round(avg((r) => Number(r.storeListingConversionRate))),
-      totalAudienceSize: Math.round(avg((r) => r.totalAudienceSize)),
+      userAcquisitions: avg((r) => r.storeListingAcquisitions, 0),
+      storeListingVisitors: avg((r) => r.storeListingVisitors, 0),
+      storeListingAcquisitions: avg((r) => r.storeListingAcquisitions, 0),
+      storeListingConversionRate: avg((r) => num(r.storeListingConversionRate)),
+      totalAudienceSize: avg((r) => r.totalAudienceSize, 0),
       audienceGrowthRate: growthRate,
-      activeDevices: Math.round(avg((r) => r.activeDevices)),
-      userLoss: Math.round(avg((r) => r.uninstallsCount)),
-      uninstallRate: sumActiveDevices > 0 ? round((last28.reduce((acc, r) => acc + r.uninstallsCount, 0) / sumActiveDevices) * 100, 2) : null,
-      arpu: hasRevenue && sumActiveDevices > 0 ? round(sumRevenue / sumActiveDevices, 2) : null,
-      crashesAndAnrs: round(avg((r) => r.crashesCount + r.anrsCount))
+      activeDevices: avg((r) => r.activeDevices, 0),
+      userLoss: avg((r) => r.uninstallsCount, 0),
+      uninstallRate: sumActiveDevices && sumUninstalls !== null ? round((sumUninstalls / sumActiveDevices) * 100, 2) : null,
+      arpu: sumRevenue && sumActiveDevices ? round(sumRevenue / sumActiveDevices, 2) : null,
+      crashesAndAnrs: avg((r) => (r.crashesCount !== null && r.anrsCount !== null ? r.crashesCount + r.anrsCount : null)),
+      crashRate: avg((r) => pct(r.crashRate), 2),
+      anrRate: avg((r) => pct(r.anrRate), 2),
+      // Weighted by the number of reviews each day.
+      ratingAverage: ratingsTotal ? round(rated.reduce((acc, r) => acc + Number(r.ratingAverage) * (r.ratingsCount || 0), 0) / ratingsTotal, 2) : null,
+      ratingsCount: ratingsTotal || null
     };
 
     return NextResponse.json({

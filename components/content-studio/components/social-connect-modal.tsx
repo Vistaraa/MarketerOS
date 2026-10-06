@@ -173,7 +173,7 @@ export function SocialConnectModal({
   };
 
   return typeof document !== "undefined" ? createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
       <div className="w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 text-xs">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3.5 shrink-0 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40">
@@ -250,7 +250,7 @@ export function SocialConnectModal({
               <div className="space-y-0.5">
                 <div className="font-bold flex items-center gap-1.5">
                   <span>{currentConfig.name}</span>
-                  <span className="rounded bg-blue-100 px-1.5 py-0.2 text-[9px] font-bold text-blue-800 dark:bg-blue-900/60 dark:text-blue-300">
+                  <span className="rounded-sm bg-blue-100 px-1.5 py-0.2 text-[9px] font-bold text-blue-800 dark:bg-blue-900/60 dark:text-blue-300">
                     {currentConfig.badge}
                   </span>
                 </div>
@@ -271,7 +271,7 @@ export function SocialConnectModal({
                 value={accountId}
                 onChange={(e) => setAccountId(e.target.value)}
                 placeholder={currentConfig.accountPlaceholder}
-                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-zinc-900 font-mono dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-400"
+                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs outline-hidden focus:border-zinc-900 font-mono dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-400"
               />
               <span className="mt-1 block text-[10px] text-zinc-400">
                 {currentConfig.accountHelp}
@@ -289,7 +289,7 @@ export function SocialConnectModal({
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder={currentConfig.tokenPlaceholder}
-                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-zinc-900 font-mono dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-400"
+                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs outline-hidden focus:border-zinc-900 font-mono dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-400"
               />
               <span className="mt-1 block text-[10px] text-zinc-400">
                 {currentConfig.tokenHelp}
@@ -307,7 +307,7 @@ export function SocialConnectModal({
                   value={accountName}
                   onChange={(e) => setAccountName(e.target.value)}
                   placeholder="e.g. Acme Primary"
-                  className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs outline-hidden focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                 />
               </div>
               <div>
@@ -319,7 +319,7 @@ export function SocialConnectModal({
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder={currentConfig.usernamePlaceholder || "@brand"}
-                  className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs outline-hidden focus:border-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                 />
               </div>
             </div>

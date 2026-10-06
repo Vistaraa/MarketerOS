@@ -170,7 +170,7 @@ function KpiSparklineChart({ metricKey, timeSeries, getValue, isWarning, categor
         {/* Floating Tooltip */}
         {hoverIndex !== null && activePoint && (
           <div
-            className="absolute z-20 top-0 transform -translate-x-1/2 -translate-y-8 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 text-[10px] font-bold px-2 py-0.5 rounded shadow-md pointer-events-none whitespace-nowrap transition-all"
+            className="absolute z-20 top-0 transform -translate-x-1/2 -translate-y-8 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 text-[10px] font-bold px-2 py-0.5 rounded-sm shadow-md pointer-events-none whitespace-nowrap transition-all"
             style={{ left: `${(activePoint.x / width) * 100}%` }}
           >
             {activePoint.label}: {activePoint.val.toLocaleString()}
@@ -709,7 +709,7 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
       {/* Beautifully Arranged Edit Play Console KPIs Modal */}
       {showEditModal && mounted && typeof document !== "undefined"
         ? createPortal(
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 dark:bg-black/85 p-3 sm:p-6 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200">
+            <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/75 dark:bg-black/85 p-3 sm:p-6 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200">
               <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] my-auto">
                 
                 {/* 1. Modal Top Bar */}
@@ -748,7 +748,7 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
                         placeholder="Search KPIs by name or category..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 text-xs bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium"
+                        className="w-full pl-9 pr-4 py-2 text-xs bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium"
                       />
                     </div>
 
@@ -842,7 +842,7 @@ export function PlayConsoleKpisTab({ data, onRefresh }: { data: KpiData | null; 
                             ? "bg-white text-zinc-900 dark:bg-zinc-900 dark:text-white border-transparent shadow-2xs"
                             : "border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 group-hover:border-zinc-400"
                         }`}>
-                          {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                          {isSelected && <Check className="w-3.5 h-3.5 stroke-3" />}
                         </div>
                       </div>
                     );

@@ -43,6 +43,9 @@ import type { ApiResponse } from "@/lib/api-contracts";
 import type { FullSettingsPayload } from "@/lib/settings-service";
 import { resetClientSession } from "@/lib/client-session";
 import { cn } from "@/lib/utils";
+import { DataPrivacySection } from "@/components/settings/data-privacy-section";
+import { TwoFactorCard } from "@/components/settings/two-factor-card";
+import { ApiKeysCard } from "@/components/settings/api-keys-card";
 
 type SettingsSection =
   | "general"
@@ -53,7 +56,8 @@ type SettingsSection =
   | "notifications"
   | "security"
   | "apikeys"
-  | "audit";
+  | "audit"
+  | "privacy";
 
 export function LiveSettingsPage() {
   const router = useRouter();
@@ -61,6 +65,12 @@ export function LiveSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SettingsSection>("general");
+
+  // Deep links such as /settings?tab=privacy (from the deletion banner and emails).
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab === "privacy" || tab === "security" || tab === "team") setActiveSection(tab);
+  }, []);
   const [busy, setBusy] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -391,7 +401,8 @@ export function LiveSettingsPage() {
     { id: "notifications", label: "Notification Matrix", icon: Bell },
     { id: "security", label: "Security & Sessions", icon: Lock },
     { id: "apikeys", label: "API Key Management", icon: Key },
-    { id: "audit", label: "Audit Trail Logs", icon: History }
+    { id: "audit", label: "Audit Trail Logs", icon: History },
+    { id: "privacy", label: "Data & Privacy", icon: Download }
   ];
 
   const filteredAuditLogs = (data?.auditLogs || []).filter((log) => {
@@ -466,7 +477,7 @@ export function LiveSettingsPage() {
         <div className="grid grid-cols-12 gap-6">
           {/* Settings Sidebar */}
           <div className="col-span-12 lg:col-span-3 space-y-3">
-            <div className="flex lg:block overflow-x-auto [scrollbar-width:none] rounded-xl border border-zinc-200/90 bg-white p-1.5 lg:p-2 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 gap-1 lg:space-y-0.5">
+            <div className="flex lg:block overflow-x-auto scrollbar-none rounded-xl border border-zinc-200/90 bg-white p-1.5 lg:p-2 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 gap-1 lg:space-y-0.5">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeSection === item.id;
@@ -499,7 +510,7 @@ export function LiveSettingsPage() {
             </div>
 
             {/* Platform Integrations Link Card */}
-            <div className="rounded-xl border border-zinc-200/90 bg-gradient-to-br from-zinc-50 to-zinc-100 p-4 shadow-2xs dark:border-zinc-800 dark:from-zinc-900/60 dark:to-zinc-950 space-y-2">
+            <div className="rounded-xl border border-zinc-200/90 bg-linear-to-br from-zinc-50 to-zinc-100 p-4 shadow-2xs dark:border-zinc-800 dark:from-zinc-900/60 dark:to-zinc-950 space-y-2">
               <div className="flex items-center gap-2 font-bold text-zinc-900 dark:text-zinc-100">
                 <Zap size={15} className="text-amber-500" />
                 <span>Marketing Platforms</span>
@@ -861,7 +872,7 @@ export function LiveSettingsPage() {
                             <td className="p-3">
                               <span
                                 className={cn(
-                                  "rounded px-2 py-0.5 text-[10px] font-bold uppercase",
+                                  "rounded-sm px-2 py-0.5 text-[10px] font-bold uppercase",
                                   member.role === "OWNER"
                                     ? "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300"
                                     : member.role === "ADMIN"
@@ -875,7 +886,7 @@ export function LiveSettingsPage() {
                             <td className="p-3">
                               <span
                                 className={cn(
-                                  "rounded px-2 py-0.5 text-[10px] font-bold uppercase",
+                                  "rounded-sm px-2 py-0.5 text-[10px] font-bold uppercase",
                                   member.status === "ACTIVE"
                                     ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
                                     : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
@@ -954,7 +965,7 @@ export function LiveSettingsPage() {
                               checked={Boolean(perm.view)}
                               disabled={selectedRbacRole === "OWNER"}
                               onChange={() => handleTogglePermission(selectedRbacRole, idx, "view")}
-                              className="rounded cursor-pointer"
+                              className="rounded-sm cursor-pointer"
                             />
                           </td>
                           <td className="p-3">
@@ -963,7 +974,7 @@ export function LiveSettingsPage() {
                               checked={Boolean(perm.create)}
                               disabled={selectedRbacRole === "OWNER"}
                               onChange={() => handleTogglePermission(selectedRbacRole, idx, "create")}
-                              className="rounded cursor-pointer"
+                              className="rounded-sm cursor-pointer"
                             />
                           </td>
                           <td className="p-3">
@@ -972,7 +983,7 @@ export function LiveSettingsPage() {
                               checked={Boolean(perm.edit)}
                               disabled={selectedRbacRole === "OWNER"}
                               onChange={() => handleTogglePermission(selectedRbacRole, idx, "edit")}
-                              className="rounded cursor-pointer"
+                              className="rounded-sm cursor-pointer"
                             />
                           </td>
                           <td className="p-3">
@@ -981,7 +992,7 @@ export function LiveSettingsPage() {
                               checked={Boolean(perm.delete)}
                               disabled={selectedRbacRole === "OWNER"}
                               onChange={() => handleTogglePermission(selectedRbacRole, idx, "delete")}
-                              className="rounded cursor-pointer"
+                              className="rounded-sm cursor-pointer"
                             />
                           </td>
                           <td className="p-3 pr-4">
@@ -990,7 +1001,7 @@ export function LiveSettingsPage() {
                               checked={Boolean(perm.manage)}
                               disabled={selectedRbacRole === "OWNER"}
                               onChange={() => handleTogglePermission(selectedRbacRole, idx, "manage")}
-                              className="rounded cursor-pointer"
+                              className="rounded-sm cursor-pointer"
                             />
                           </td>
                         </tr>
@@ -1161,13 +1172,13 @@ export function LiveSettingsPage() {
                 </div>
 
                 {/* Live Real-Time Regional Sample Card */}
-                <div className="rounded-xl border border-zinc-200/90 bg-gradient-to-r from-zinc-900 to-zinc-800 p-5 text-white shadow-md space-y-3 dark:border-zinc-700">
+                <div className="rounded-xl border border-zinc-200/90 bg-linear-to-r from-zinc-900 to-zinc-800 p-5 text-white shadow-md space-y-3 dark:border-zinc-700">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-zinc-300">
                       <Sparkles size={14} className="text-amber-400" />
                       <span>Live Formats & Regional Preview</span>
                     </div>
-                    <span className="rounded bg-zinc-700 px-2 py-0.5 text-[10px] font-mono text-zinc-300">
+                    <span className="rounded-sm bg-zinc-700 px-2 py-0.5 text-[10px] font-mono text-zinc-300">
                       {workspaceForm.currency || "USD"} · {workspaceForm.timezone || "UTC"}
                     </span>
                   </div>
@@ -1229,7 +1240,7 @@ export function LiveSettingsPage() {
                               updated[idx].inApp = e.target.checked;
                               setNotificationPrefs(updated);
                             }}
-                            className="rounded"
+                            className="rounded-sm"
                           />
                           <span>In-App</span>
                         </label>
@@ -1242,7 +1253,7 @@ export function LiveSettingsPage() {
                               updated[idx].email = e.target.checked;
                               setNotificationPrefs(updated);
                             }}
-                            className="rounded"
+                            className="rounded-sm"
                           />
                           <span>Email</span>
                         </label>
@@ -1253,9 +1264,12 @@ export function LiveSettingsPage() {
               </div>
             )}
 
+            {activeSection === "privacy" && <DataPrivacySection />}
+
             {/* SECTION 7: SECURITY & SESSIONS */}
             {activeSection === "security" && data && (
               <div className="space-y-6">
+                <TwoFactorCard role={data.profile?.role} />
                 <div className="rounded-xl border border-zinc-200/90 bg-white p-6 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 space-y-4">
                   <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm border-b border-zinc-100 pb-3 dark:border-zinc-800">
                     Active User Sessions
@@ -1271,7 +1285,7 @@ export function LiveSettingsPage() {
                             <div className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                               <span>Browser session</span>
                               {sess.isCurrent && (
-                                <span className="rounded bg-emerald-100 px-2 py-0.5 text-[9px] font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                <span className="rounded-sm bg-emerald-100 px-2 py-0.5 text-[9px] font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                                   Current Device
                                 </span>
                               )}
@@ -1295,22 +1309,7 @@ export function LiveSettingsPage() {
             )}
 
             {/* SECTION 8: API KEY MANAGEMENT */}
-            {activeSection === "apikeys" && data && (
-              <div className="space-y-4">
-                <div className="rounded-xl border border-zinc-200/90 bg-white p-6 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950/60 space-y-4">
-                  <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-                    <div>
-                      <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">Developer API Keys</h3>
-                      <p className="text-xs text-zinc-400 mt-0.5">Secret keys for external webhooks, integrations, and server SDKs.</p>
-                    </div>
-                  </div>
-
-                  <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                    Developer API keys aren&apos;t available yet. When they are, you&apos;ll be able to create and revoke keys here for webhooks and server integrations.
-                  </p>
-                </div>
-              </div>
-            )}
+            {activeSection === "apikeys" && data && <ApiKeysCard />}
 
             {/* SECTION 9: AUDIT TRAIL LOGS */}
             {activeSection === "audit" && data && (
@@ -1378,11 +1377,11 @@ export function LiveSettingsPage() {
 
         {/* INVITE TEAM MEMBER MODAL */}
         {isTeamModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in">
+          <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in">
             <div className="w-full max-w-md bg-white p-6 rounded-xl border border-zinc-200 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Invite Workspace Team Member</h3>
-                <button onClick={() => setIsTeamModalOpen(false)} className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                <button onClick={() => setIsTeamModalOpen(false)} className="rounded-sm p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
                   <X size={16} />
                 </button>
               </div>

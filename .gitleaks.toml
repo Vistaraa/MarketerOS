@@ -1,0 +1,20 @@
+# Secret scanning (CI runs gitleaks on every push). Extends the default rules; the allowlist names only documented
+# placeholders and unit-test fixtures, never patterns broad enough to hide a real credential.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented example values and test fixtures (not real credentials)"
+regexes = [
+  # Example ENCRYPTION_KEY in README.md / .env.example (refused in production by lib/env-check.ts).
+  '''0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef''',
+  # Fake GA4 secret in tests/google-byok.test.ts.
+  '''secret-ga4-123''',
+]
+
+# MarketerOS developer API keys (lib/api-keys.ts).
+[[rules]]
+id = "marketeros-api-key"
+description = "MarketerOS API key"
+regex = '''mk_live_[A-Za-z0-9]{40}'''
+keywords = ["mk_live_"]

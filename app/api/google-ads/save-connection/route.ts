@@ -1,142 +1,50 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth-server";
+import { integrationConnectContext } from "@/lib/google-oauth-guard";
+import { subscriptionWriteGuard } from "@/lib/subscription";
 
+const input = z.object({
+  customerId: z.string().transform((v) => v.replaceAll("-", "").trim()).pipe(z.string().regex(/^\d{10}$/, "Enter the 10-digit Google Ads customer ID (123-456-7890).")),
+  accountName: z.string().trim().max(200).optional(),
+  loginCustomerId: z.string().optional()
+});
+
+/**
+ * Picks which Google Ads account the workspace's existing Google connection reports on. The tokens must already
+ * belong to this workspace (from its own OAuth sign-in); nothing is read from or written to other workspaces.
+ */
 export async function POST(request: Request) {
+  const auth = await integrationConnectContext();
+  if (auth.response) return auth.response;
+  const lapsed = await subscriptionWriteGuard(auth.session.workspaceId);
+  if (lapsed) return lapsed;
+
+  const parsed = input.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ success: false, error: parsed.error.issues[0]?.message || "Invalid request." }, { status: 400 });
+  const { customerId, accountName, loginCustomerId } = parsed.data;
+
   try {
-    const body = await request.json();
-    const {
-      accountName,
-      customerId,
-      loginCustomerId,
-      refreshToken
-    } = body;
-
-    const cleanCustomerId = customerId ? customerId.replaceAll("-", "").trim() : "default";
-
-    console.log(`[PLATFORM INTEGRATION DEBUG] 🚀 Saving Google Ads Connection | Customer ID: ${customerId} (Clean: ${cleanCustomerId}) | Account Name: ${accountName} | Login Customer ID: ${loginCustomerId || 'N/A'}`);
-
-    // Determine target workspace
-    const session = await getSession().catch(() => null);
-    let workspaceId = session?.workspaceId;
-
-    if (!workspaceId) {
-      const firstWs = await prisma.workspace.findFirst({
-        orderBy: { createdAt: "desc" }
-      });
-      workspaceId = firstWs?.id;
+    const integration = await prisma.integration.findFirst({ where: { workspaceId: auth.session.workspaceId, platform: "GOOGLE_ADS" } });
+    if (!integration || (!integration.accessTokenEncrypted && !integration.refreshTokenEncrypted)) {
+      return NextResponse.json({ success: false, error: "Sign in with Google first, then choose the Ads account." }, { status: 409 });
     }
-
-    if (!workspaceId) {
-      const user = await prisma.user.findFirst();
-      const newWs = await prisma.workspace.create({
-        data: {
-          name: "Default Workspace",
-          slug: `workspace-${Date.now()}`,
-          ownerId: user?.id || "admin"
-        }
-      });
-      workspaceId = newWs.id;
-    }
-
-    // Check existing Google Ads integration in this workspace
-    const existing = await prisma.integration.findFirst({
-      where: {
-        workspaceId,
-        platform: "GOOGLE_ADS"
-      }
-    });
-
-    // Find any existing Google Ads token in database
-    const tokenSource = await prisma.integration.findFirst({
-      where: {
-        platform: "GOOGLE_ADS",
-        OR: [
-          { accessTokenEncrypted: { not: null } },
-          { refreshTokenEncrypted: { not: null } }
-        ]
-      },
-      orderBy: { updatedAt: "desc" }
-    });
-
-    let integration;
-    if (existing) {
-      integration = await prisma.integration.update({
-        where: { id: existing.id },
-        data: {
-          accountName: accountName || `Google Ads (${customerId})`,
-          accountId: cleanCustomerId,
-          status: "CONNECTED",
-          lastSyncedAt: new Date(),
-          errorMessage: null,
-          scopes: ["https://www.googleapis.com/auth/adwords"],
-          ...(tokenSource?.accessTokenEncrypted ? { accessTokenEncrypted: tokenSource.accessTokenEncrypted } : {}),
-          ...(tokenSource?.refreshTokenEncrypted ? { refreshTokenEncrypted: tokenSource.refreshTokenEncrypted } : {})
-        }
-      });
-      console.log(`[PLATFORM INTEGRATION DEBUG] 🟢 UPDATED Google Ads integration ${integration.id} for workspace ${workspaceId} -> Status: CONNECTED`);
-    } else {
-      integration = await prisma.integration.create({
-        data: {
-          workspaceId,
-          platform: "GOOGLE_ADS",
-          providerKey: "google_ads",
-          accountName: accountName || `Google Ads (${customerId})`,
-          accountId: cleanCustomerId,
-          status: "CONNECTED",
-          lastSyncedAt: new Date(),
-          scopes: ["https://www.googleapis.com/auth/adwords"],
-          ...(tokenSource?.accessTokenEncrypted ? { accessTokenEncrypted: tokenSource.accessTokenEncrypted } : {}),
-          ...(tokenSource?.refreshTokenEncrypted ? { refreshTokenEncrypted: tokenSource.refreshTokenEncrypted } : {})
-        }
-      });
-      console.log(`[PLATFORM INTEGRATION DEBUG] 🟢 CREATED new Google Ads integration ${integration.id} for workspace ${workspaceId} -> Status: CONNECTED`);
-    }
-
-    // Ensure all GOOGLE_ADS integration records across active workspaces are synchronized
-    await prisma.integration.updateMany({
-      where: {
-        platform: "GOOGLE_ADS"
-      },
+    const updated = await prisma.integration.update({
+      where: { id: integration.id },
       data: {
         accountName: accountName || `Google Ads (${customerId})`,
-        accountId: cleanCustomerId,
-        status: "CONNECTED",
-        lastSyncedAt: new Date(),
-        errorMessage: null
-      }
-    }).catch(() => { });
-
-    // Also record an initial Sync Log
-    await prisma.integrationSyncLog.create({
-      data: {
-        integrationId: integration.id,
-        status: "COMPLETED",
-        recordsSynced: 124,
-        startedAt: new Date(),
-        finishedAt: new Date()
-      }
-    }).catch(() => { });
-
-    console.log(`[PLATFORM INTEGRATION DEBUG] 🟢 Google Ads account (${customerId}) is LIVE and CONNECTED in workspace ${workspaceId}`);
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: integration.id,
-        platform: "Google Ads",
-        accountName: integration.accountName,
         accountId: customerId,
-        loginCustomerId: loginCustomerId || null,
-        status: "Connected",
-        lastSyncedAt: integration.lastSyncedAt
+        status: "CONNECTED",
+        errorMessage: null,
+        metadata: { ...((integration.metadata as Record<string, unknown> | null) || {}), loginCustomerId: loginCustomerId?.replaceAll("-", "") || null }
       }
     });
+    return NextResponse.json({
+      success: true,
+      data: { id: updated.id, platform: "Google Ads", accountName: updated.accountName, accountId: customerId, loginCustomerId: loginCustomerId || null, status: "Connected", lastSyncedAt: updated.lastSyncedAt }
+    });
   } catch (error) {
-    console.error(`[PLATFORM INTEGRATION DEBUG] 🔴 FAILURE: Failed to save Google Ads connection | Error:`, error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to save Google Ads connection" },
-      { status: 500 }
-    );
+    console.error("[google-ads] Saving the connection failed:", error);
+    return NextResponse.json({ success: false, error: "Failed to save the Google Ads connection." }, { status: 500 });
   }
 }

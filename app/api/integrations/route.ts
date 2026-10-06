@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth-server";
+import { can, getSession } from "@/lib/auth-server";
+import { emailVerificationGuard } from "@/lib/email-verification";
+import { subscriptionWriteGuard } from "@/lib/subscription";
 import { listPersistedIntegrations, connectPersistedIntegrationCredentials } from "@/lib/repositories";
 import { prisma } from "@/lib/prisma";
 
@@ -28,6 +30,9 @@ export async function POST(req: NextRequest) {
     console.warn("[PLATFORM INTEGRATION DEBUG] ⚠️ POST /api/integrations - Unauthorized request");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!can(session.role, "settings.manage")) return NextResponse.json({ error: "You do not have permission to manage integrations." }, { status: 403 });
+  const blocked = (await emailVerificationGuard(session.userId)) || (await subscriptionWriteGuard(session.workspaceId));
+  if (blocked) return blocked;
   try {
     const body = await req.json();
     console.log(`[PLATFORM INTEGRATION DEBUG] 🚀 Attempting connection for platform: "${body.platform}" | Account Name: "${body.account || body.accountName}" | Account ID: "${body.accountId}" | Workspace: ${session.workspaceId}`);
@@ -52,6 +57,7 @@ export async function DELETE(req: NextRequest) {
     console.warn("[PLATFORM INTEGRATION DEBUG] ⚠️ DELETE /api/integrations - Unauthorized request");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!can(session.role, "settings.manage")) return NextResponse.json({ error: "You do not have permission to manage integrations." }, { status: 403 });
   const url = new URL(req.url);
   const id = url.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Integration id is required" }, { status: 400 });

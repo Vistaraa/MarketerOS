@@ -94,11 +94,14 @@ function ContentStudioInner({ initialTab }: { initialTab: string }) {
     refreshSocialAccounts
   } = useContentStudio();
 
+  // Apply the tab from the URL once per change; afterwards the user's own tab switches win.
+  const appliedTab = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (initialTab && initialTab !== activeTab) {
+    if (initialTab && appliedTab.current !== initialTab) {
+      appliedTab.current = initialTab;
       setActiveTab(initialTab);
     }
-  }, [initialTab]);
+  }, [initialTab, setActiveTab]);
 
   return (
     <div className="w-full space-y-5 text-zinc-900 dark:text-zinc-100 font-sans">

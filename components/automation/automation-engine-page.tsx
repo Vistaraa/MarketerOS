@@ -320,7 +320,7 @@ export function AutomationEnginePage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-zinc-900 dark:text-zinc-100">{rule.name}</span>
-                        {!rule.isActive && <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-400 dark:bg-zinc-800">Paused</span>}
+                        {!rule.isActive && <span className="rounded-sm bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-400 dark:bg-zinc-800">Paused</span>}
                       </div>
                       <div className="mt-1 flex items-center gap-2 text-[11px] text-zinc-500 font-mono">
                         <span className="text-indigo-600 dark:text-indigo-400">{rule.trigger || "campaign.metric"}</span>
@@ -375,7 +375,7 @@ export function AutomationEnginePage() {
 
         {/* Visual Rule Builder Modal */}
         {isBuilderOpen && typeof document !== "undefined" && createPortal(
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-md animate-in fade-in duration-200">
             <div className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 text-xs">
               {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3.5 shrink-0 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40">
@@ -413,7 +413,7 @@ export function AutomationEnginePage() {
                   {/* WHEN TRIGGER */}
                   <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3.5 dark:border-indigo-900/40 dark:bg-indigo-950/30 space-y-2">
                     <div className="flex items-center gap-2 font-bold text-indigo-700 dark:text-indigo-300 text-xs">
-                      <span className="rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">WHEN</span>
+                      <span className="rounded-sm bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">WHEN</span>
                       <span>Trigger Event</span>
                     </div>
                     <select
@@ -432,7 +432,7 @@ export function AutomationEnginePage() {
                   {/* IF CONDITIONS */}
                   <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-3.5 dark:border-amber-900/40 dark:bg-amber-950/30 space-y-2">
                     <div className="flex items-center gap-2 font-bold text-amber-700 dark:text-amber-300 text-xs">
-                      <span className="rounded bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold text-white">IF</span>
+                      <span className="rounded-sm bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold text-white">IF</span>
                       <span>Condition Thresholds</span>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -460,7 +460,7 @@ export function AutomationEnginePage() {
                   {/* THEN ACTION */}
                   <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3.5 dark:border-emerald-900/40 dark:bg-emerald-950/30 space-y-2">
                     <div className="flex items-center gap-2 font-bold text-emerald-700 dark:text-emerald-300 text-xs">
-                      <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">THEN</span>
+                      <span className="rounded-sm bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">THEN</span>
                       <span>Automated Action</span>
                     </div>
                     <select

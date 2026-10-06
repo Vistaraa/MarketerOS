@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Zap,
   ArrowLeft,
@@ -32,7 +32,7 @@ export function AutomationDetailView({ ruleId }: { ruleId: string }) {
     type?: "info" | "success" | "warning" | "error" | "confirm";
   }>({ isOpen: false, message: "" });
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -46,11 +46,11 @@ export function AutomationDetailView({ ruleId }: { ruleId: string }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [ruleId]);
 
   useEffect(() => {
     load();
-  }, [ruleId]);
+  }, [load]);
 
   async function handleRunNow() {
     setTesting(true);

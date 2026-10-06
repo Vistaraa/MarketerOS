@@ -1,8 +1,7 @@
-import type { YouTubeAdCampaign, YouTubeAdsMetrics, YouTubeAdsConnectInput, YouTubeChannelPerformance } from "./ads-types";
+import type { YouTubeAdsConnectInput, YouTubeChannelPerformance } from "./ads-types";
 
-// The YouTube Data API (API key + channel ID) only exposes organic channel and video statistics.
-// Ad metrics such as impressions, clicks, spend and conversions only exist in the Google Ads API, so
-// nothing here reports them; earlier versions estimated them from view counts.
+// The YouTube Data API (API key + channel ID) only exposes organic channel and video statistics. Ad metrics
+// (impressions, views, clicks, spend) come from the Google Ads API: see google-ads-video.ts.
 
 export async function validateYouTubeAdsCredentials(input: YouTubeAdsConnectInput): Promise<{ valid: boolean; error?: string }> {
   try {
@@ -12,11 +11,6 @@ export async function validateYouTubeAdsCredentials(input: YouTubeAdsConnectInpu
     if (!data.items?.length) return { valid: false, error: "Channel not found" };
     return { valid: true };
   } catch (e) { return { valid: false, error: "Network error" }; }
-}
-
-/** YouTube ad campaigns require a Google Ads connection; the Data API has none to return. */
-export async function fetchYouTubeAdCampaigns(_apiKey: string, _channelId: string): Promise<YouTubeAdCampaign[]> {
-  return [];
 }
 
 /** Real organic channel totals and the latest uploads' statistics. */
@@ -64,9 +58,4 @@ export async function fetchYouTubeAdsDashboard(apiKey: string, channelId: string
     recentVideos,
     adMetricsAvailable: false
   };
-}
-
-/** Daily ad metrics are not available from the Data API; returns no rows rather than estimates. */
-export async function fetchYouTubeAdsMetrics(_apiKey: string, _channelId: string, _days: number = 30): Promise<YouTubeAdsMetrics[]> {
-  return [];
 }

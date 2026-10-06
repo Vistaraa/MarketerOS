@@ -51,9 +51,31 @@ jobs:
       PAYU_MERCHANT_KEY: gtKFFx
       PAYU_MERCHANT_SALT: eCwWELxi
       PAYU_ENV: test
+      # Ad-platform APIs are replaced by the stub server in tests/e2e/integrations-sync.e2e.test.mjs (never real APIs).
+      META_GRAPH_BASE_URL: http://127.0.0.1:5077/meta
+      GOOGLE_ADS_API_BASE_URL: http://127.0.0.1:5077/gads
+      GOOGLE_OAUTH_TOKEN_URL: http://127.0.0.1:5077/google/token
+      GOOGLE_PLAY_API_BASE_URL: http://127.0.0.1:5077/play
+      PLAY_REPORTING_API_BASE_URL: http://127.0.0.1:5077/reporting
+      LINKEDIN_API_BASE_URL: http://127.0.0.1:5077/linkedin
+      TIKTOK_API_BASE_URL: http://127.0.0.1:5077/tiktok
+      SHOPIFY_API_BASE_URL: http://127.0.0.1:5077/shopify
+      META_CLIENT_ID: ci-stub-meta-app
+      META_CLIENT_SECRET: ci-stub-meta-secret
+      GOOGLE_OAUTH_CLIENT_ID: ci-stub-google-client
+      GOOGLE_OAUTH_CLIENT_SECRET: ci-stub-google-secret
+      GOOGLE_ADS_DEVELOPER_TOKEN: ci-stub-developer-token
 
     steps:
       - uses: actions/checkout@v5
+
+      - name: Secret scan (gitleaks)
+        # Runs before npm ci so only the repository's own files are scanned (not node_modules). It checks the current
+        # files rather than git history, which still holds credentials removed in step 5 (they must be rotated).
+        # Allowlisted placeholders are listed in .gitleaks.toml.
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz | tar xz -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" detect --no-git --source . --config .gitleaks.toml --redact --no-banner --verbose
 
       - uses: actions/setup-node@v5
         with:
@@ -62,6 +84,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Dependency audit (high/critical production advisories)
+        run: node scripts/audit-gate.mjs
 
       - name: Apply database migrations
         run: npx prisma migrate deploy

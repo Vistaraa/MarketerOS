@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { sendBillingNoticeEmail } from "@/lib/email";
+import { sendNoticeEmail } from "@/lib/email";
 import { GRACE_DAYS, addMonths, hasPaid } from "@/lib/subscription";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -64,7 +64,7 @@ async function notify(sub: LifecycleSubscription, notice: Notice, now: Date) {
     data: { workspaceId: sub.workspace.id, userId: sub.workspace.ownerId, type: "BILLING", title: content.heading, message: content.body.charAt(0).toUpperCase() + content.body.slice(1), link: "/billing" }
   });
   if (!to) return;
-  const result = await sendBillingNoticeEmail({ to, recipientName: sub.workspace.owner?.firstName || "", ...content, actionUrl: `${baseUrl}/billing` });
+  const result = await sendNoticeEmail({ to, recipientName: sub.workspace.owner?.firstName || "", ...content, actionUrl: `${baseUrl}/billing` });
   if (!result.delivered) console.warn(`[billing] ${notice} notice for workspace ${sub.workspace.id} was not emailed: ${result.error || "not delivered"}`);
 }
 

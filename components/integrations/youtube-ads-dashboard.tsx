@@ -73,12 +73,54 @@ export function YouTubeAdsDashboard() {
         </button>
       </div>
 
-      {!dashboard.adMetricsAvailable && (
+      {dashboard.adMetricsAvailable && dashboard.ads ? (
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+            YouTube ads (Google Ads video campaigns, {dashboard.ads.period.from} to {dashboard.ads.period.to})
+          </h3>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            {[
+              { label: "Impressions", value: formatNumber(dashboard.ads.summary.impressions) },
+              { label: "Views", value: formatNumber(dashboard.ads.summary.views) },
+              { label: "Clicks", value: formatNumber(dashboard.ads.summary.clicks) },
+              { label: "Spend", value: `$${dashboard.ads.summary.spend.toLocaleString()}` },
+              { label: "Cost per view", value: dashboard.ads.summary.cpv == null ? "—" : `$${dashboard.ads.summary.cpv}` }
+            ].map((stat) => (
+              <div key={stat.label} className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950/60">
+                <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">{stat.value}</p>
+                <p className="text-[10px] text-zinc-500">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+          {dashboard.ads.campaigns.length > 0 && (
+            <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-zinc-50 text-zinc-500 dark:bg-zinc-900">
+                  <tr><th className="px-3 py-2">Campaign</th><th className="px-3 py-2">Status</th><th className="px-3 py-2 text-right">Impressions</th><th className="px-3 py-2 text-right">Views</th><th className="px-3 py-2 text-right">Clicks</th><th className="px-3 py-2 text-right">Spend</th></tr>
+                </thead>
+                <tbody>
+                  {dashboard.ads.campaigns.map((c) => (
+                    <tr key={c.id} className="border-t border-zinc-100 dark:border-zinc-800">
+                      <td className="px-3 py-2 font-medium">{c.name}</td>
+                      <td className="px-3 py-2">{c.status}</td>
+                      <td className="px-3 py-2 text-right">{c.impressions.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">{dashboard.ads?.summary.views == null ? "—" : c.views.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">{c.clicks.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">${c.spend.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : (
         <div className="flex items-start gap-2.5 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
           <Info size={14} className="mt-0.5 shrink-0" />
           <p>
-            Ad metrics such as impressions, clicks, spend and conversions for YouTube video campaigns come from Google Ads, not the
-            YouTube Data API, so they aren&apos;t shown here. The numbers below are your channel&apos;s organic statistics.
+            {dashboard.adMetricsUnavailableReason ||
+              "Ad metrics for YouTube video campaigns come from Google Ads, not the YouTube Data API."}{" "}
+            The numbers below are your channel&apos;s organic statistics.
           </p>
         </div>
       )}

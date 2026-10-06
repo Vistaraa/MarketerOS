@@ -252,7 +252,7 @@ export function GoogleDynamicModal({
   };
 
   return createPortal(
-    <div className="fixed -top-16 -bottom-16 -left-16 -right-16 z-[9999] flex items-center justify-center bg-black/75 dark:bg-black/85 p-16 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200">
+    <div className="fixed -top-16 -bottom-16 -left-16 -right-16 z-9999 flex items-center justify-center bg-black/75 dark:bg-black/85 p-16 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200">
       <div className="relative w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200/90 dark:border-zinc-800 overflow-hidden my-8 text-xs">
         {/* Header */}
         <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-start justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
@@ -524,7 +524,7 @@ export function GoogleDynamicModal({
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                 <div className="space-y-1 w-full overflow-hidden">
                   <p className="font-semibold">Connection Error</p>
-                  <div className="font-mono whitespace-pre-line leading-relaxed text-[11px] break-words">{errorMsg}</div>
+                  <div className="font-mono whitespace-pre-line leading-relaxed text-[11px] wrap-break-word">{errorMsg}</div>
                 </div>
               </div>
               <button

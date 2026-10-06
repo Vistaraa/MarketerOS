@@ -203,7 +203,7 @@ export function TemplatesPage() {
           <select
             value={selectedPlatform}
             onChange={(e) => setSelectedPlatform(e.target.value)}
-            className="input-clean !w-auto min-w-[130px] shrink-0"
+            className="input-clean w-auto! min-w-[130px] shrink-0"
           >
             <option value="all">All Platforms</option>
             <option value="instagram">Instagram</option>
@@ -215,7 +215,7 @@ export function TemplatesPage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="input-clean !w-auto min-w-[140px] shrink-0"
+            className="input-clean w-auto! min-w-[140px] shrink-0"
           >
             <option value="most_used">Sort by: Most Used</option>
             <option value="newest">Sort by: Recently Created</option>
@@ -319,7 +319,7 @@ export function TemplatesPage() {
 
       {/* TEMPLATE DETAIL DRAWER */}
       {selectedTemplateItem && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-[100] flex justify-end bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-100 flex justify-end bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-white p-6 shadow-2xl dark:bg-zinc-900 overflow-y-auto space-y-5 animate-in slide-in-from-right duration-200">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
               <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Template Details</h3>
@@ -336,13 +336,13 @@ export function TemplatesPage() {
               <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{selectedTemplateItem.category}</div>
               <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mt-0.5">{selectedTemplateItem.name}</h2>
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <span className="rounded bg-zinc-100 px-2 py-0.5 font-semibold dark:bg-zinc-800">
+                <span className="rounded-sm bg-zinc-100 px-2 py-0.5 font-semibold dark:bg-zinc-800">
                   {selectedTemplateItem.width} × {selectedTemplateItem.height} px
                 </span>
-                <span className="rounded bg-zinc-100 px-2 py-0.5 font-semibold dark:bg-zinc-800">
+                <span className="rounded-sm bg-zinc-100 px-2 py-0.5 font-semibold dark:bg-zinc-800">
                   Used {selectedTemplateItem.usageCount} times
                 </span>
-                <span className="rounded bg-zinc-100 px-2 py-0.5 font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                <span className="rounded-sm bg-zinc-100 px-2 py-0.5 font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
                   Version {selectedTemplateItem.version || "v1.0"}
                 </span>
               </div>
@@ -356,7 +356,7 @@ export function TemplatesPage() {
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {selectedTemplateItem.variables.map((varName) => (
-                    <span key={varName} className="rounded border border-zinc-200 bg-white px-2 py-0.5 font-mono text-[10px] font-semibold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+                    <span key={varName} className="rounded-sm border border-zinc-200 bg-white px-2 py-0.5 font-mono text-[10px] font-semibold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
                       {`{{${varName}}}`}
                     </span>
                   ))}
@@ -411,7 +411,7 @@ export function TemplatesPage() {
 
       {/* TEMPLATE CREATOR MODAL / CANVAS EDITOR */}
       {isTemplateModalOpen && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-4xl h-[85vh] rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 flex flex-col text-xs">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
@@ -421,7 +421,7 @@ export function TemplatesPage() {
                   type="text"
                   value={templateName}
                   onChange={(e) => setTemplateName(e.target.value)}
-                  className="font-bold text-sm text-zinc-900 bg-transparent outline-none border-b border-dashed border-zinc-300 focus:border-zinc-900 dark:text-zinc-100 dark:border-zinc-700"
+                  className="font-bold text-sm text-zinc-900 bg-transparent outline-hidden border-b border-dashed border-zinc-300 focus:border-zinc-900 dark:text-zinc-100 dark:border-zinc-700"
                 />
               </div>
               <button onClick={() => setIsTemplateModalOpen(false)} className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
@@ -456,7 +456,7 @@ export function TemplatesPage() {
               <div className="col-span-6 bg-zinc-100 p-6 flex items-center justify-center rounded-xl dark:bg-zinc-950 overflow-auto">
                 <div className="w-[320px] h-[320px] bg-white rounded-xl shadow-lg p-6 flex flex-col justify-center items-center space-y-4 border border-zinc-200 relative dark:bg-zinc-900 dark:border-zinc-800">
                   {canvasElements.map((el) => (
-                    <div key={el.id} className="text-center font-bold text-zinc-800 dark:text-zinc-100 p-2 border border-dashed border-zinc-300 rounded cursor-move w-full dark:border-zinc-700">
+                    <div key={el.id} className="text-center font-bold text-zinc-800 dark:text-zinc-100 p-2 border border-dashed border-zinc-300 rounded-sm cursor-move w-full dark:border-zinc-700">
                       {el.text}
                     </div>
                   ))}

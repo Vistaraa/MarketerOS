@@ -65,8 +65,15 @@ export interface YouTubeChannelPerformance {
     likes: number | null;
     comments: number | null;
   }>;
-  /** Always false until YouTube ad campaigns are read from the Google Ads API. */
+  /** True when the workspace's Google Ads account returned its YouTube (VIDEO) campaign metrics. */
   adMetricsAvailable: boolean;
+  ads?: {
+    summary: { impressions: number; views: number | null; clicks: number; spend: number; conversions: number; ctr: number; cpv: number | null; viewRate: number | null };
+    campaigns: YouTubeAdCampaign[];
+    daily: YouTubeAdsMetrics[];
+    period: { from: string; to: string };
+  } | null;
+  adMetricsUnavailableReason?: string | null;
 }
 
 export interface YouTubeAdsMetrics {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { logServerError } from "@/lib/errors";
-import { getSession } from "@/lib/auth-server";
+import { can, getSession } from "@/lib/auth-server";
+import { emailVerificationGuard } from "@/lib/email-verification";
 import { prisma } from "@/lib/prisma";
 import { encryptCredentialFields } from "@/lib/google/client";
 import { testGooglePlayConnection } from "@/lib/google/play-console";
@@ -13,8 +14,9 @@ export async function POST(request: Request) {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const lapsed = await subscriptionWriteGuard(session.workspaceId);
-    if (lapsed) return lapsed;
+    if (!can(session.role, "settings.manage")) return NextResponse.json({ error: "You do not have permission to connect integrations." }, { status: 403 });
+    const blocked = (await emailVerificationGuard(session.userId)) || (await subscriptionWriteGuard(session.workspaceId));
+    if (blocked) return blocked;
 
     const body = await request.json();
     const {

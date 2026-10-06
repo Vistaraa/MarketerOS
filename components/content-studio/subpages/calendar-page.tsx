@@ -214,7 +214,7 @@ export function CalendarPage() {
           {/* Calendar Grid Mode */}
           {viewMode === "calendar" ? (
             <div className="rounded-xl border border-zinc-200/90 bg-white shadow-2xs overflow-hidden dark:border-zinc-800 dark:bg-zinc-950/60">
-              <div className="overflow-x-auto [scrollbar-width:none]">
+              <div className="overflow-x-auto scrollbar-none">
                 <div className="min-w-[600px]">
                   <div className="grid grid-cols-7 border-b border-zinc-200/80 bg-zinc-50/50 text-center text-[11px] font-bold text-zinc-500 uppercase tracking-wider py-2.5 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
                     <div>Sun</div>
@@ -313,7 +313,7 @@ export function CalendarPage() {
                             month: currentMonth + 1,
                             day: dayNum
                           })}
-                          className="mt-2 w-full py-1 rounded border border-dashed border-zinc-200 text-[10px] text-zinc-400 font-medium hover:border-zinc-400 hover:text-zinc-900 transition flex items-center justify-center gap-0.5 opacity-0 hover:opacity-100 dark:border-zinc-800 dark:hover:text-zinc-100"
+                          className="mt-2 w-full py-1 rounded-sm border border-dashed border-zinc-200 text-[10px] text-zinc-400 font-medium hover:border-zinc-400 hover:text-zinc-900 transition flex items-center justify-center gap-0.5 opacity-0 hover:opacity-100 dark:border-zinc-800 dark:hover:text-zinc-100"
                         >
                           <Plus size={10} /> Create
                         </button>
@@ -414,7 +414,7 @@ export function CalendarPage() {
                   {activeSelectedPost.hashtags.map((tag) => (
                     <span
                       key={tag}
-                      className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-mono text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                      className="rounded-sm bg-zinc-100 px-1.5 py-0.5 text-[10px] font-mono text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
                     >
                       {tag}
                     </span>

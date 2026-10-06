@@ -74,6 +74,8 @@ export default function PlayConsolePage() {
       const payload = await res.json().catch(() => ({}));
       setSyncMessage(res.ok ? { tone: "info", text: payload.message || "Sync finished." } : { tone: "error", text: payload.error || "Sync failed." });
       await fetchAllData();
+      // The import runs in the background; refresh again once it has had time to finish.
+      if (payload.queued) [20_000, 60_000].forEach((ms) => setTimeout(() => { fetchAllData(); }, ms));
     } catch {
       setSyncMessage({ tone: "error", text: "Could not reach the server to sync Google Play." });
     } finally {
@@ -120,7 +122,7 @@ export default function PlayConsolePage() {
                 <select
                   value={selectedClientId}
                   onChange={(e) => setSelectedClientId(e.target.value)}
-                  className="bg-transparent text-xs font-semibold text-zinc-800 dark:text-zinc-200 focus:outline-none cursor-pointer w-full sm:w-auto"
+                  className="bg-transparent text-xs font-semibold text-zinc-800 dark:text-zinc-200 focus:outline-hidden cursor-pointer w-full sm:w-auto"
                 >
                   <option value="">All Agency Clients</option>
                   {clients.map((c) => (

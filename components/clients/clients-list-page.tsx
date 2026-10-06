@@ -465,7 +465,7 @@ export function ClientsListPage() {
         {/* Add / Edit Client Modal */}
         {isModalOpen && mounted && typeof document !== "undefined"
           ? createPortal(
-              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+              <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
                 <div className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
                   <div className="flex items-center justify-between border-b border-zinc-100 p-5 dark:border-zinc-800 shrink-0">
                     <div className="flex items-center gap-2">

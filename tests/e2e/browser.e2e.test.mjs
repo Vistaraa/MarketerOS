@@ -18,7 +18,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const PAGES = ["/auth/login", "/auth/signup", "/auth/verify-email", "/overview", "/campaigns", "/campaigns/create", "/leads", "/clients", "/analytics",
   "/ai-insights", "/automation", "/reports", "/integrations", "/content-studio", "/content-studio/calendar", "/content-studio/library",
-  "/content-studio/media", "/content-studio/templates", "/billing", "/settings", "/team", "/notifications", "/play-console", "/youtube", "/youtube-ads", "/onboarding/brand"];
+  "/content-studio/media", "/content-studio/templates", "/billing", "/settings", "/team", "/notifications", "/play-console", "/youtube", "/youtube-ads", "/onboarding/brand", "/legal/terms", "/legal/privacy"];
 
 /** Minimal CDP client for one headless Chrome tab. */
 async function launchBrowser() {
@@ -61,7 +61,7 @@ test("browser", { skip: chromePath ? false : "no Chrome/Chromium found (set CHRO
   await clearIpLimits();
   after(() => cleanupRun(ts));
   const email = `e2e-${ts}-browser@example.test`;
-  const res = await fetch(BASE + "/api/auth/signup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password: "Passw0rd!e2e", firstName: "Browser", lastName: "Test", workspaceName: "Browser test" }) });
+  const res = await fetch(BASE + "/api/auth/signup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password: "Passw0rd!e2e", firstName: "Browser", lastName: "Test", acceptTerms: true, workspaceName: "Browser test" }) });
   assert.equal(res.status, 201);
   const cookie = decodeURIComponent(/marketeros_session=([^;]+)/.exec(res.headers.get("set-cookie"))[1]);
 

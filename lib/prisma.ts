@@ -52,11 +52,8 @@ function getOptimizedDatabaseUrl(): string | undefined {
 
 const dbUrl = getOptimizedDatabaseUrl();
 
-const globalForPrisma = globalThis as unknown as { marketerPrisma?: PrismaClient };
-
-export const prisma =
-  globalForPrisma.marketerPrisma ??
-  new PrismaClient({
+function createClient() {
+  return new PrismaClient({
     datasources: dbUrl
       ? {
           db: {
@@ -65,6 +62,14 @@ export const prisma =
         }
       : undefined,
     log: ["error"],
+    // Password hashes are never loaded by accident (e.g. through an `include: { user: true }` that reaches an
+    // API response). The few places that verify passwords ask for the field explicitly.
+    omit: { user: { passwordHash: true } }
   });
+}
+
+const globalForPrisma = globalThis as unknown as { marketerPrisma?: ReturnType<typeof createClient> };
+
+export const prisma = globalForPrisma.marketerPrisma ?? createClient();
 
 globalForPrisma.marketerPrisma = prisma;

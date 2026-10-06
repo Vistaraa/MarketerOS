@@ -199,7 +199,7 @@ export function ContentLibraryPage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="input-clean !w-auto min-w-[135px] shrink-0"
+            className="input-clean w-auto! min-w-[135px] shrink-0"
           >
             <option value="newest">Sort by: Newest</option>
             <option value="oldest">Sort by: Oldest</option>
@@ -211,7 +211,7 @@ export function ContentLibraryPage() {
           <select
             value={selectedPlatform}
             onChange={(e) => setSelectedPlatform(e.target.value)}
-            className="input-clean !w-auto min-w-[125px] shrink-0"
+            className="input-clean w-auto! min-w-[125px] shrink-0"
           >
             <option value="all">All Platforms</option>
             <option value="instagram">Instagram</option>
@@ -225,7 +225,7 @@ export function ContentLibraryPage() {
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
-            className="input-clean !w-auto min-w-[120px] shrink-0"
+            className="input-clean w-auto! min-w-[120px] shrink-0"
           >
             <option value="all">All Formats</option>
             <option value="Post">Standard Post</option>
@@ -311,7 +311,7 @@ export function ContentLibraryPage() {
               {/* Card Footer: Campaign & Performance */}
               <div className="mt-4 border-t border-zinc-100 pt-3 dark:border-zinc-800">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="rounded bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                  <span className="rounded-sm bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
                     {item.campaign || "General"}
                   </span>
                   <div className="flex items-center gap-1 font-bold text-zinc-900 dark:text-zinc-100 text-[11px]">
@@ -368,7 +368,7 @@ export function ContentLibraryPage() {
                       type="checkbox"
                       checked={selectedItemIds.length === filteredItems.length && filteredItems.length > 0}
                       onChange={toggleSelectAll}
-                      className="rounded accent-zinc-900 dark:accent-zinc-100"
+                      className="rounded-sm accent-zinc-900 dark:accent-zinc-100"
                     />
                   </th>
                   <th className="py-3.5 px-3">Content</th>
@@ -393,7 +393,7 @@ export function ContentLibraryPage() {
                         type="checkbox"
                         checked={selectedItemIds.includes(item.id)}
                         onChange={() => toggleSelectItem(item.id)}
-                        className="rounded accent-zinc-900 dark:accent-zinc-100"
+                        className="rounded-sm accent-zinc-900 dark:accent-zinc-100"
                       />
                     </td>
                     <td className="py-3.5 px-3">
@@ -454,7 +454,7 @@ export function ContentLibraryPage() {
 
       {/* CONTENT DETAIL DRAWER */}
       {selectedContentItem && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-[100] flex justify-end bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-100 flex justify-end bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-white p-6 shadow-2xl dark:bg-zinc-900 overflow-y-auto space-y-5 animate-in slide-in-from-right duration-200">
             {/* Drawer Header */}
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
@@ -496,7 +496,7 @@ export function ContentLibraryPage() {
               <div className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Hashtags</div>
               <div className="flex flex-wrap gap-1">
                 {selectedContentItem.hashtags.map((tag) => (
-                  <span key={tag} className="rounded bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                  <span key={tag} className="rounded-sm bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
                     {tag}
                   </span>
                 ))}

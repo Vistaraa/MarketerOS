@@ -471,12 +471,12 @@ export function LiveLeadsPage({ detailId }: { detailId?: string }) {
                   placeholder="Search leads..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="h-8 w-full rounded-lg border border-zinc-200 bg-white pl-8 pr-3 text-xs text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="h-8 w-full rounded-lg border border-zinc-200 bg-white pl-8 pr-3 text-xs text-zinc-900 outline-hidden placeholder:text-zinc-400 focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                 />
               </div>
 
               {/* Status Filter Tabs in Horizontal Pill Bar */}
-              <div className="flex items-center gap-0.5 rounded-lg border border-zinc-200 bg-zinc-50/70 p-0.5 text-xs overflow-x-auto dark:border-zinc-800 dark:bg-zinc-900 [scrollbar-width:none]">
+              <div className="flex items-center gap-0.5 rounded-lg border border-zinc-200 bg-zinc-50/70 p-0.5 text-xs overflow-x-auto dark:border-zinc-800 dark:bg-zinc-900 scrollbar-none">
                 {["ALL", "NEW", "CONTACTED", "QUALIFIED", "PROPOSAL_SENT", "CONVERTED", "LOST"].map((stKey) => {
                   const label = stKey === "ALL" ? "All" : stKey === "PROPOSAL_SENT" ? "Proposal Sent" : stKey.charAt(0) + stKey.slice(1).toLowerCase();
                   const active = statusFilter.toUpperCase() === stKey;
@@ -503,7 +503,7 @@ export function LiveLeadsPage({ detailId }: { detailId?: string }) {
               <select
                 value={sourceFilter}
                 onChange={(e) => setSourceFilter(e.target.value)}
-                className="h-8 rounded-lg border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-700 outline-none hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 transition"
+                className="h-8 rounded-lg border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-700 outline-hidden hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 transition"
               >
                 <option value="ALL">All Sources</option>
                 <option value="WEBSITE">Website</option>
@@ -635,7 +635,7 @@ export function LiveLeadsPage({ detailId }: { detailId?: string }) {
                               <select
                                 value={item.status.toUpperCase().replaceAll(" ", "_")}
                                 onChange={(e) => handleStatusChange(item.id, e.target.value)}
-                                className={`appearance-none cursor-pointer rounded-full border px-3 py-1 pr-6 text-[11px] font-semibold tracking-tight transition focus:outline-none focus:ring-1 focus:ring-zinc-400 ${getStatusStyle(item.status)}`}
+                                className={`appearance-none cursor-pointer rounded-full border px-3 py-1 pr-6 text-[11px] font-semibold tracking-tight transition focus:outline-hidden focus:ring-1 focus:ring-zinc-400 ${getStatusStyle(item.status)}`}
                               >
                                 {PIPELINE_STAGES.map((s) => (
                                   <option key={s.key} value={s.key} className="bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
@@ -731,7 +731,7 @@ export function LiveLeadsPage({ detailId }: { detailId?: string }) {
           </div>
         ) : (
           /* View Mode: Spacious Kanban Pipeline Board */
-          <div className="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x [scrollbar-width:thin]">
+          <div className="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x scrollbar-thin">
             {PIPELINE_STAGES.map((stage) => {
               const stageLeads = filtered.filter(
                 (l) => l.status.toUpperCase().replaceAll(" ", "_") === stage.key
@@ -843,7 +843,7 @@ export function LiveLeadsPage({ detailId }: { detailId?: string }) {
         {/* Add / Edit Lead Modal */}
         {isModalOpen && mounted && typeof document !== "undefined"
           ? createPortal(
-              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+              <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
                 <div className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
                   <div className="flex items-center justify-between border-b border-zinc-100 p-5 dark:border-zinc-800 shrink-0">
                     <div className="flex items-center gap-2">

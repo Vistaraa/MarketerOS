@@ -328,7 +328,7 @@ export function ModernOnboardingWizard({ initialStep = "brand" }: { initialStep?
                         toggleConnected(plat);
                       }}
                       className={cn(
-                        "rounded px-2 py-0.5 text-[10px] font-semibold transition",
+                        "rounded-sm px-2 py-0.5 text-[10px] font-semibold transition",
                         isConnected
                           ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
                           : "border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"

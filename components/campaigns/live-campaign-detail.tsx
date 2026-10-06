@@ -473,7 +473,7 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
                           <button
                             onClick={() => setSelectedPlatformId(item.id)}
                             className={cn(
-                              "grid h-6 w-6 place-items-center rounded border transition",
+                              "grid h-6 w-6 place-items-center rounded-sm border transition",
                               isSelected
                                 ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
                                 : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
@@ -485,7 +485,7 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
                           <button
                             onClick={handleToggleStatus}
                             disabled={updatingStatus}
-                            className="grid h-6 w-6 place-items-center rounded border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+                            className="grid h-6 w-6 place-items-center rounded-sm border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
                             title={isCampaignActive ? "Pause Channel" : "Resume Channel"}
                           >
                             {isCampaignActive ? <Pause size={11} className="text-amber-600" /> : <Play size={11} className="text-emerald-600" />}
@@ -741,7 +741,7 @@ export function LiveCampaignDetail({ campaignId }: { campaignId: string }) {
                     <select
                       value={granularity}
                       onChange={(e) => setGranularity(e.target.value)}
-                      className="h-6 rounded border border-zinc-200 bg-white px-1.5 text-[11px] font-medium text-zinc-700 outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+                      className="h-6 rounded-sm border border-zinc-200 bg-white px-1.5 text-[11px] font-medium text-zinc-700 outline-hidden dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
                     >
                       <option>Daily</option>
                       <option>Weekly</option>

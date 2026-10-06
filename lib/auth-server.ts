@@ -100,13 +100,20 @@ export async function getSession(explicitToken?: string) {
     }
   }
   if (!raw) return null;
+  // Developer API keys (Authorization: Bearer mk_live_...) act as a read-only member of their workspace.
+  if (raw.startsWith("mk_live_")) {
+    const { authenticateApiKey } = await import("@/lib/api-keys");
+    return authenticateApiKey(raw);
+  }
   const [payload, signature] = raw.split(".");
   if (!payload || !signature || !verifySessionToken(raw)) return null;
   const tokenHash = hashSession(raw);
   const cached = cacheGet<{ userId: string; workspaceId: string; role: string; email: string; name: string }>(sessionCacheKey(tokenHash));
   if (cached) {
-    const userCheck = await prisma.user.findUnique({ where: { id: cached.userId }, select: { status: true } });
-    if (!userCheck || userCheck.status === "SUSPENDED") {
+    // Only the workspace/role resolution is cached. The session row itself is checked on every request, so a
+    // sign-out, revocation or removal takes effect at once on every server instance, not after the cache expires.
+    const live = await prisma.session.findFirst({ where: { tokenHash, expiresAt: { gt: new Date() } }, select: { user: { select: { status: true } } } });
+    if (!live || live.user.status === "SUSPENDED") {
       cacheInvalidateKey(sessionCacheKey(tokenHash));
       return null;
     }
@@ -223,6 +230,9 @@ export function can(role: string, permission: string) {
 
   if (normalizedRole === "OWNER" || normalizedRole === "ADMIN") return true;
 
+  // API keys are read-only: they can view whatever a member can view, and change nothing.
+  if (normalizedRole === "API_KEY") return perm.endsWith(".view");
+
   if (normalizedRole === "MANAGER") {
     if (perm.startsWith("team.") || perm.startsWith("billing.")) return false;
     return true;
@@ -268,6 +278,8 @@ export async function createPersistedUser(input: {
   currency?: string;
   timezone?: string;
   monthlyBudget?: number;
+  termsAcceptedAt?: Date;
+  termsVersion?: string;
 }) {
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const normalizedEmail = input.email.trim().toLowerCase();
@@ -276,7 +288,9 @@ export async function createPersistedUser(input: {
         email: normalizedEmail,
         firstName: input.firstName,
         lastName: input.lastName,
-        passwordHash: input.passwordHash
+        passwordHash: input.passwordHash,
+        termsAcceptedAt: input.termsAcceptedAt,
+        termsVersion: input.termsVersion
       }
     });
     const workspace = await tx.workspace.create({
@@ -309,7 +323,9 @@ export async function authenticatePersistedUser(email: string, password: string)
   const user = await prisma.user.findFirst({
     where: {
       email: { equals: normalizedEmail, mode: "insensitive" }
-    }
+    },
+    // Hashes are omitted from queries by default (lib/prisma.ts); sign-in is one of the few places that needs it.
+    omit: { passwordHash: false }
   });
   if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) return null;
   if (user.status === "SUSPENDED") {

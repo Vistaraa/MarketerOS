@@ -30,3 +30,17 @@ export async function verifyEmailWithToken(token: string) {
   await recordAudit({ workspaceId: claimed.workspaceId, userId: claimed.userId, action: "EMAIL_VERIFIED", module: "auth", entityType: "User", entityId: claimed.userId });
   return true;
 }
+
+/**
+ * Sensitive actions (paying, inviting people, connecting ad accounts) need a confirmed email address, so a
+ * typo'd or someone else's address can't receive invoices, invitations or account alerts. 403 otherwise.
+ */
+export async function emailVerificationGuard(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { emailVerifiedAt: true } });
+  if (user?.emailVerifiedAt) return null;
+  const { NextResponse } = await import("next/server");
+  return NextResponse.json(
+    { error: { code: "EMAIL_NOT_VERIFIED", message: "Please verify your email address first. Use the link we emailed you, or resend it from the banner at the top of the page." } },
+    { status: 403 }
+  );
+}

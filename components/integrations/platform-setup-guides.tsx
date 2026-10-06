@@ -541,13 +541,13 @@ X-Restli-Protocol-Version: 2.0.0`,
 function renderFormattedText(text: string) {
   const parts = text.split(/(https?:\/\/[^\s]+|\/api\/[^\s]+)/g);
   return (
-    <span className="break-words [word-break:break-word] leading-relaxed">
+    <span className="wrap-break-word [word-break:break-word] leading-relaxed">
       {parts.map((part, i) => {
         if (part.startsWith("http://") || part.startsWith("https://") || part.startsWith("/api/")) {
           return (
             <code
               key={i}
-              className="inline-block break-all font-mono text-[10px] bg-zinc-100 dark:bg-zinc-800/80 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700/60 text-indigo-600 dark:text-indigo-400 font-medium my-0.5"
+              className="inline-block break-all font-mono text-[10px] bg-zinc-100 dark:bg-zinc-800/80 px-1.5 py-0.5 rounded-sm border border-zinc-200 dark:border-zinc-700/60 text-indigo-600 dark:text-indigo-400 font-medium my-0.5"
             >
               {part}
             </code>
@@ -677,7 +677,7 @@ export function GenericPlatformSetupGuide({
                 <AlertTriangle size={14} className="shrink-0 text-amber-600 dark:text-amber-400" />
                 <span>{config.tab1.alertTitle}</span>
               </div>
-              <p className="mt-1 text-[11px] leading-relaxed opacity-90 break-words [word-break:break-word]">
+              <p className="mt-1 text-[11px] leading-relaxed opacity-90 wrap-break-word [word-break:break-word]">
                 {config.tab1.alertText}
               </p>
             </div>
@@ -691,7 +691,7 @@ export function GenericPlatformSetupGuide({
                     </span>
                     <span className="truncate">{st.title}</span>
                   </div>
-                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed break-words [word-break:break-word]">
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed wrap-break-word [word-break:break-word]">
                     {renderFormattedText(st.text)}
                   </div>
                 </div>
@@ -712,7 +712,7 @@ export function GenericPlatformSetupGuide({
                           <td className="py-2 pr-3 font-mono font-semibold text-indigo-600 dark:text-indigo-400 break-all w-[42%] align-top select-all">
                             {v.name}
                           </td>
-                          <td className="py-2 text-zinc-600 dark:text-zinc-400 w-[58%] align-top font-sans text-[11px] leading-relaxed break-words [word-break:break-word]">
+                          <td className="py-2 text-zinc-600 dark:text-zinc-400 w-[58%] align-top font-sans text-[11px] leading-relaxed wrap-break-word [word-break:break-word]">
                             {renderFormattedText(v.desc)}
                           </td>
                         </tr>
@@ -732,7 +732,7 @@ export function GenericPlatformSetupGuide({
               {config.tab2.steps.map((st) => (
                 <div key={st.step} className="flex flex-col justify-start rounded-xl border border-zinc-200 bg-white p-3.5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden min-w-0">
                   <div className="font-bold text-zinc-900 dark:text-zinc-100 mb-1.5 truncate">{st.title}</div>
-                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed break-words [word-break:break-word]">
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed wrap-break-word [word-break:break-word]">
                     {renderFormattedText(st.text)}
                   </div>
                 </div>
@@ -744,7 +744,7 @@ export function GenericPlatformSetupGuide({
                 <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span>Zero-Friction UX</span>
               </div>
-              <p className="mt-1 text-[11px] leading-relaxed opacity-90 break-words [word-break:break-word]">
+              <p className="mt-1 text-[11px] leading-relaxed opacity-90 wrap-break-word [word-break:break-word]">
                 {config.tab2.calloutText}
               </p>
             </div>
@@ -755,7 +755,7 @@ export function GenericPlatformSetupGuide({
         {tab === "api_spec" && (
           <div className="space-y-3 text-xs">
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="font-semibold text-zinc-700 dark:text-zinc-300 break-words [word-break:break-word]">
+              <span className="font-semibold text-zinc-700 dark:text-zinc-300 wrap-break-word [word-break:break-word]">
                 {config.tab3.queryLabel}
               </span>
               <button
@@ -771,7 +771,7 @@ export function GenericPlatformSetupGuide({
               <code>{config.tab3.sampleCode}</code>
             </pre>
 
-            <div className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed break-words [word-break:break-word]">
+            <div className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed wrap-break-word [word-break:break-word]">
               {renderFormattedText(config.tab3.endpointInfo)}
             </div>
           </div>
@@ -812,7 +812,7 @@ export function PlatformSetupGuideModal({
   if (!config) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
       <div className="w-full max-w-3xl max-h-[92vh] flex flex-col rounded-2xl border border-zinc-200/90 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 overflow-hidden my-auto">
         <GenericPlatformSetupGuide config={config} onClose={onClose} />
       </div>

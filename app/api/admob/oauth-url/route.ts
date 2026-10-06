@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth-server";
+import { createOAuthState } from "@/lib/oauth";
+import { integrationConnectContext, safeReturnTo } from "@/lib/google-oauth-guard";
 
 export async function GET(request: Request) {
   console.log("\n=======================================================");
@@ -7,10 +8,12 @@ export async function GET(request: Request) {
 
   try {
     const url = new URL(request.url);
-    const returnTo = url.searchParams.get("returnTo") || "/integrations";
+    const returnTo = safeReturnTo(url.searchParams.get("returnTo"));
 
-    const session = await getSession().catch(() => null);
-    const workspaceId = session?.workspaceId || "default-ws";
+    const auth = await integrationConnectContext();
+    if (auth.response) return auth.response;
+    const { session } = auth;
+    const workspaceId = session.workspaceId;
 
     let clientId =
       process.env.ADMOB_OAUTH_CLIENT_ID ||
@@ -39,15 +42,8 @@ export async function GET(request: Request) {
         { status: 400 }
       );
     }
-    const statePayload = {
-      workspaceId: session?.workspaceId || "default-ws",
-      userId: session?.userId || "default-usr",
-      providerKey: "admob",
-      returnTo,
-      timestamp: Date.now()
-    };
-
-    const state = Buffer.from(JSON.stringify(statePayload)).toString("base64url");
+    // Single-use, stored server-side and bound to this user and workspace (checked in the callback).
+    const state = await createOAuthState({ workspaceId, userId: session.userId, providerKey: "google_admob", returnTo });
 
     // Use registered Google OAuth redirect URI
     const redirectUri =

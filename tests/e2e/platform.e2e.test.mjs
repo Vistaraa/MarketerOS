@@ -4,7 +4,7 @@
  */
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { BASE, sql, clearIpLimits, cleanupRun } from "./helpers.mjs";
+import { BASE, sql, clearIpLimits, cleanupRun, verifyEmail } from "./helpers.mjs";
 
 const ts = Date.now();
 after(() => cleanupRun(ts));
@@ -33,8 +33,9 @@ function cookieFrom(setCookie) {
 async function signup(tag) {
   const email = `e2e-${ts}-${tag}@example.test`;
   const r = await req("POST", "/api/auth/signup", {
-    body: { email, password: "Passw0rd!e2e", firstName: "E2E", lastName: tag.toUpperCase(), workspaceName: `E2E Workspace ${tag.toUpperCase()} ${ts}` }
+    body: { email, password: "Passw0rd!e2e", firstName: "E2E", lastName: tag.toUpperCase(), acceptTerms: true, workspaceName: `E2E Workspace ${tag.toUpperCase()} ${ts}` }
   });
+  if (r.status === 201) await verifyEmail(email);
   return { email, r, cookie: cookieFrom(r.setCookie), ws: r.json?.data?.user?.workspaceId };
 }
 
@@ -70,7 +71,7 @@ test("Platform: pages, APIs, CRUD, isolation", async (t) => {
     const B = await signup("b");
     await rec("Auth", "Signup user B", B.r.status === 201 && !!B.cookie, `${B.r.status} in ${B.r.ms}ms`);
 
-    r = await req("POST", "/api/auth/signup", { body: { email: A.email, password: "Passw0rd!e2e", firstName: "x", lastName: "y", workspaceName: "dup" } });
+    r = await req("POST", "/api/auth/signup", { body: { email: A.email, password: "Passw0rd!e2e", firstName: "x", lastName: "y", acceptTerms: true, workspaceName: "dup" } });
     await rec("Auth", "Duplicate email signup rejected", r.status === 400, `${r.status}`);
 
     r = await req("GET", "/api/auth/session", { cookie: A.cookie });

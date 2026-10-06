@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import {
   AlertTriangle,
   Check,
@@ -360,7 +360,7 @@ function ConnectYouTubeForm({ onSuccess, onClose }: { onSuccess: () => void; onC
           <>
             <div>
               <label className="block text-[11px] font-medium text-zinc-700 dark:text-zinc-300">YouTube API Key *</label>
-              <input value={formData.apiKey} onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })} placeholder="AIzaSy..." className="mt-1 h-8 w-full rounded-lg border border-zinc-200 bg-white px-3 text-xs text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-red-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
+              <input value={formData.apiKey} onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })} placeholder="AIzaSy..." className="mt-1 h-8 w-full rounded-lg border border-zinc-200 bg-white px-3 text-xs text-zinc-900 outline-hidden placeholder:text-zinc-400 focus:border-red-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
               <p className="mt-1 text-[10px] text-zinc-400">Get from Google Cloud Console → APIs & Services → Credentials</p>
             </div>
             <button onClick={validateApiKey} disabled={busy || !formData.apiKey.trim()} className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50">
@@ -374,7 +374,7 @@ function ConnectYouTubeForm({ onSuccess, onClose }: { onSuccess: () => void; onC
           <>
             <div>
               <label className="block text-[11px] font-medium text-zinc-700 dark:text-zinc-300">YouTube Channel ID *</label>
-              <input value={formData.channelId} onChange={(e) => setFormData({ ...formData, channelId: e.target.value })} placeholder="UC..." className="mt-1 h-8 w-full rounded-lg border border-zinc-200 bg-white px-3 text-xs text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-red-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
+              <input value={formData.channelId} onChange={(e) => setFormData({ ...formData, channelId: e.target.value })} placeholder="UC..." className="mt-1 h-8 w-full rounded-lg border border-zinc-200 bg-white px-3 text-xs text-zinc-900 outline-hidden placeholder:text-zinc-400 focus:border-red-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
               <p className="mt-1 text-[10px] text-zinc-400">Find in YouTube Studio → Settings → Channel → Basic info</p>
             </div>
             <button onClick={validateChannel} disabled={busy || !formData.channelId.trim()} className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50">
@@ -396,24 +396,24 @@ function ConnectYouTubeForm({ onSuccess, onClose }: { onSuccess: () => void; onC
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-medium text-zinc-700 dark:text-zinc-300">Display Name</label>
-                <input value={formData.channelName} onChange={(e) => setFormData({ ...formData, channelName: e.target.value })} className="mt-1 h-8 w-full rounded-lg border border-zinc-200 bg-white px-3 text-xs text-zinc-900 outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
+                <input value={formData.channelName} onChange={(e) => setFormData({ ...formData, channelName: e.target.value })} className="mt-1 h-8 w-full rounded-lg border border-zinc-200 bg-white px-3 text-xs text-zinc-900 outline-hidden dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
               </div>
               <div>
                 <label className="block text-[11px] font-medium text-zinc-700 dark:text-zinc-300">Country</label>
-                <input value={formData.country} onChange={(e) => setFormData({ ...formData, country: e.target.value })} className="mt-1 h-8 w-full rounded-lg border border-zinc-200 bg-white px-3 text-xs text-zinc-900 outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
+                <input value={formData.country} onChange={(e) => setFormData({ ...formData, country: e.target.value })} className="mt-1 h-8 w-full rounded-lg border border-zinc-200 bg-white px-3 text-xs text-zinc-900 outline-hidden dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
               </div>
             </div>
             <div>
               <label className="block text-[11px] font-medium text-zinc-700 dark:text-zinc-300">OAuth Client ID <span className="text-zinc-400">(optional — for analytics)</span></label>
-              <input value={formData.oauthClientId} onChange={(e) => setFormData({ ...formData, oauthClientId: e.target.value })} placeholder="xxxx.apps.googleusercontent.com" className="mt-1 h-8 w-full rounded-lg border border-zinc-200 bg-white px-3 text-xs text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-red-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
+              <input value={formData.oauthClientId} onChange={(e) => setFormData({ ...formData, oauthClientId: e.target.value })} placeholder="xxxx.apps.googleusercontent.com" className="mt-1 h-8 w-full rounded-lg border border-zinc-200 bg-white px-3 text-xs text-zinc-900 outline-hidden placeholder:text-zinc-400 focus:border-red-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
             </div>
             <div>
               <label className="block text-[11px] font-medium text-zinc-700 dark:text-zinc-300">OAuth Client Secret <span className="text-zinc-400">(optional)</span></label>
-              <input type="password" value={formData.oauthClientSecret} onChange={(e) => setFormData({ ...formData, oauthClientSecret: e.target.value })} placeholder="GOCSPX-..." className="mt-1 h-8 w-full rounded-lg border border-zinc-200 bg-white px-3 text-xs text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-red-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
+              <input type="password" value={formData.oauthClientSecret} onChange={(e) => setFormData({ ...formData, oauthClientSecret: e.target.value })} placeholder="GOCSPX-..." className="mt-1 h-8 w-full rounded-lg border border-zinc-200 bg-white px-3 text-xs text-zinc-900 outline-hidden placeholder:text-zinc-400 focus:border-red-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
             </div>
             <div>
               <label className="block text-[11px] font-medium text-zinc-700 dark:text-zinc-300">GA4 Property ID <span className="text-zinc-400">(optional)</span></label>
-              <input value={formData.ga4PropertyId} onChange={(e) => setFormData({ ...formData, ga4PropertyId: e.target.value })} placeholder="123456789" className="mt-1 h-8 w-full rounded-lg border border-zinc-200 bg-white px-3 text-xs text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-red-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
+              <input value={formData.ga4PropertyId} onChange={(e) => setFormData({ ...formData, ga4PropertyId: e.target.value })} placeholder="123456789" className="mt-1 h-8 w-full rounded-lg border border-zinc-200 bg-white px-3 text-xs text-zinc-900 outline-hidden placeholder:text-zinc-400 focus:border-red-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" />
             </div>
             <button onClick={connect} disabled={busy} className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50">
               {busy ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
@@ -442,9 +442,7 @@ function YouTubeConnectedDashboard({ status, onRefresh }: { status: YouTubeInteg
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"overview" | "videos" | "analytics" | "ads">("overview");
 
-  useEffect(() => { loadDashboard(); }, []);
-
-  async function loadDashboard() {
+  const loadDashboard = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/v1/youtube/dashboard", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
@@ -452,7 +450,9 @@ function YouTubeConnectedDashboard({ status, onRefresh }: { status: YouTubeInteg
       if (res.ok) setDashboardData(json.data);
     } catch { /* ignore */ }
     setLoading(false);
-  }
+  }, []);
+
+  useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
   async function loadAnalytics() {
     try {
@@ -492,7 +492,7 @@ function YouTubeConnectedDashboard({ status, onRefresh }: { status: YouTubeInteg
                 <div className="mt-3 space-y-2">
                   {dashboardData.recentVideos.slice(0, 5).map((v) => (
                     <div key={v.id} className="flex items-center gap-3 rounded-lg border border-zinc-100 p-2 dark:border-zinc-800">
-                      <img src={v.thumbnailUrl} alt="" className="h-12 w-20 rounded object-cover" />
+                      <img src={v.thumbnailUrl} alt="" className="h-12 w-20 rounded-sm object-cover" />
                       <div className="flex-1 min-w-0">
                         <p className="truncate text-xs font-medium text-zinc-900 dark:text-zinc-100">{v.title}</p>
                         <p className="text-[10px] text-zinc-500">{v.viewCount.toLocaleString()} views · {v.likeCount.toLocaleString()} likes</p>
@@ -508,7 +508,7 @@ function YouTubeConnectedDashboard({ status, onRefresh }: { status: YouTubeInteg
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {dashboardData.recentVideos.map((v) => (
                 <div key={v.id} className="flex gap-3 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950/60">
-                  <img src={v.thumbnailUrl} alt="" className="h-24 w-40 rounded object-cover" />
+                  <img src={v.thumbnailUrl} alt="" className="h-24 w-40 rounded-sm object-cover" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{v.title}</p>
                     <p className="mt-1 text-[10px] text-zinc-500">{v.viewCount.toLocaleString()} views · {v.likeCount.toLocaleString()} likes · {v.commentCount.toLocaleString()} comments</p>
@@ -576,9 +576,7 @@ function YouTubeAdsTab() {
   }>>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadAdsData(); }, []);
-
-  async function loadAdsData() {
+  const loadAdsData = useCallback(async () => {
     setLoading(true);
     try {
       const [dashRes, metricsRes] = await Promise.all([
@@ -589,7 +587,9 @@ function YouTubeAdsTab() {
       if (metricsRes.ok) { const data = await metricsRes.json(); setAdsMetrics(data.data?.metrics || data.metrics || []); }
     } catch { /* ignore */ }
     setLoading(false);
-  }
+  }, []);
+
+  useEffect(() => { loadAdsData(); }, [loadAdsData]);
 
   if (loading) return <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-zinc-400" /></div>;
 
@@ -638,7 +638,7 @@ function YouTubeAdsTab() {
           <div className="mt-2 space-y-2">
             {adsDashboard.recentAds.slice(0, 5).map(ad => (
               <div key={ad.id} className="flex items-center gap-3 rounded-lg border border-zinc-100 p-2 dark:border-zinc-800">
-                {ad.thumbnailUrl && <img src={ad.thumbnailUrl} alt="" className="h-10 w-16 rounded object-cover" />}
+                {ad.thumbnailUrl && <img src={ad.thumbnailUrl} alt="" className="h-10 w-16 rounded-sm object-cover" />}
                 <div className="flex-1 min-w-0">
                   <p className="truncate text-xs font-medium text-zinc-900 dark:text-zinc-100">{ad.videoTitle}</p>
                   <p className="text-[10px] text-zinc-500">{formatNumber(ad.views)} views · {formatNumber(ad.clicks)} clicks · {ad.viewRate.toFixed(1)}% view rate</p>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth-server";
+import { integrationConnectContext } from "@/lib/google-oauth-guard";
+import { subscriptionWriteGuard } from "@/lib/subscription";
 
 export async function POST(request: Request) {
   console.log("\n=======================================================");
@@ -21,11 +22,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const session = await getSession().catch(() => null);
-    if (!session) {
-      return NextResponse.json({ success: false, error: "Authentication required." }, { status: 401 });
-    }
-    const workspaceId = session.workspaceId;
+    const auth = await integrationConnectContext();
+    if (auth.response) return auth.response;
+    const lapsed = await subscriptionWriteGuard(auth.session.workspaceId);
+    if (lapsed) return lapsed;
+    const workspaceId = auth.session.workspaceId;
 
     const cleanPublisherId = publisherId.trim();
 

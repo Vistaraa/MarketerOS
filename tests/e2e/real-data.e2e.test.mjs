@@ -21,7 +21,7 @@ async function req(method, path, { cookie, body } = {}) {
 
 async function signup(tag) {
   const email = `e2e-${ts}-${tag}@example.test`;
-  const r = await req("POST", "/api/auth/signup", { body: { email, password: "Passw0rd!e2e", firstName: "E2E", lastName: tag, workspaceName: `E2E S3 ${tag} ${ts}` } });
+  const r = await req("POST", "/api/auth/signup", { body: { email, password: "Passw0rd!e2e", firstName: "E2E", lastName: tag, acceptTerms: true, workspaceName: `E2E S3 ${tag} ${ts}` } });
   return { email, cookie: ck(r.setCookie), ws: r.json?.data?.user?.workspaceId, userId: r.json?.data?.user?.userId };
 }
 
@@ -76,7 +76,7 @@ test("Only real data (step 3)", async (t) => {
   await rec("Settings", "No invented device/browser/IP fields", sess.every((s) => !("device" in s) && !("ipAddress" in s) && !("browser" in s)));
   await rec("Settings", "No hardcoded API keys", Array.isArray(r.json?.data?.apiKeys) && r.json.data.apiKeys.length === 0, JSON.stringify(r.json?.data?.apiKeys));
   r = await req("POST", "/api/v1/settings/api-keys", { cookie: A.cookie, body: { name: "x" } });
-  await rec("Settings", "Generate API key → 501, no unusable secret handed out", r.status === 501 && !/mk_live_/.test(r.text), `${r.status}`);
+  await rec("Settings", "Generate API key → a real, stored key (step 14)", r.status === 201 && /^mk_live_[A-Za-z0-9]{40}$/.test(r.json?.data?.secret || "") && (await sql(`select count(*) from "ApiKey" where id = '${r.json?.data?.key?.id}'`)) === "1", `${r.status}`);
   r = await req("DELETE", "/api/v1/settings/api-keys/key-prod-01", { cookie: A.cookie });
   await rec("Settings", "Revoke nonexistent key → 404 (no fake success)", r.status === 404, `${r.status}`);
   await rec("Settings", "No fake 'sess_' session rows exist", await sql(`select count(*) from "Session" where "tokenHash" like 'sess\\_%'`) === "0");

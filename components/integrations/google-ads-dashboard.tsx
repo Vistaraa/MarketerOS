@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AlertCircle,
   ArrowDownRight,
@@ -69,7 +69,7 @@ export function GoogleAdsDashboard({
   const [searchCampaign, setSearchCampaign] = useState("");
   const [activeTab, setActiveTab] = useState<"overview" | "campaigns" | "keywords" | "gaql">("overview");
 
-  const fetchPerformance = async () => {
+  const fetchPerformance = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/google-ads/performance?range=${range}`);
@@ -82,12 +82,16 @@ export function GoogleAdsDashboard({
     } finally {
       setLoading(false);
     }
-  };
+  }, [range]);
 
+  /** Queues a real sync from Google Ads, then reloads once it has had time to finish. */
   const handleSyncNow = async () => {
+    const integrationId = data?.account?.integrationId;
+    if (!integrationId) return;
     setSyncing(true);
     try {
-      await new Promise((r) => setTimeout(r, 900));
+      const res = await fetch(`/api/v1/integrations/${integrationId}/sync`, { method: "POST" });
+      if (res.ok) await new Promise((r) => setTimeout(r, 15_000));
       await fetchPerformance();
     } finally {
       setSyncing(false);
@@ -96,7 +100,7 @@ export function GoogleAdsDashboard({
 
   useEffect(() => {
     fetchPerformance();
-  }, [range]);
+  }, [fetchPerformance]);
 
   const summary = data?.summary || {
     totalSpend: 0,
@@ -151,7 +155,7 @@ export function GoogleAdsDashboard({
           <select
             value={range}
             onChange={(e) => setRange(e.target.value)}
-            className="h-8 rounded-lg border border-zinc-200 bg-white px-2.5 text-xs font-semibold text-zinc-700 outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+            className="h-8 rounded-lg border border-zinc-200 bg-white px-2.5 text-xs font-semibold text-zinc-700 outline-hidden dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
           >
             <option value="LAST_7_DAYS">Last 7 Days</option>
             <option value="LAST_30_DAYS">Last 30 Days</option>
@@ -162,7 +166,7 @@ export function GoogleAdsDashboard({
           {/* Sync Button */}
           <button
             onClick={handleSyncNow}
-            disabled={syncing}
+            disabled={syncing || !data?.account?.integrationId}
             className="btn-secondary"
             title="Sync metrics now"
           >
@@ -442,7 +446,7 @@ export function GoogleAdsDashboard({
                 placeholder="Filter campaigns..."
                 value={searchCampaign}
                 onChange={(e) => setSearchCampaign(e.target.value)}
-                className="h-8 w-full rounded-lg border border-zinc-200 bg-white pl-8 pr-3 text-xs outline-none placeholder:text-zinc-400 focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                className="h-8 w-full rounded-lg border border-zinc-200 bg-white pl-8 pr-3 text-xs outline-hidden placeholder:text-zinc-400 focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
               />
             </div>
           </div>
@@ -472,7 +476,7 @@ export function GoogleAdsDashboard({
                       {camp.name}
                     </td>
                     <td className="px-3 py-3 text-[11px] text-zinc-500">
-                      <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[10px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                      <span className="rounded-sm bg-zinc-100 px-1.5 py-0.5 font-mono text-[10px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
                         {camp.channelType}
                       </span>
                     </td>
@@ -558,7 +562,7 @@ export function GoogleAdsDashboard({
                       &quot;{kw.keyword}&quot;
                     </td>
                     <td className="px-3 py-2.5">
-                      <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                      <span className="rounded-sm bg-zinc-100 px-1.5 py-0.5 font-mono text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                         {kw.matchType}
                       </span>
                     </td>
@@ -591,7 +595,7 @@ export function GoogleAdsDashboard({
           </pre>
 
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-            Executed against Google Ads API endpoint: <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">customers/{data?.account?.customerId || "8492041839"}/googleAds:searchStream</code> via server-side secure token proxy.
+            Executed against Google Ads API endpoint: <code className="rounded-sm bg-zinc-100 px-1 dark:bg-zinc-800">customers/{data?.account?.customerId || "8492041839"}/googleAds:searchStream</code> via server-side secure token proxy.
           </p>
         </div>
       )}

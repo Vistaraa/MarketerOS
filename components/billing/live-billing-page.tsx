@@ -321,18 +321,19 @@ export function LiveBillingPage() {
   };
 
   // Filtered invoices
+  const invoices = data?.invoices;
   const filteredInvoices = useMemo(() => {
-    if (!data?.invoices) return [];
-    if (!invoiceSearchQuery.trim()) return data.invoices;
+    if (!invoices) return [];
+    if (!invoiceSearchQuery.trim()) return invoices;
     const q = invoiceSearchQuery.toLowerCase();
-    return data.invoices.filter(
+    return invoices.filter(
       (inv) =>
         inv.invoiceNumber.toLowerCase().includes(q) ||
         (inv.payuPaymentId && inv.payuPaymentId.toLowerCase().includes(q)) ||
         (inv.payuTxnId && inv.payuTxnId.toLowerCase().includes(q)) ||
         (inv.razorpayPaymentId && inv.razorpayPaymentId.toLowerCase().includes(q))
     );
-  }, [data?.invoices, invoiceSearchQuery]);
+  }, [invoices, invoiceSearchQuery]);
 
   if (loading) {
     return (
@@ -432,7 +433,7 @@ export function LiveBillingPage() {
                     </h3>
                     <StatusBadge status={PLAN_STATE_LABELS[data.subscription?.access?.state || "active"]} />
                     {data.subscription?.cancelAtPeriodEnd && data.subscription?.access?.state !== "locked" && (
-                      <span className="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                      <span className="rounded-sm bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
                         Cancelling at period end
                       </span>
                     )}
@@ -677,7 +678,7 @@ export function LiveBillingPage() {
                   )}
                 >
                   <span>Annual Billing</span>
-                  <span className="rounded bg-emerald-500 px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-white">
+                  <span className="rounded-sm bg-emerald-500 px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-white">
                     Save 20%
                   </span>
                 </button>
@@ -926,7 +927,7 @@ export function LiveBillingPage() {
                             <CreditCard size={18} />
                             <span>{pm.brand}</span>
                           </div>
-                          <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                          <span className="rounded-sm bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                             Verified Gateway Token
                           </span>
                         </div>
@@ -1116,7 +1117,7 @@ export function LiveBillingPage() {
                           <tr key={item.id} className="hover:bg-zinc-50/70 dark:hover:bg-zinc-900/50 transition">
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-1.5">
-                                <span className="rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-300">
+                                <span className="rounded-sm bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-300">
                                   {item.feature}
                                 </span>
                                 <a
@@ -1280,7 +1281,7 @@ export function LiveBillingPage() {
 
         {/* PLAN UPGRADE MODAL */}
         {mounted && selectedPlanToUpgrade && createPortal(
-          <div className="fixed -top-16 -bottom-16 -left-16 -right-16 z-[9999] flex items-center justify-center bg-black/75 dark:bg-black/85 p-16 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200">
+          <div className="fixed -top-16 -bottom-16 -left-16 -right-16 z-9999 flex items-center justify-center bg-black/75 dark:bg-black/85 p-16 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200">
             <div className="relative w-full max-w-md bg-white/95 dark:bg-zinc-900/95 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-2xl backdrop-blur-2xl space-y-5 animate-in zoom-in-95">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
@@ -1288,7 +1289,7 @@ export function LiveBillingPage() {
                 </h3>
                 <button
                   onClick={() => setSelectedPlanToUpgrade(null)}
-                  className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  className="rounded-sm p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 >
                   <X size={16} />
                 </button>
@@ -1378,7 +1379,7 @@ export function LiveBillingPage() {
 
         {/* BUY AI CREDITS MODAL */}
         {mounted && isBuyCreditsModalOpen && createPortal(
-          <div className="fixed -top-16 -bottom-16 -left-16 -right-16 z-[9999] flex items-center justify-center bg-black/75 dark:bg-black/85 p-16 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200">
+          <div className="fixed -top-16 -bottom-16 -left-16 -right-16 z-9999 flex items-center justify-center bg-black/75 dark:bg-black/85 p-16 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200">
             <div className="relative w-full max-w-lg bg-white/95 dark:bg-zinc-900/95 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-2xl backdrop-blur-2xl space-y-5 animate-in zoom-in-95">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <div className="flex items-center gap-2">
@@ -1389,7 +1390,7 @@ export function LiveBillingPage() {
                 </div>
                 <button
                   onClick={() => setIsBuyCreditsModalOpen(false)}
-                  className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  className="rounded-sm p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 >
                   <X size={16} />
                 </button>
@@ -1468,7 +1469,7 @@ export function LiveBillingPage() {
 
         {/* ITEMIZED INVOICE RECEIPT DRAWER */}
         {mounted && selectedInvoice && createPortal(
-          <div className="fixed -top-16 -bottom-16 -left-16 -right-16 z-[9999] flex justify-end bg-black/75 dark:bg-black/85 backdrop-blur-2xl backdrop-saturate-150 p-16 animate-in fade-in duration-200">
+          <div className="fixed -top-16 -bottom-16 -left-16 -right-16 z-9999 flex justify-end bg-black/75 dark:bg-black/85 backdrop-blur-2xl backdrop-saturate-150 p-16 animate-in fade-in duration-200">
             <div className="w-full max-w-lg bg-white/95 dark:bg-zinc-900/95 p-6 shadow-2xl border-l border-zinc-200/80 dark:border-zinc-800/80 backdrop-blur-2xl overflow-y-auto space-y-6 animate-in slide-in-from-right">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                 <div className="flex items-center gap-2">
@@ -1479,7 +1480,7 @@ export function LiveBillingPage() {
                 </div>
                 <button
                   onClick={() => setSelectedInvoice(null)}
-                  className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  className="rounded-sm p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 >
                   <X size={16} />
                 </button>
@@ -1618,7 +1619,7 @@ export function LiveBillingPage() {
 
         {/* PAYU PAYMENT CONFIRMATION POPUP MODAL */}
         {mounted && payUCheckoutModal && createPortal(
-          <div className="fixed -top-16 -bottom-16 -left-16 -right-16 z-[9999] flex items-center justify-center bg-black/75 dark:bg-black/85 backdrop-blur-2xl backdrop-saturate-150 p-16 overflow-y-auto animate-in fade-in duration-200">
+          <div className="fixed -top-16 -bottom-16 -left-16 -right-16 z-9999 flex items-center justify-center bg-black/75 dark:bg-black/85 backdrop-blur-2xl backdrop-saturate-150 p-16 overflow-y-auto animate-in fade-in duration-200">
             <div className="relative w-full max-w-xl rounded-2xl border border-zinc-200/80 bg-white/95 p-6 shadow-2xl dark:border-zinc-800/80 dark:bg-zinc-900/95 backdrop-blur-2xl my-8">
               {/* Close button */}
               <button

@@ -5,6 +5,9 @@ import { encryptSecret } from "@/lib/crypto";
 import { normalizeMemberRole } from "@/lib/team-access";
 import type { Campaign, Integration, Insight, Lead, SocialPost } from "@/lib/types";
 
+/** The user fields other members may see (never credentials, security or account-lifecycle fields). */
+const PUBLIC_USER = { id: true, firstName: true, lastName: true, email: true, avatarUrl: true, jobTitle: true } as const;
+
 const platformMap: Record<string, Platform> = {
   "Google Ads": Platform.GOOGLE_ADS,
   "Google Analytics": Platform.GOOGLE_ANALYTICS,
@@ -147,7 +150,7 @@ export async function listPersistedLeads(workspaceId: string, query = "") {
           }
         : {})
     },
-    include: { owner: true },
+    include: { owner: { select: PUBLIC_USER } },
     orderBy: { createdAt: "desc" }
   });
   return rows.map(leadFromRow);
@@ -192,7 +195,7 @@ function leadFromRow(row: {
 }
 
 export async function getPersistedLead(workspaceId: string, id: string) {
-  const row = await prisma.lead.findFirst({ where: { id, workspaceId }, include: { owner: true } });
+  const row = await prisma.lead.findFirst({ where: { id, workspaceId }, include: { owner: { select: PUBLIC_USER } } });
   return row ? { lead: leadFromRow(row), detail: row } : null;
 }
 
@@ -234,7 +237,7 @@ export async function createPersistedLead(input: {
       ownerId: input.ownerId || undefined,
       notes: input.notes || undefined
     },
-    include: { owner: true }
+    include: { owner: { select: PUBLIC_USER } }
   });
 }
 
@@ -353,7 +356,7 @@ export async function connectPersistedIntegrationCredentials(input: {
     accountId: input.accountId,
     status: "CONNECTED",
     errorMessage: null,
-    lastSyncedAt: new Date(),
+    // Not "synced" yet: the first sync sets lastSyncedAt (and the scheduler then backfills 30 days).
     metadata: (input.metadata || {}) as never
   };
   if (input.providerKey) data.providerKey = input.providerKey;
@@ -362,7 +365,7 @@ export async function connectPersistedIntegrationCredentials(input: {
   if (existing) {
     const updated = await prisma.integration.update({ where: { id: existing.id }, data: data as never });
     console.log(`[REPOSITORY DEBUG] 🟢 UPDATED Integration ID: ${updated.id} | Platform: ${updated.platform} | Status: CONNECTED`);
-    return updated;
+    return withoutCredentials(updated);
   }
 
   const created = await prisma.integration.create({
@@ -374,12 +377,17 @@ export async function connectPersistedIntegrationCredentials(input: {
       apiKeyEncrypted: encryptedApiKey || "",
       providerKey: input.providerKey || undefined,
       status: "CONNECTED",
-      lastSyncedAt: new Date(),
       metadata: (input.metadata || {}) as never
     } as never
   });
   console.log(`[REPOSITORY DEBUG] 🟢 CREATED Integration ID: ${created.id} | Platform: ${created.platform} | Status: CONNECTED`);
-  return created;
+  return withoutCredentials(created);
+}
+
+/** Integration rows go back to browsers; the (encrypted) credentials never do. */
+function withoutCredentials<T extends { apiKey?: string | null; apiKeyEncrypted?: string | null; accessTokenEncrypted?: string | null; refreshTokenEncrypted?: string | null }>(row: T) {
+  const { apiKey: _apiKey, apiKeyEncrypted: _apiKeyEncrypted, accessTokenEncrypted: _accessToken, refreshTokenEncrypted: _refreshToken, ...rest } = row;
+  return rest;
 }
 
 export async function disconnectPersistedIntegration(workspaceId: string, integrationId: string) {
@@ -473,7 +481,7 @@ export async function listPersistedSocialPosts(workspaceId: string, query = "") 
 }
 
 export async function listPersistedContent(workspaceId: string, query = "") {
-  const rows = await prisma.content.findMany({ where: { workspaceId, ...(query ? { title: { contains: query, mode: "insensitive" } } : {}) }, include: { client: true, createdBy: true }, orderBy: { updatedAt: "desc" } });
+  const rows = await prisma.content.findMany({ where: { workspaceId, ...(query ? { title: { contains: query, mode: "insensitive" } } : {}) }, include: { client: true, createdBy: { select: PUBLIC_USER } }, orderBy: { updatedAt: "desc" } });
   return rows.map((row) => ({ id: row.id, title: row.title, type: row.type, body: row.body, status: row.status, tone: row.tone, targetAudience: row.targetAudience, platform: row.platform, keywords: row.keywords, cta: row.cta, scheduledAt: row.scheduledAt, publishedAt: row.publishedAt, aiGenerated: row.aiGenerated, metadata: row.metadata, client: row.client ? { id: row.client.id, name: row.client.name } : null, createdBy: { id: row.createdBy.id, name: `${row.createdBy.firstName} ${row.createdBy.lastName}` }, createdAt: row.createdAt, updatedAt: row.updatedAt }));
 }
 
@@ -524,8 +532,8 @@ export async function getPersistedClient(workspaceId: string, id: string) {
     where: { id, workspaceId },
     include: {
       campaigns: { include: { integration: true }, orderBy: { updatedAt: "desc" } },
-      leads: { include: { owner: true }, orderBy: { createdAt: "desc" } },
-      content: { include: { createdBy: true }, orderBy: { updatedAt: "desc" } },
+      leads: { include: { owner: { select: PUBLIC_USER } }, orderBy: { createdAt: "desc" } },
+      content: { include: { createdBy: { select: PUBLIC_USER } }, orderBy: { updatedAt: "desc" } },
       socialAccounts: { include: { posts: true } },
       integrations: true,
       reports: { orderBy: { createdAt: "desc" } }
@@ -558,13 +566,13 @@ export async function deletePersistedClient(workspaceId: string, id: string) {
 }
 
 export async function listPersistedReports(workspaceId: string) {
-  return prisma.report.findMany({ where: { workspaceId }, include: { client: true, createdBy: true }, orderBy: { updatedAt: "desc" } });
+  return prisma.report.findMany({ where: { workspaceId }, include: { client: true, createdBy: { select: PUBLIC_USER } }, orderBy: { updatedAt: "desc" } });
 }
 
 export async function getPersistedReport(workspaceId: string, id: string) {
   return prisma.report.findFirst({
     where: { id, workspaceId },
-    include: { client: true, createdBy: true }
+    include: { client: true, createdBy: { select: PUBLIC_USER } }
   });
 }
 
@@ -702,7 +710,7 @@ export async function updatePersistedInsightStatus(workspaceId: string, id: stri
 export async function getPersistedContentItem(workspaceId: string, id: string) {
   return prisma.content.findFirst({
     where: { id, workspaceId },
-    include: { client: true, createdBy: true }
+    include: { client: true, createdBy: { select: PUBLIC_USER } }
   });
 }
 
@@ -840,7 +848,7 @@ export async function disconnectPersistedSocialAccount(workspaceId: string, id: 
 }
 
 export async function listPersistedTeam(workspaceId: string) {
-  const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId }, include: { owner: true } });
+  const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId }, include: { owner: { select: PUBLIC_USER } } });
   if (!workspace) return [];
 
   // This workspace's accepted members and pending invitations only. (A superseded or revoked invite is not
@@ -863,7 +871,9 @@ export async function listPersistedTeam(workspaceId: string) {
   const memberUserIds = Array.from(memberMeta.keys());
   const users = await prisma.user.findMany({
     where: { id: { in: [workspace.ownerId, ...memberUserIds] } },
-    orderBy: { createdAt: "asc" }
+    orderBy: { createdAt: "asc" },
+    // Only to tell invited (no password yet) from active members; the hash itself is never returned.
+    omit: { passwordHash: false }
   });
 
   return users.map((u) => {

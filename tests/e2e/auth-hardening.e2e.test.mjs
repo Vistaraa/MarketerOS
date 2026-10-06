@@ -22,7 +22,7 @@ async function req(method, path, { cookie, body, headers = {} } = {}) {
 
 async function signup(tag) {
   const email = `e2e-${ts}-${tag}@example.test`;
-  const r = await req("POST", "/api/auth/signup", { body: { email, password: "Passw0rd!e2e", firstName: "E2E", lastName: tag, workspaceName: `E2E S2 ${tag} ${ts}` } });
+  const r = await req("POST", "/api/auth/signup", { body: { email, password: "Passw0rd!e2e", firstName: "E2E", lastName: tag, acceptTerms: true, workspaceName: `E2E S2 ${tag} ${ts}` } });
   return { r, email, cookie: ck(r.setCookie), ws: r.json?.data?.user?.workspaceId, userId: r.json?.data?.user?.userId };
 }
 

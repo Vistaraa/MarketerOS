@@ -203,7 +203,7 @@ export function LiveCampaignsPage() {
                   placeholder="Search campaigns..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="h-8 w-full rounded-lg border border-zinc-200 bg-white pl-8 pr-3 text-xs text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="h-8 w-full rounded-lg border border-zinc-200 bg-white pl-8 pr-3 text-xs text-zinc-900 outline-hidden placeholder:text-zinc-400 focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                 />
               </div>
 
@@ -230,7 +230,7 @@ export function LiveCampaignsPage() {
               <select
                 value={objectiveFilter}
                 onChange={(e) => setObjectiveFilter(e.target.value)}
-                className="h-8 rounded-lg border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-700 outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+                className="h-8 rounded-lg border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-700 outline-hidden dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
               >
                 <option value="All">All Objectives</option>
                 <option value="Sales">Sales</option>
@@ -272,7 +272,7 @@ export function LiveCampaignsPage() {
                   Array.from({ length: 4 }).map((_, i) => (
                     <tr key={i} className="animate-pulse">
                       <td colSpan={8} className="px-5 py-4">
-                        <div className="h-4 w-full rounded bg-zinc-100 dark:bg-zinc-800" />
+                        <div className="h-4 w-full rounded-sm bg-zinc-100 dark:bg-zinc-800" />
                       </td>
                     </tr>
                   ))

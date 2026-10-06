@@ -22,6 +22,9 @@ export function databaseUrlWarnings(databaseUrl: string | undefined, isProductio
   return warnings;
 }
 
+/** The sample key shown in README.md and .env.example: fine for local development, never for production. */
+const EXAMPLE_ENCRYPTION_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
 /**
  * Validates required configuration when the server boots. In production a missing secret throws, so a
  * misconfigured deployment fails at startup instead of silently falling back to insecure defaults.
@@ -40,6 +43,8 @@ export function assertRequiredEnv() {
   const encryptionKey = process.env.ENCRYPTION_KEY;
   if (!encryptionKey) {
     problems.push("ENCRYPTION_KEY is not set (it encrypts integration credentials at rest).");
+  } else if (isProduction && encryptionKey === EXAMPLE_ENCRYPTION_KEY) {
+    problems.push("ENCRYPTION_KEY is the example value from the README. Generate a random one: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"");
   } else if (!/^[a-f0-9]{64}$/i.test(encryptionKey)) {
     // Only a warning: changing the key format would make already-encrypted credentials unreadable.
     console.warn("[env] ENCRYPTION_KEY is not 64 hex characters; it is being hashed into a key. Prefer a random 32-byte hex key for new deployments.");

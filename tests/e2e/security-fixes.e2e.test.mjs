@@ -5,7 +5,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
-import { BASE, sql, clearIpLimits, cleanupRun } from "./helpers.mjs";
+import { BASE, sql, clearIpLimits, cleanupRun, verifyEmail } from "./helpers.mjs";
 
 const ts = Date.now();
 after(() => cleanupRun(ts));
@@ -24,7 +24,8 @@ async function req(method, path, { cookie, body, form, headers = {} } = {}) {
 
 async function signup(tag) {
   const email = `e2e-${ts}-${tag}@example.test`;
-  const r = await req("POST", "/api/auth/signup", { body: { email, password: "Passw0rd!e2e", firstName: "E2E", lastName: tag, workspaceName: `E2E Fix ${tag} ${ts}` } });
+  const r = await req("POST", "/api/auth/signup", { body: { email, password: "Passw0rd!e2e", firstName: "E2E", lastName: tag, acceptTerms: true, workspaceName: `E2E Fix ${tag} ${ts}` } });
+  if (r.status === 201) await verifyEmail(email);
   return { email, cookie: ck(r.setCookie), ws: r.json?.data?.user?.workspaceId, userId: r.json?.data?.user?.userId };
 }
 

@@ -110,7 +110,7 @@ export function HashtagsPage() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 font-mono">{searchResult.tag}</span>
-                <span className="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                <span className="rounded-sm bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                   {searchResult.popularity}
                 </span>
               </div>
@@ -184,7 +184,7 @@ export function HashtagsPage() {
               >
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="rounded bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                    <span className="rounded-sm bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
                       {group.category || "Custom"}
                     </span>
                     <span className="text-[10px] text-zinc-400 font-mono">{group.hashtags.length} tags</span>
@@ -192,7 +192,7 @@ export function HashtagsPage() {
                   <h4 className="mt-2 text-sm font-bold text-zinc-900 dark:text-zinc-100">{group.name}</h4>
                   <div className="mt-2 flex flex-wrap gap-1">
                     {group.hashtags.map((tag) => (
-                      <span key={tag} className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-mono text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                      <span key={tag} className="rounded-sm bg-zinc-100 px-1.5 py-0.5 text-[10px] font-mono text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
                         {tag}
                       </span>
                     ))}
@@ -235,7 +235,7 @@ export function HashtagsPage() {
             <div key={rec.tag} className="rounded-xl border border-zinc-200/90 bg-white p-4 space-y-2 dark:border-zinc-800 dark:bg-zinc-950/60 text-xs">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-zinc-900 dark:text-zinc-100 font-mono">{rec.tag}</span>
-                <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[9px] font-bold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                <span className="rounded-sm bg-zinc-100 px-1.5 py-0.5 text-[9px] font-bold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
                   {rec.reason}
                 </span>
               </div>
@@ -255,7 +255,7 @@ export function HashtagsPage() {
 
       {/* CREATE HASHTAG GROUP MODAL */}
       {isHashtagGroupModalOpen && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 text-xs">
             <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3.5 shrink-0 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40">
               <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Create Hashtag Group</h3>

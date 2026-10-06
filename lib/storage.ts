@@ -34,7 +34,8 @@ export interface DirectUploadSupport {
 }
 
 class LocalDiskStorage implements ObjectStorage {
-  private readonly root = path.resolve(process.env.STORAGE_LOCAL_DIR || "storage/uploads");
+  // turbopackIgnore: the directory is chosen at runtime; without it the build would trace the whole project.
+  private readonly root = path.resolve(/* turbopackIgnore: true */ process.cwd(), process.env.STORAGE_LOCAL_DIR || "storage/uploads");
 
   private resolve(key: string) {
     const full = path.resolve(this.root, key);

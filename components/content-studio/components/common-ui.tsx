@@ -179,7 +179,7 @@ export function SearchBar({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-zinc-200 bg-white pl-9 pr-8 py-1.5 text-xs text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+        className="w-full rounded-lg border border-zinc-200 bg-white pl-9 pr-8 py-1.5 text-xs text-zinc-900 outline-hidden transition placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
       />
       {value && (
         <button
@@ -282,8 +282,8 @@ export function LoadingSkeleton({ type = "card", count = 4 }: { type?: "card" | 
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="animate-pulse rounded-xl border border-zinc-200 bg-white p-4 space-y-3 dark:border-zinc-800 dark:bg-zinc-950/60">
           <div className="h-40 rounded-xl bg-zinc-100 dark:bg-zinc-800" />
-          <div className="h-4 w-3/4 rounded bg-zinc-100 dark:bg-zinc-800" />
-          <div className="h-3 w-1/2 rounded bg-zinc-100 dark:bg-zinc-800" />
+          <div className="h-4 w-3/4 rounded-sm bg-zinc-100 dark:bg-zinc-800" />
+          <div className="h-3 w-1/2 rounded-sm bg-zinc-100 dark:bg-zinc-800" />
         </div>
       ))}
     </div>

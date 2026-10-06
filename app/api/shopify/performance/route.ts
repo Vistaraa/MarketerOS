@@ -1,39 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth-server";
-import { listPersistedIntegrations } from "@/lib/repositories";
+import { prisma } from "@/lib/prisma";
+import { platformCampaigns, platformPerformance, rangeDays } from "@/lib/platform-performance";
 
 export const runtime = "nodejs";
 
+/** Shopify dashboard data from synced daily metrics (never estimated). */
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const integrations = await listPersistedIntegrations(session.workspaceId);
-  const shopifyIntegration = integrations.find(
-    (i) => i.providerKey === "shopify_store" || i.platform.toLowerCase().includes("shopify")
-  );
-
-  const isConnected = shopifyIntegration?.status === "Connected";
-  const accountId = shopifyIntegration?.account || "";
-
+  const range = req.nextUrl.searchParams.get("range") || "last_30_days";
+  const integration = await prisma.integration.findFirst({ where: { workspaceId: session.workspaceId, platform: "SHOPIFY" } });
+  const [performance, campaigns] = await Promise.all([
+    platformPerformance(session.workspaceId, "SHOPIFY", rangeDays(range)),
+    platformCampaigns(session.workspaceId, "SHOPIFY")
+  ]);
+  const metadata = (integration?.metadata as { currency?: string; timezone?: string } | null) || {};
   return NextResponse.json({
     success: true,
     data: {
       account: {
-        accountId,
-        accountName: shopifyIntegration?.account ? `Shopify (${shopifyIntegration.account})` : "Shopify Store",
-        status: isConnected ? "Connected" : "Not Connected",
-        currency: "USD"
+        accountId: integration?.accountId || "",
+        accountName: integration?.accountName || "Shopify",
+        status: integration?.status === "CONNECTED" ? "Connected" : integration?.status === "ERROR" ? "Error" : "Not Connected",
+        currency: metadata.currency || null,
+        timezone: metadata.timezone || null,
+        lastSyncTime: integration?.lastSyncedAt?.toISOString() || null,
+        lastSyncError: integration?.status === "ERROR" ? integration.errorMessage : null
       },
-      summary: {
-        totalRevenue: 0,
-        totalOrders: 0,
-        averageOrderValue: 0,
-        returningCustomerRate: 0,
-        conversionRate: 0,
-        topProduct: "—"
-      },
-      recentOrders: []
+      hasData: performance.hasData,
+      period: { from: performance.from, to: performance.to },
+      summary: performance.summary,
+      dailyTrend: performance.dailyTrend,
+      campaigns
     }
   });
 }

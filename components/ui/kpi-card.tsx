@@ -45,11 +45,11 @@ export function KpiCard({
         )}
       >
         <div className="flex items-center justify-between">
-          <div className="h-3 w-20 rounded bg-zinc-200 dark:bg-zinc-800" />
+          <div className="h-3 w-20 rounded-sm bg-zinc-200 dark:bg-zinc-800" />
           <div className="h-8 w-8 rounded-lg bg-zinc-200 dark:bg-zinc-800" />
         </div>
-        <div className="mt-3 h-6 w-28 rounded bg-zinc-200 dark:bg-zinc-800" />
-        <div className="mt-2 h-3 w-36 rounded bg-zinc-100 dark:bg-zinc-800/60" />
+        <div className="mt-3 h-6 w-28 rounded-sm bg-zinc-200 dark:bg-zinc-800" />
+        <div className="mt-2 h-3 w-36 rounded-sm bg-zinc-100 dark:bg-zinc-800/60" />
       </div>
     );
   }
@@ -132,7 +132,7 @@ export function KpiCard({
           ) : (
             <span
               className={cn(
-                "inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-xs font-semibold",
+                "inline-flex items-center gap-0.5 rounded-sm px-1.5 py-0.2 text-xs font-semibold",
                 resolvedTrend === "down"
                   ? "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400"
                   : "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
@@ -207,7 +207,7 @@ export function MiniKpiStat({
     <div className="flex flex-col justify-between rounded-lg border border-zinc-100 bg-white p-2.5 transition hover:border-zinc-200 dark:border-zinc-800/80 dark:bg-zinc-950/50 dark:hover:border-zinc-700">
       <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
         {Icon && (
-          <div className={cn("grid h-5 w-5 place-items-center rounded", color)}>
+          <div className={cn("grid h-5 w-5 place-items-center rounded-sm", color)}>
             <Icon size={12} />
           </div>
         )}

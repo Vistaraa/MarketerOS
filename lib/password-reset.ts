@@ -12,7 +12,7 @@ const TOKEN_TTL_MINUTES = 60;
  * account does not exist, so callers can always return the same response.
  */
 export async function requestPasswordReset(email: string, baseUrl: string) {
-  const user = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
+  const user = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, omit: { passwordHash: false } });
   if (!user || !user.passwordHash || user.status === "SUSPENDED") return;
 
   const workspaceId = await primaryWorkspaceId(user.id);

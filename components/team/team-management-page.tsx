@@ -81,7 +81,7 @@ function RoleScopeBreakdown({ role }: { role: string }) {
     <div className="mt-3 rounded-xl border border-zinc-200/90 bg-zinc-50/70 p-3.5 text-xs dark:border-zinc-800 dark:bg-zinc-900/60">
       <div className="flex items-center justify-between border-b border-zinc-200/60 pb-2 dark:border-zinc-800">
         <span className="font-semibold text-zinc-900 dark:text-zinc-100">Primary Landing Route:</span>
-        <code className="rounded bg-indigo-50 px-2 py-0.5 font-mono text-[11px] font-bold text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
+        <code className="rounded-sm bg-indigo-50 px-2 py-0.5 font-mono text-[11px] font-bold text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
           {scope.landing}
         </code>
       </div>
@@ -563,7 +563,7 @@ export function TeamManagementPage() {
                           <div className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
                             <span>{member.name}</span>
                             {member.status === "SUSPENDED" && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-sm bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
                                 Suspended
                               </span>
                             )}
@@ -651,7 +651,7 @@ export function TeamManagementPage() {
         {/* Invite Member Modal */}
         {isInviteModalOpen && mounted && typeof document !== "undefined"
           ? createPortal(
-              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+              <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
                 <div className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
                   <div className="flex items-center justify-between border-b border-zinc-100 p-5 dark:border-zinc-800 shrink-0">
                     <div className="flex items-center gap-2">
@@ -750,7 +750,7 @@ export function TeamManagementPage() {
         {/* Edit Role Modal */}
         {editingMember && mounted && typeof document !== "undefined"
           ? createPortal(
-              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+              <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
                 <div className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
                   <div className="flex items-center justify-between border-b border-zinc-100 p-5 dark:border-zinc-800 shrink-0">
                     <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Edit Role - {editingMember.name}</h2>

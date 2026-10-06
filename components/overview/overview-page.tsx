@@ -171,7 +171,7 @@ function MultiLinePerformanceChart({
           <select
             value={granularity}
             onChange={(e) => onGranularityChange(e.target.value as "daily" | "weekly" | "monthly")}
-            className="h-6 rounded border border-zinc-200 bg-white px-1.5 text-[11px] font-medium text-zinc-700 outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+            className="h-6 rounded-sm border border-zinc-200 bg-white px-1.5 text-[11px] font-medium text-zinc-700 outline-hidden dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
           >
             <option value="daily">Daily</option>
             <option value="weekly">Weekly</option>
@@ -794,7 +794,7 @@ function PerformanceSummaryGrid({
               className="rounded-lg border border-zinc-100 p-2.5 transition hover:border-zinc-200 dark:border-zinc-800/80 dark:hover:border-zinc-700"
             >
               <div className="flex items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-400">
-                <div className={cn("grid h-4 w-4 place-items-center rounded", m.color)}>
+                <div className={cn("grid h-4 w-4 place-items-center rounded-sm", m.color)}>
                   <Icon size={10} />
                 </div>
                 <span className="truncate">{m.label}</span>
@@ -886,7 +886,7 @@ function OnboardingWelcomeBanner() {
   const router = useRouter();
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50/70 via-purple-50/40 to-sky-50/50 p-5 shadow-xs dark:border-indigo-900/40 dark:from-indigo-950/30 dark:via-purple-950/20 dark:to-sky-950/30">
+    <div className="relative overflow-hidden rounded-xl border border-indigo-100 bg-linear-to-r from-indigo-50/70 via-purple-50/40 to-sky-50/50 p-5 shadow-xs dark:border-indigo-900/40 dark:from-indigo-950/30 dark:via-purple-950/20 dark:to-sky-950/30">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3.5">
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-600/20 dark:bg-indigo-500">

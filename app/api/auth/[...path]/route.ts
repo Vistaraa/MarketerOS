@@ -8,6 +8,10 @@ import { checkRateLimit, clearRateLimit, clientIp, formatRetryAfter, hitRateLimi
 
 import { cookies } from "next/headers";
 import { getSubscriptionAccess } from "@/lib/subscription";
+import { TERMS_VERSION } from "@/lib/legal";
+
+/** Signup and invite acceptance record agreement to the Terms of Service and Privacy Policy. */
+const acceptTermsInput = z.literal(true, { errorMap: () => ({ message: "Please accept the Terms of Service and Privacy Policy to continue." }) });
 
 export const runtime = "nodejs";
 
@@ -73,16 +77,20 @@ export async function GET(
     if (path === "session") {
       const session = await getSession();
       if (session) {
-        const [account, access] = await Promise.all([
+        const [account, access, workspace] = await Promise.all([
           prisma.user.findUnique({ where: { id: session.userId }, select: { emailVerifiedAt: true } }),
-          getSubscriptionAccess(session.workspaceId)
+          getSubscriptionAccess(session.workspaceId),
+          prisma.workspace.findUnique({ where: { id: session.workspaceId }, select: { deletionScheduledAt: true } })
         ]);
+        const { DELETION_GRACE_DAYS } = await import("@/lib/account-deletion");
+        const deletionAt = workspace?.deletionScheduledAt ? new Date(workspace.deletionScheduledAt.getTime() + DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000).toISOString() : null;
         return NextResponse.json({
           data: {
             authenticated: true,
             suspended: false,
             user: { id: session.userId, name: session.name, email: session.email, workspaceId: session.workspaceId, role: session.role, emailVerified: Boolean(account?.emailVerifiedAt) },
-            subscription: { state: access.state, planName: access.planName, daysLeft: access.daysLeft, periodEnd: access.periodEnd, lockAt: access.lockAt, locked: access.locked, reason: access.reason }
+            subscription: { state: access.state, planName: access.planName, daysLeft: access.daysLeft, periodEnd: access.periodEnd, lockAt: access.lockAt, locked: access.locked, reason: access.reason },
+            workspaceDeletionAt: deletionAt
           }
         });
       }
@@ -131,6 +139,15 @@ export async function GET(
   }
 }
 
+/** Issues the session after all sign-in factors passed; signing in also cancels a pending account deletion. */
+async function completeLogin(session: Parameters<typeof setSession>[0], usedRecoveryCode = false) {
+  await setSession(session);
+  const { cancelAccountDeletion } = await import("@/lib/account-deletion");
+  const accountRestored = await cancelAccountDeletion(session.userId);
+  const { getDefaultRouteForRole } = await import("@/lib/auth-server");
+  return NextResponse.json({ data: { success: true, user: session, next: getDefaultRouteForRole(session.role), accountRestored, usedRecoveryCode } });
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ path: string[] }> }
@@ -148,7 +165,8 @@ export async function POST(
       if (limited) return limited;
       const parsed = z.object({
         token: z.string().min(1, "Invitation token is required."),
-        password: z.string().min(8, "Password must be at least 8 characters.")
+        password: z.string().min(8, "Password must be at least 8 characters."),
+        acceptTerms: acceptTermsInput
       }).safeParse(body);
       if (!parsed.success) {
         return NextResponse.json({ error: { message: parsed.error.issues[0]?.message || "Invalid payload." } }, { status: 400 });
@@ -161,6 +179,7 @@ export async function POST(
         // Invalid, revoked, expired or already-used links are the caller's problem, not a server error.
         return NextResponse.json({ error: { message: publicErrorMessage(err, "Invalid invitation token.", "auth") } }, { status: 400 });
       }
+      await prisma.user.update({ where: { id: result.user.id }, data: { termsAcceptedAt: new Date(), termsVersion: TERMS_VERSION } });
       const { getDefaultRouteForRole, setSession } = await import("@/lib/auth-server");
 
       const sessionInput = {
@@ -186,7 +205,7 @@ export async function POST(
     if (path === "signup") {
       const limited = await limitByIp(request, "signup", 5, 60 * 60);
       if (limited) return limited;
-      const parsed = credentials.extend({ firstName: z.string().min(1), lastName: z.string().min(1), workspaceName: z.string().min(2) }).safeParse(body);
+      const parsed = credentials.extend({ firstName: z.string().min(1), lastName: z.string().min(1), workspaceName: z.string().min(2), acceptTerms: acceptTermsInput }).safeParse(body);
       if (!parsed.success) return NextResponse.json({ error: { message: parsed.error.issues[0]?.message || "Invalid signup." } }, { status: 400 });
       const { password, firstName, lastName, workspaceName } = parsed.data;
       const email = parsed.data.email.trim().toLowerCase();
@@ -196,7 +215,7 @@ export async function POST(
       if (existingUser) {
         return NextResponse.json({ error: { message: "An account with this email address already exists. Please sign in instead." } }, { status: 400 });
       }
-      const result = await createPersistedUser({ email, firstName, lastName, workspaceName, passwordHash: await bcrypt.hash(password, 12) });
+      const result = await createPersistedUser({ email, firstName, lastName, workspaceName, passwordHash: await bcrypt.hash(password, 12), termsAcceptedAt: new Date(), termsVersion: TERMS_VERSION });
       const sessionInput = { userId: result.user.id, workspaceId: result.workspace.id, role: "OWNER", email: result.user.email, name: `${result.user.firstName} ${result.user.lastName}` };
       await setSession(sessionInput);
       const baseUrl = appBaseUrl(request);
@@ -236,10 +255,34 @@ export async function POST(
         return NextResponse.json({ error: { message: "Email or password is incorrect." } }, { status: 401 });
       }
       await clearRateLimit(failureKey);
-      await setSession(session);
-      const { getDefaultRouteForRole } = await import("@/lib/auth-server");
-      const nextRoute = getDefaultRouteForRole(session.role);
-      return NextResponse.json({ data: { success: true, user: session, next: nextRoute } });
+      // With two-factor authentication on, the password alone doesn't sign in: the client gets a short-lived
+      // challenge to complete with an authenticator or recovery code at /api/auth/login/2fa.
+      const { isTwoFactorEnabled, createLoginChallenge } = await import("@/lib/two-factor");
+      if (await isTwoFactorEnabled(session.userId)) {
+        return NextResponse.json({ data: { twoFactorRequired: true, challenge: createLoginChallenge(session) } });
+      }
+      return completeLogin(session);
+    }
+    if (path === "login/2fa") {
+      const limited = await limitByIp(request, "login-2fa", 30, 15 * 60);
+      if (limited) return limited;
+      const parsed = z.object({ challenge: z.string().min(1), code: z.string().trim().min(6).max(20) }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: { message: "Enter the 6-digit code from your authenticator app, or a recovery code." } }, { status: 400 });
+      const { readLoginChallenge, verifySecondFactor } = await import("@/lib/two-factor");
+      const pending = readLoginChallenge<Parameters<typeof setSession>[0]>(parsed.data.challenge);
+      if (!pending) return NextResponse.json({ error: { code: "CHALLENGE_EXPIRED", message: "Your sign-in timed out. Please enter your password again." } }, { status: 401 });
+      const attemptsKey = `login:2fa:${pending.userId}`;
+      const attempts = await checkRateLimit(attemptsKey, MAX_FAILED_LOGINS, FAILED_LOGIN_WINDOW_SECONDS);
+      if (!attempts.allowed) return tooManyRequests(attempts.retryAfterSeconds, `Too many incorrect codes. Try again in ${formatRetryAfter(attempts.retryAfterSeconds)}.`);
+      const account = await prisma.user.findUnique({ where: { id: pending.userId }, select: { status: true } });
+      if (!account || account.status !== "ACTIVE") return NextResponse.json({ error: { message: "This account can't sign in." } }, { status: 403 });
+      const method = await verifySecondFactor(pending.userId, parsed.data.code);
+      if (!method) {
+        await hitRateLimit(attemptsKey, MAX_FAILED_LOGINS, FAILED_LOGIN_WINDOW_SECONDS);
+        return NextResponse.json({ error: { code: "INVALID_CODE", message: "That code isn't valid. Codes change every 30 seconds and each works once." } }, { status: 401 });
+      }
+      await clearRateLimit(attemptsKey);
+      return completeLogin(pending, method === "recovery");
     }
     if (path === "forgot-password") {
       const parsed = z.object({ email: z.string().email("Please enter a valid email address.") }).safeParse(body);

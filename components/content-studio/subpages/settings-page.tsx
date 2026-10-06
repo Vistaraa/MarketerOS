@@ -291,7 +291,7 @@ export function SettingsPage() {
                       type="checkbox"
                       checked={(localSettings.publishing as any)[item.key]}
                       onChange={(e) => handleFieldChange("publishing", item.key, e.target.checked)}
-                      className="h-4 w-4 accent-zinc-900 dark:accent-zinc-100 rounded"
+                      className="h-4 w-4 accent-zinc-900 dark:accent-zinc-100 rounded-sm"
                     />
                   </div>
                 ))}

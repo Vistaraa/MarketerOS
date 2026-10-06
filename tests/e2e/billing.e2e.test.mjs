@@ -6,7 +6,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { BASE, sql, clearIpLimits, cleanupRun } from "./helpers.mjs";
+import { BASE, sql, clearIpLimits, cleanupRun, verifyEmail } from "./helpers.mjs";
 
 const ts = Date.now();
 const TEST_PLAN = `e2e_plan_${ts}`;
@@ -23,9 +23,11 @@ async function call(cookie, method, path, body, headers = {}) {
 }
 
 async function signup(tag) {
-  const res = await fetch(BASE + "/api/auth/signup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: `e2e-${ts}-${tag}@example.test`, password: "Passw0rd!e2e", firstName: "Bill", lastName: tag, workspaceName: `Billing ${tag}` }) });
+  await clearIpLimits(); // signups are limited to 5 per hour per IP, and this suite makes more
+  const res = await fetch(BASE + "/api/auth/signup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: `e2e-${ts}-${tag}@example.test`, password: "Passw0rd!e2e", firstName: "Bill", lastName: tag, acceptTerms: true, workspaceName: `Billing ${tag}` }) });
   const json = await res.json();
   assert.equal(res.status, 201, JSON.stringify(json));
+  await verifyEmail(`e2e-${ts}-${tag}@example.test`);
   return { cookie: cookieFrom(res), ws: json.data.user.workspaceId, id: json.data.user.userId };
 }
 
@@ -40,8 +42,8 @@ test("setup", async () => {
 
 test("New workspaces start a 14-day Pro trial (not free Pro forever)", async () => {
   const A = await signup("trial");
-  const row = await sql(`select status || '|' || "planSlug" || '|' || complimentary from "Subscription" where "workspaceId" = '${A.ws}'`);
-  assert.equal(row, "TRIALING|pro|f");
+  const row = await sql(`select status || '|' || "planSlug" || '|' || complimentary::text from "Subscription" where "workspaceId" = '${A.ws}'`);
+  assert.equal(row, "TRIALING|pro|false");
   const s = await subscription(A.cookie);
   assert.equal(s.state, "trialing");
   assert.equal(s.daysLeft, 14);
@@ -93,7 +95,7 @@ test("Plan limits: seats, clients and campaigns", async (t) => {
   });
 
   await t.test("campaigns, including reopening an archived one", async () => {
-    await sql(`insert into "Campaign" (id, "workspaceId", name, platform, objective, type, status, budget, "updatedAt") values ('e2e_c1_${ts}', '${A.ws}', 'Live', 'GOOGLE_ADS', 'SALES', 'SEARCH', 'ACTIVE', 100, timezone('utc', now())), ('e2e_c2_${ts}', '${A.ws}', 'Old', 'GOOGLE_ADS', 'SALES', 'SEARCH', 'ARCHIVED', 100, timezone('utc', now()))`);
+    await sql(`insert into "Campaign" (id, "workspaceId", "createdById", name, platform, objective, type, status, budget, "updatedAt") values ('e2e_c1_${ts}', '${A.ws}', '${A.id}', 'Live', 'GOOGLE_ADS', 'SALES', 'SEARCH', 'ACTIVE', 100, timezone('utc', now())), ('e2e_c2_${ts}', '${A.ws}', '${A.id}', 'Old', 'GOOGLE_ADS', 'SALES', 'SEARCH', 'ARCHIVED', 100, timezone('utc', now()))`);
     let r = await call(A.cookie, "POST", "/api/v1/campaigns", { name: "One too many", platforms: ["Google Ads"], budget: 100, dailyBudget: 10, objective: "SALES" });
     assert.equal(r.status, 402);
     assert.equal(r.json.error.code, "PLAN_LIMIT_REACHED");
@@ -159,7 +161,7 @@ test("Lifecycle: grace period after the trial, then read-only (reads and billing
     assert.equal(s.state, "active");
     assert.equal(s.locked, false);
     assert.equal(s.daysLeft >= 28 && s.daysLeft <= 31, true, `daysLeft ${s.daysLeft}`);
-    assert.equal(await sql(`select status || '|' || "planSlug" || '|' || complimentary from "Subscription" where "workspaceId" = '${A.ws}'`), "ACTIVE|starter|f");
+    assert.equal(await sql(`select status || '|' || "planSlug" || '|' || complimentary::text from "Subscription" where "workspaceId" = '${A.ws}'`), "ACTIVE|starter|false");
     assert.equal((await newClient(A.cookie, "Back in business")).status, 201);
   });
 });

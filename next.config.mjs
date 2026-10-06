@@ -1,3 +1,5 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { withSentryConfig } from "@sentry/nextjs/config";
 
 const isDev = process.env.NODE_ENV !== "production";
@@ -13,27 +15,14 @@ function storageUploadOrigins() {
   return bucket ? [`https://${bucket}.s3.${region}.amazonaws.com`, `https://${bucket}.s3.amazonaws.com`] : [];
 }
 
-// Next.js and the theme script in app/layout.tsx use inline scripts, so script-src needs 'unsafe-inline'
-// until nonces are introduced. The rest of the policy still blocks framing, plugins, base-tag hijacking,
-// cross-origin fetches and form posts to anywhere but this site and the PayU checkout.
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
-  // Google Fonts is loaded via @import in app/globals.css.
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "img-src 'self' data: blob: https:",
-  "media-src 'self' data: blob: https:",
-  "font-src 'self' data: https://fonts.gstatic.com",
-  ["connect-src 'self'", ...storageUploadOrigins(), ...(isDev ? ["ws:", "wss:"] : [])].join(" "),
-  "frame-src 'self'",
-  "frame-ancestors 'none'",
-  "form-action 'self' https://secure.payu.in https://test.payu.in",
-  "base-uri 'self'",
-  "object-src 'none'"
-].join("; ");
+// The page Content-Security-Policy is set per request by proxy.ts (each response gets a fresh script nonce,
+// so no 'unsafe-inline' scripts). Origins it needs that are only known at build time are passed in here.
+const cspConnectSrc = ["'self'", ...storageUploadOrigins(), ...(isDev ? ["ws:", "wss:"] : [])].join(" ");
+
+// API responses are data, never documents: nothing may load or run from them.
+const apiContentSecurityPolicy = "default-src 'none'; frame-ancestors 'none'";
 
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: contentSecurityPolicy },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -54,19 +43,25 @@ const maxUploadBytes = Number(process.env.MAX_UPLOAD_BYTES || 25 * 1024 * 1024);
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  // This app's own directory (a lockfile higher up would otherwise be taken as the workspace root).
+  outputFileTracingRoot: path.dirname(fileURLToPath(import.meta.url)),
+  turbopack: { root: path.dirname(fileURLToPath(import.meta.url)) },
+  // Inlined at build time for the CSP built in proxy.ts.
+  env: { MARKETEROS_CSP_CONNECT_SRC: cspConnectSrc },
   // The readiness probe compares shipped migrations with the database, so include them in its serverless bundle.
   outputFileTracingIncludes: {
     "/api/health/ready": ["./prisma/migrations/**/*"]
   },
   // instrumentation.ts is loaded automatically since Next.js 15 (no experimental flag needed).
   experimental: {
-    // Next.js 15 buffers request bodies for middleware and truncates them past 10 MB by default, which broke
-    // media uploads between 10 MB and the upload cap. Allow the cap plus room for multipart overhead.
-    middlewareClientMaxBodySize: maxUploadBytes + 1024 * 1024
+    // Next.js buffers request bodies for the proxy (formerly middleware) and truncates them past 10 MB by default,
+    // which broke media uploads between 10 MB and the upload cap. Allow the cap plus room for multipart overhead.
+    proxyClientMaxBodySize: maxUploadBytes + 1024 * 1024
   },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      { source: "/api/:path*", headers: [{ key: "Content-Security-Policy", value: apiContentSecurityPolicy }] },
       { source: "/api/media/:path*", headers: mediaHeaders }
     ];
   }

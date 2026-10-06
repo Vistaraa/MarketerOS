@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowRight,
@@ -49,22 +49,21 @@ export function AdMobConnectModal({
   const [accountName, setAccountName] = useState<string>(existingAccountName || "AdMob Mobile Apps Network");
   const [isManualEntry, setIsManualEntry] = useState(false);
 
-  // Fetch accounts on modal open
+  // The latest selection, read by fetchAccounts without making it a dependency.
+  const selectedRef = useRef(selectedPublisherId);
   useEffect(() => {
-    if (isOpen) {
-      setError(null);
-      fetchAccounts();
-    }
-  }, [isOpen]);
+    selectedRef.current = selectedPublisherId;
+  }, [selectedPublisherId]);
 
-  const fetchAccounts = async () => {
+  const fetchAccounts = useCallback(async () => {
     setFetchingAccounts(true);
     try {
       const res = await fetch("/api/admob/accounts");
       const json = await res.json();
       if (res.ok && json.data) {
         setAccounts(json.data);
-        if (json.data.length > 0 && !selectedPublisherId) {
+        // Preselect the first account unless the user already picked one.
+        if (json.data.length > 0 && !selectedRef.current) {
           setSelectedPublisherId(json.data[0].publisherId);
           setCustomPublisherId(json.data[0].publisherId);
           if (json.data[0].descriptiveName) {
@@ -77,7 +76,15 @@ export function AdMobConnectModal({
     } finally {
       setFetchingAccounts(false);
     }
-  };
+  }, []);
+
+  // Fetch accounts on modal open
+  useEffect(() => {
+    if (isOpen) {
+      setError(null);
+      fetchAccounts();
+    }
+  }, [isOpen, fetchAccounts]);
 
   const handleStartOAuth = async () => {
     setLoading(true);
@@ -358,7 +365,7 @@ export function AdMobConnectModal({
                           <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                             {acc.descriptiveName}
                           </span>
-                          <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-mono text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                          <span className="rounded-sm bg-zinc-100 px-1.5 py-0.5 text-[10px] font-mono text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
                             {acc.currencyCode}
                           </span>
                         </div>

@@ -125,7 +125,7 @@ export function ContentEditorModal() {
 
   const handleAiGenerate = async () => {
     if (!title.trim() && !caption.trim()) {
-      showToast("Topic Required", "Enter a title or outline first for AI to generate copy.", "info");
+      showToast("Topic Required", "Enter a title or outline-solid first for AI to generate copy.", "info");
       return;
     }
 
@@ -227,7 +227,7 @@ Platform requirements: Keep within character limit for ${platform}, use 3-5 rele
   if (!isEditorOpen || !mounted) return null;
 
   return typeof document !== "undefined" ? createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-md animate-in fade-in duration-200">
       <div className="w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 text-xs">
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3.5 shrink-0 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40">

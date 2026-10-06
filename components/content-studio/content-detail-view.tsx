@@ -114,7 +114,7 @@ export function ContentDetailView({ contentId }: { contentId: string }) {
                   <label className="block text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Hashtags / Keywords</label>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {item.keywords.map((kw: string) => (
-                      <span key={kw} className="rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">
+                      <span key={kw} className="rounded-sm bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">
                         {kw.startsWith("#") ? kw : `#${kw}`}
                       </span>
                     ))}

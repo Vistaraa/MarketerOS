@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertCircle,
@@ -57,17 +57,14 @@ export function GoogleAdsConnectModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // The latest selection, read by fetchAccessibleAccounts without making it a dependency.
+  const selectedRef = useRef(selectedCustomerId);
   useEffect(() => {
-    if (open && typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("oauth") === "success" && params.get("provider") === "google_ads") {
-        fetchAccessibleAccounts();
-      }
-    }
-  }, [open]);
+    selectedRef.current = selectedCustomerId;
+  }, [selectedCustomerId]);
 
   // Fetch accounts list after OAuth authorization
-  const fetchAccessibleAccounts = async () => {
+  const fetchAccessibleAccounts = useCallback(async () => {
     setLoadingAccounts(true);
     setError(null);
     console.log("[PLATFORM INTEGRATION UI] Fetching accessible Google Ads accounts...");
@@ -77,7 +74,7 @@ export function GoogleAdsConnectModal({
       if (res.ok && json.data) {
         console.log(`[PLATFORM INTEGRATION UI] 🟢 Loaded ${json.data.length} accessible Google Ads accounts:`, json.data);
         setAccessibleAccounts(json.data);
-        if (json.data.length > 0 && !selectedCustomerId) {
+        if (json.data.length > 0 && !selectedRef.current) {
           setSelectedCustomerId(json.data[0].customerId);
         }
         setStep("select_account");
@@ -91,7 +88,16 @@ export function GoogleAdsConnectModal({
     } finally {
       setLoadingAccounts(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (open && typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("oauth") === "success" && params.get("provider") === "google_ads") {
+        fetchAccessibleAccounts();
+      }
+    }
+  }, [open, fetchAccessibleAccounts]);
 
   // Trigger OAuth Consent
   const handleInitiateOAuth = async () => {
@@ -162,7 +168,7 @@ export function GoogleAdsConnectModal({
   if (!open || !mounted || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 w-screen h-screen z-[99999] flex items-center justify-center p-3 sm:p-6 bg-black/75 dark:bg-black/85 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200">
+    <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 w-screen h-screen z-99999 flex items-center justify-center p-3 sm:p-6 bg-black/75 dark:bg-black/85 backdrop-blur-2xl backdrop-saturate-150 overflow-y-auto animate-in fade-in duration-200">
       <div
         className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 sm:p-7 my-auto"
         onClick={(e) => e.stopPropagation()}

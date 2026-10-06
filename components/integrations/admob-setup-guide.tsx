@@ -249,7 +249,7 @@ export function AdMobSetupGuide({ isOpen, onClose, onOpenConnect }: AdMobSetupGu
                 <div className="rounded-xl border border-zinc-100 bg-white p-3.5 dark:border-zinc-800 dark:bg-zinc-900">
                   <div className="flex items-center justify-between font-mono font-semibold text-zinc-900 dark:text-zinc-100">
                     <span>https://www.googleapis.com/auth/admob.report</span>
-                    <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+                    <span className="rounded-sm bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
                       Recommended
                     </span>
                   </div>
@@ -261,7 +261,7 @@ export function AdMobSetupGuide({ isOpen, onClose, onOpenConnect }: AdMobSetupGu
                 <div className="rounded-xl border border-zinc-100 bg-white p-3.5 dark:border-zinc-800 dark:bg-zinc-900">
                   <div className="flex items-center justify-between font-mono font-semibold text-zinc-900 dark:text-zinc-100">
                     <span>https://www.googleapis.com/auth/admob.readonly</span>
-                    <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300">
+                    <span className="rounded-sm bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300">
                       Full Read
                     </span>
                   </div>

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth-server";
+import { can, getSession } from "@/lib/auth-server";
+import { emailVerificationGuard } from "@/lib/email-verification";
+import { subscriptionWriteGuard } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
 import { Platform } from "@prisma/client";
 import {
@@ -48,6 +50,9 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!can(session.role, "settings.manage")) return NextResponse.json({ error: "You do not have permission to manage integrations." }, { status: 403 });
+  const blocked = (await emailVerificationGuard(session.userId)) || (await subscriptionWriteGuard(session.workspaceId));
+  if (blocked) return blocked;
 
   try {
     const body = await req.json();
@@ -296,6 +301,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!can(session.role, "settings.manage")) return NextResponse.json({ error: "You do not have permission to manage integrations." }, { status: 403 });
 
   const url = new URL(req.url);
   const platform = url.searchParams.get("platform") as Platform;

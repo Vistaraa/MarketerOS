@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Building2,
   TrendingUp,
@@ -66,7 +66,7 @@ export function ClientWorkspaceDetail({ clientId }: { clientId: string }) {
     type?: "info" | "success" | "warning" | "error" | "confirm";
   }>({ isOpen: false, message: "" });
 
-  async function loadClient() {
+  const loadClient = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -80,11 +80,11 @@ export function ClientWorkspaceDetail({ clientId }: { clientId: string }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [clientId]);
 
   useEffect(() => {
     loadClient();
-  }, [clientId]);
+  }, [loadClient]);
 
   if (loading) {
     return (

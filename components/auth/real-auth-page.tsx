@@ -27,6 +27,9 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  // Set when the password was right but the account also needs an authenticator (or recovery) code.
+  const [twoFactorChallenge, setTwoFactorChallenge] = useState<string | null>(null);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -57,6 +60,12 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
           : urlToken
             ? "Confirming your email address..."
             : "We sent a verification link to your email address. Click it to confirm your account.";
+
+  function finishSignIn(next?: string) {
+    resetClientSession();
+    router.push(returnTo || next || "/");
+    router.refresh();
+  }
 
   async function submit(event?: React.FormEvent) {
     if (event) event.preventDefault();
@@ -125,6 +134,7 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
           firstName: names[0] || "User",
           lastName: names.slice(1).join(" ") || names[0] || "Admin",
           workspaceName: workspaceName || (fullName ? `${fullName}'s Workspace` : "My Workspace"),
+          acceptTerms,
         }
         : { email: normalizedEmail, password };
 
@@ -134,7 +144,7 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
-      const payload = (await response.json()) as ApiResponse<{ next?: string }>;
+      const payload = (await response.json()) as ApiResponse<{ next?: string; twoFactorRequired?: boolean; challenge?: string }>;
       if (!response.ok) {
         throw new Error(payload.error?.message || "Unable to complete authentication request.");
       }
@@ -143,10 +153,11 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
         throw new Error(payload?.error?.message || `Server error (${response.status}): Database tables may not be created yet or connection failed.`);
       }
 
-      const target = returnTo || payload?.data?.next || "/";
-      resetClientSession();
-      router.push(target);
-      router.refresh();
+      if (payload?.data?.twoFactorRequired && payload.data.challenge) {
+        setTwoFactorChallenge(payload.data.challenge);
+        return;
+      }
+      finishSignIn(payload?.data?.next);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to complete request.");
     } finally {
@@ -277,7 +288,14 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
               </div>
             )}
 
-            <form onSubmit={submit} className="mt-6 space-y-4 text-xs">
+            {twoFactorChallenge && (
+              <TwoFactorStep
+                challenge={twoFactorChallenge}
+                onDone={finishSignIn}
+                onRestart={() => { setTwoFactorChallenge(null); setPassword(""); setError(null); }}
+              />
+            )}
+            <form onSubmit={submit} className={twoFactorChallenge ? "hidden" : "mt-6 space-y-4 text-xs"}>
               {signup && (
                 <div>
                   <label className="block font-medium text-zinc-700 dark:text-zinc-300">Full Name</label>
@@ -353,7 +371,7 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 focus:outline-none"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 focus:outline-hidden"
                       aria-label={showPassword ? "Hide password" : "Show password"}
                       title={showPassword ? "Hide password" : "Show password"}
                     >
@@ -381,7 +399,7 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 focus:outline-none"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 focus:outline-hidden"
                       aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                       title={showConfirmPassword ? "Hide password" : "Show password"}
                     >
@@ -391,8 +409,26 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
                 </div>
               )}
 
+              {signup && (
+                <label className="flex items-start gap-2 pt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+                  <input
+                    type="checkbox"
+                    required
+                    checked={acceptTerms}
+                    onChange={(e) => setAcceptTerms(e.target.checked)}
+                    className="mt-0.5 h-3.5 w-3.5 rounded-sm border-zinc-300"
+                  />
+                  <span>
+                    I agree to the{" "}
+                    <a href="/legal/terms" target="_blank" rel="noopener" className="font-semibold underline">Terms of Service</a>{" "}
+                    and{" "}
+                    <a href="/legal/privacy" target="_blank" rel="noopener" className="font-semibold underline">Privacy Policy</a>.
+                  </span>
+                </label>
+              )}
+
               <div className="pt-2">
-                <button type="submit" disabled={busy} className="btn-primary w-full py-2.5">
+                <button type="submit" disabled={busy || (signup && !acceptTerms)} className="btn-primary w-full py-2.5">
                   {busy
                     ? "Processing..."
                     : signup
@@ -422,6 +458,13 @@ export function RealAuthPage({ mode }: { mode: AuthMode }) {
               )}
             </form>
             </>}
+            <p className="mt-6 text-center text-[11px] text-zinc-400">
+              <a href="/legal/terms" className="hover:underline">Terms</a>
+              {" · "}
+              <a href="/legal/privacy" className="hover:underline">Privacy</a>
+              {" · "}
+              <a href="/legal/cookies" className="hover:underline">Cookies</a>
+            </p>
           </div>
         </div>
       </div>
@@ -502,5 +545,52 @@ function VerifyEmailPanel({ token }: { token: string }) {
         </button>
       )}
     </div>
+  );
+}
+
+/** Second sign-in step for accounts with two-factor authentication: a 6-digit app code or a recovery code. */
+function TwoFactorStep({ challenge, onDone, onRestart }: { challenge: string; onDone: (next?: string) => void; onRestart: () => void }) {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function verify(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/login/2fa", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ challenge, code }) });
+      const payload = await res.json().catch(() => null);
+      if (res.status === 401 && payload?.error?.code === "CHALLENGE_EXPIRED") return onRestart();
+      if (!res.ok) throw new Error(payload?.error?.message || "That code isn't valid.");
+      onDone(payload?.data?.next);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That code isn't valid.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={verify} className="mt-6 space-y-4 text-xs">
+      <div>
+        <label htmlFor="two-factor-code" className="block font-medium text-zinc-700 dark:text-zinc-300">Authentication code</label>
+        <p className="mt-1 text-zinc-500">Enter the 6-digit code from your authenticator app, or one of your recovery codes.</p>
+        <input
+          id="two-factor-code"
+          autoFocus
+          required
+          autoComplete="one-time-code"
+          inputMode="text"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          className="mt-2 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 font-mono text-sm tracking-widest dark:border-zinc-800 dark:bg-zinc-900"
+          placeholder="123456"
+        />
+      </div>
+      {error && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">{error}</p>}
+      <button type="submit" disabled={busy || code.trim().length < 6} className="btn-primary w-full py-2.5">{busy ? "Verifying..." : "Verify and sign in"}</button>
+      <button type="button" onClick={onRestart} className="w-full text-center text-xs font-semibold text-zinc-600 underline dark:text-zinc-400">Use a different account</button>
+    </form>
   );
 }

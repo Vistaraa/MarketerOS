@@ -38,6 +38,10 @@ type Row = {
   invoiceNumber?: string;
   total?: unknown;
   invoiceDate?: string;
+  format?: string;
+  dateRange?: string | null;
+  scheduleFrequency?: string | null;
+  nextRunAt?: string | null;
 };
 
 async function getItems(path: string) {
@@ -57,6 +61,7 @@ export function LiveReportsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [openModal, setOpenModal] = useState(false);
+  const [reportOptions, setReportOptions] = useState({ dateRange: "last_30_days", format: "PDF", schedule: "none" });
   const [dialogConfig, setDialogConfig] = useState<{
     isOpen: boolean;
     title?: string;
@@ -80,6 +85,20 @@ export function LiveReportsPage() {
     load();
   }, []);
 
+  // Reports are generated in the background; refresh while any is still generating.
+  const generating = items.some((item) => item.status === "GENERATING");
+  useEffect(() => {
+    if (!generating) return;
+    const timer = setInterval(load, 4000);
+    return () => clearInterval(timer);
+  }, [generating]);
+
+  async function changeSchedule(id: string, schedule: string) {
+    const response = await fetch(`/api/v1/reports/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ schedule }) });
+    if (!response.ok) setError("Couldn't change the schedule.");
+    await load();
+  }
+
   async function create() {
     setBusy(true);
     setError(null);
@@ -87,7 +106,7 @@ export function LiveReportsPage() {
       const response = await fetch("/api/v1/reports", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: name.trim() || "Marketing Performance Report" })
+        body: JSON.stringify({ name: name.trim() || "Marketing Performance Report", ...reportOptions })
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error?.message || "Unable to generate report.");
@@ -168,7 +187,7 @@ export function LiveReportsPage() {
                 <tr className="border-b border-zinc-100 bg-zinc-50/50 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/40">
                   <th className="px-5 py-3">Report Name</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Schedule</th>
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -191,21 +210,27 @@ export function LiveReportsPage() {
                       <td className="px-4 py-3.5">
                         <StatusBadge status={item.status || "Completed"} />
                       </td>
-                      <td className="px-4 py-3.5 text-zinc-500">Automated Summary</td>
-                      <td className="px-5 py-3.5 text-right">
-                        <button
-                          onClick={() =>
-                            setDialogConfig({
-                              isOpen: true,
-                              title: "View Report",
-                              message: `Opening performance report: ${item.name || "Report"}`,
-                              type: "info"
-                            })
-                          }
-                          className="btn-secondary py-1 text-[11px]"
+                      <td className="px-4 py-3.5 text-zinc-500">
+                        <select
+                          aria-label="Schedule"
+                          className="input-clean py-1 text-[11px]"
+                          value={item.scheduleFrequency || "none"}
+                          onChange={(e) => changeSchedule(item.id, e.target.value)}
                         >
-                          View Report
-                        </button>
+                          <option value="none">One-off</option>
+                          <option value="weekly">Weekly email</option>
+                          <option value="monthly">Monthly email</option>
+                        </select>
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        {item.status === "READY" ? (
+                          <span className="inline-flex gap-1.5">
+                            <a href={`/api/v1/reports/${item.id}/download?format=pdf`} className="btn-secondary py-1 text-[11px]">PDF</a>
+                            <a href={`/api/v1/reports/${item.id}/download?format=csv`} className="btn-secondary py-1 text-[11px]">CSV</a>
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-zinc-400">{item.status === "FAILED" ? "Generation failed" : "Generating…"}</span>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -218,7 +243,7 @@ export function LiveReportsPage() {
         {/* Generate Report Modal */}
         {openModal && mounted && typeof document !== "undefined"
           ? createPortal(
-              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
+              <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-200">
                 <div className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-xs">
                   <div className="flex items-center justify-between border-b border-zinc-100 p-5 dark:border-zinc-800 shrink-0">
                     <div className="flex items-center gap-2">
@@ -244,49 +269,32 @@ export function LiveReportsPage() {
                       />
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-3">
                       <div>
-                        <label className="block font-medium text-zinc-700 dark:text-zinc-300">Report Type</label>
-                        <select className="input-clean mt-1">
-                          <option>Executive Summary</option>
-                          <option>Cross-Channel Attribution</option>
-                          <option>Ad Spend & ROAS Audit</option>
-                          <option>Lead Conversion Breakdown</option>
+                        <label className="block font-medium text-zinc-700 dark:text-zinc-300">Date range</label>
+                        <select className="input-clean mt-1" value={reportOptions.dateRange} onChange={(e) => setReportOptions({ ...reportOptions, dateRange: e.target.value })}>
+                          <option value="last_7_days">Last 7 days</option>
+                          <option value="last_30_days">Last 30 days</option>
+                          <option value="last_90_days">Last 90 days</option>
                         </select>
                       </div>
-
                       <div>
-                        <label className="block font-medium text-zinc-700 dark:text-zinc-300">Date Range</label>
-                        <select className="input-clean mt-1">
-                          <option>Last 30 Days</option>
-                          <option>Month to Date</option>
-                          <option>Last Quarter (Q1)</option>
-                          <option>Custom Date Range</option>
+                        <label className="block font-medium text-zinc-700 dark:text-zinc-300">Format</label>
+                        <select className="input-clean mt-1" value={reportOptions.format} onChange={(e) => setReportOptions({ ...reportOptions, format: e.target.value })}>
+                          <option value="PDF">PDF</option>
+                          <option value="CSV">CSV (spreadsheet)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block font-medium text-zinc-700 dark:text-zinc-300">Email me</label>
+                        <select className="input-clean mt-1" value={reportOptions.schedule} onChange={(e) => setReportOptions({ ...reportOptions, schedule: e.target.value })}>
+                          <option value="none">Just once</option>
+                          <option value="weekly">Every week</option>
+                          <option value="monthly">Every month</option>
                         </select>
                       </div>
                     </div>
-
-                    <div>
-                      <label className="block font-medium text-zinc-700 dark:text-zinc-300">Included Channels</label>
-                      <div className="mt-2 grid grid-cols-2 gap-2 text-zinc-600 dark:text-zinc-400">
-                        <label className="flex items-center gap-2">
-                          <input type="checkbox" defaultChecked className="accent-zinc-900 dark:accent-zinc-100" />
-                          <span>Google Ads</span>
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input type="checkbox" defaultChecked className="accent-zinc-900 dark:accent-zinc-100" />
-                          <span>Meta Ads</span>
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input type="checkbox" defaultChecked className="accent-zinc-900 dark:accent-zinc-100" />
-                          <span>Google Analytics 4</span>
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input type="checkbox" defaultChecked className="accent-zinc-900 dark:accent-zinc-100" />
-                          <span>Instagram</span>
-                        </label>
-                      </div>
-                    </div>
+                    <p className="text-zinc-500">The report covers every connected channel and campaign, with the same figures as the Overview. PDF and CSV are both available to download.</p>
                   </div>
 
                   <div className="flex items-center justify-end gap-2 border-t border-zinc-100 p-4 dark:border-zinc-800 shrink-0">

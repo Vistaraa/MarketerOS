@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/prisma";
-import { decryptSecret } from "@/lib/crypto";
+import { usableAccessToken } from "@/lib/integrations/tokens";
 import { getProvider } from "@/lib/integrations/provider";
 import { runScheduledTasks } from "@/lib/scheduled-tasks";
 
-export type JobName = "integration.sync" | "metrics.aggregate" | "report.generate" | "automation.evaluate";
+export type JobName = "integration.sync" | "metrics.aggregate" | "report.generate" | "automation.evaluate" | "workspace.export" | "play.import";
 
-export type JobPayload = { workspaceId: string; integrationId?: string; reportId?: string; runAt?: string; [key: string]: unknown };
+export type JobPayload = { workspaceId: string; integrationId?: string; reportId?: string; exportId?: string; runAt?: string; [key: string]: unknown };
 
 // Statuses are uppercase to match the column default ("QUEUED") and existing rows.
 export type JobStatus = "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
@@ -54,6 +54,15 @@ export async function processNextJob() {
     let result: Record<string, unknown> = {};
     if (candidate.name === "integration.sync") result = await processIntegrationSync(candidate.id, candidate.workspaceId, candidate.integrationId, payload);
     else if (candidate.name === "report.generate") result = await processReportGenerate(candidate.workspaceId, payload);
+    else if (candidate.name === "play.import") {
+      const { importGooglePlay } = await import("@/lib/google/play-import");
+      result = await importGooglePlay(candidate.workspaceId);
+    }
+    else if (candidate.name === "workspace.export") {
+      if (!payload.exportId) throw new Error("Export jobs require an exportId.");
+      const { processWorkspaceExport } = await import("@/lib/workspace-export");
+      result = await processWorkspaceExport(candidate.workspaceId, payload.exportId);
+    }
     else throw new Error(`No handler for job type "${candidate.name}".`);
     await prisma.backgroundJob.update({ where: { id: candidate.id }, data: { status: "COMPLETED", result: result as never, errorMessage: null, finishedAt: new Date(), completedAt: new Date() } });
     return { id: candidate.id, name: candidate.name, status: "COMPLETED" as JobStatus, result };
@@ -92,7 +101,10 @@ async function failOrRetry(job: { id: string; name: string | null; workspaceId: 
   console.error(`[jobs] ${job.name} job ${job.id} failed permanently after ${job.attempts} attempt(s): ${message}`);
   // Surface the final failure on the record the user is waiting on.
   if (job.integrationId) {
-    await prisma.integration.updateMany({ where: { id: job.integrationId, workspaceId: job.workspaceId }, data: { status: "ERROR", errorMessage: message, lastSyncFinished: new Date() } });
+    const updated = await prisma.integration.updateMany({ where: { id: job.integrationId, workspaceId: job.workspaceId }, data: { status: "ERROR", errorMessage: message, lastSyncFinished: new Date() } });
+    if (updated.count) {
+      await prisma.integrationSyncLog.create({ data: { integrationId: job.integrationId, status: "FAILED", errorMessage: message, finishedAt: new Date(), metadata: { jobId: job.id, attempts: job.attempts } } }).catch(() => undefined);
+    }
   }
   const reportId = (job.payload as JobPayload | null)?.reportId;
   if (job.name === "report.generate" && reportId) {
@@ -104,30 +116,47 @@ async function failOrRetry(job: { id: string; name: string | null; workspaceId: 
 async function processReportGenerate(workspaceId: string, payload: JobPayload) {
   const reportId = payload.reportId;
   if (!reportId) throw new Error("Report jobs require a reportId.");
-  const report = await prisma.report.findFirst({ where: { id: reportId, workspaceId } });
-  if (!report) throw new Error("Report not found.");
-  const campaigns = await prisma.campaign.findMany({ where: { workspaceId }, select: { name: true, platform: true, status: true, spend: true, clicks: true, conversions: true, roas: true } });
-  const csv = ["Campaign,Platform,Status,Spend,Clicks,Conversions,ROAS", ...campaigns.map((row) => [row.name, row.platform, row.status, row.spend.toString(), row.clicks, row.conversions, row.roas.toString()].map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))].join("\n");
-  const generatedUrl = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
-  await prisma.report.update({ where: { id: report.id }, data: { status: "READY", generatedUrl } });
-  return { reportId, status: "ready", rows: campaigns.length };
+  const { generateReportFiles } = await import("@/lib/reports");
+  const result = await generateReportFiles(workspaceId, reportId);
+  if (payload.scheduled) await emailScheduledReport(workspaceId, reportId);
+  return result;
+}
+
+/** Scheduled reports are emailed to their creator with a link (the download itself requires signing in). */
+async function emailScheduledReport(workspaceId: string, reportId: string) {
+  const report = await prisma.report.findFirst({ where: { id: reportId, workspaceId }, select: { title: true, scheduleFrequency: true, createdBy: { select: { email: true, firstName: true } } } });
+  if (!report?.createdBy) return;
+  const { sendNoticeEmail } = await import("@/lib/email");
+  const baseUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  await sendNoticeEmail({
+    to: report.createdBy.email,
+    recipientName: report.createdBy.firstName,
+    subject: `Your ${report.scheduleFrequency || "scheduled"} report: ${report.title}`,
+    heading: report.title,
+    body: `your ${report.scheduleFrequency || "scheduled"} report is ready. Open Reports in MarketerOS to download it as PDF or CSV.`,
+    actionLabel: "Open report",
+    actionUrl: `${baseUrl}/reports`,
+    footer: "You're receiving this because you scheduled this report. Turn the schedule off in Reports."
+  }).catch((err) => console.error("[reports] scheduled report email failed:", err));
 }
 
 async function processIntegrationSync(jobId: string, workspaceId: string, integrationId: string | null, payload: JobPayload) {
   if (!integrationId) throw new Error("Integration sync jobs require an integrationId.");
   const integration = await prisma.integration.findFirst({ where: { id: integrationId, workspaceId } });
   if (!integration) throw new Error("Integration not found.");
-  const accessTokenRaw = integration.accessTokenEncrypted || (integration as any).apiKeyEncrypted || (integration as any).apiKey;
-  if (!accessTokenRaw) throw new Error("This integration is not connected. Configure credentials before syncing.");
-  const provider = getProvider((integration.providerKey || integration.platform) as never);
-  const accessToken = decryptSecret(accessTokenRaw);
+  const provider = getProvider(integration.providerKey || integration.platform);
+  if (!provider.supportsMetrics) throw new Error(`${provider.platform} doesn't provide ad metrics to sync.`);
+  const accessToken = await usableAccessToken(integration);
   const from = new Date(typeof payload.from === "string" ? payload.from : Date.now() - 30 * 24 * 60 * 60 * 1000);
   const to = new Date(typeof payload.to === "string" ? payload.to : Date.now());
   await prisma.integration.update({ where: { id: integration.id }, data: { lastSyncStarted: new Date(), errorMessage: null } });
-  const metrics = await provider.syncMetrics(accessToken, integration.accountId || "", from, to);
+  const loginCustomerId = (integration.metadata as { loginCustomerId?: string } | null)?.loginCustomerId;
+  const metrics = await provider.syncMetrics(accessToken, integration.accountId || "", from, to, { loginCustomerId });
   let recordsSynced = 0;
   for (const metric of metrics) {
     const date = new Date(`${metric.date}T00:00:00.000Z`);
+    // Google reports fractional (attributed) conversions; the column stores whole conversions.
+    metric.conversions = Math.round(metric.conversions);
     const existing = await prisma.platformMetricDaily.findFirst({ where: { workspaceId, clientId: integration.clientId, platform: integration.platform, date } });
     if (existing) await prisma.platformMetricDaily.update({ where: { id: existing.id }, data: { impressions: metric.impressions, clicks: metric.clicks, conversions: metric.conversions, spend: metric.spend, revenue: metric.revenue } });
     else await prisma.platformMetricDaily.create({ data: { workspaceId, clientId: integration.clientId, platform: integration.platform, date, impressions: metric.impressions, clicks: metric.clicks, conversions: metric.conversions, spend: metric.spend, revenue: metric.revenue } });

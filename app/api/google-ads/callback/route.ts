@@ -2,158 +2,90 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret } from "@/lib/crypto";
 import { getSession } from "@/lib/auth-server";
+import { consumeOAuthState } from "@/lib/oauth";
 
+const ADS_SCOPES = ["https://www.googleapis.com/auth/adwords"];
+const ADMOB_SCOPES = ["https://www.googleapis.com/auth/admob.readonly", "https://www.googleapis.com/auth/admob.report"];
+
+/**
+ * Google OAuth redirect for the Google Ads and AdMob connect flows. The state must be one this server issued
+ * (single use, 10 minutes) to the same signed-in user and workspace, and the tokens are saved to that workspace's
+ * integration only.
+ */
 export async function GET(request: Request) {
-  console.log("\n=======================================================");
-  console.log("[OAUTH_CALLBACK] 🔄 Processing incoming Google OAuth callback...");
-
   const url = new URL(request.url);
-  const code = url.searchParams.get("code");
-  const stateParam = url.searchParams.get("state");
-  const error = url.searchParams.get("error");
+  const fail = (returnTo: string, reason: string, provider = "google_ads") =>
+    NextResponse.redirect(new URL(`${returnTo}?oauth=error&provider=${provider}&reason=${encodeURIComponent(reason)}`, url.origin));
 
-  if (error) {
-    console.error("[OAUTH_CALLBACK] ❌ Google OAuth Error returned:", error);
-    return NextResponse.redirect(new URL(`/integrations?error=${encodeURIComponent(error)}`, url.origin));
-  }
-
-  // The OAuth state is unsigned, so the target workspace must come from the logged-in session.
   const session = await getSession().catch(() => null);
-  if (!session) {
-    return NextResponse.redirect(new URL("/auth/login?returnTo=%2Fintegrations", url.origin));
-  }
-  const targetWorkspaceId: string = session.workspaceId;
+  if (!session) return NextResponse.redirect(new URL("/auth/login?returnTo=%2Fintegrations", url.origin));
 
-  let returnTo = "/integrations";
-  let providerKey = "google_ads";
+  const stateParam = url.searchParams.get("state");
+  const stored = stateParam ? await consumeOAuthState(stateParam) : null;
+  if (!stored || stored.userId !== session.userId || stored.workspaceId !== session.workspaceId) {
+    return fail("/integrations", "This sign-in link is invalid or has expired. Please try connecting again.");
+  }
+  const returnTo = stored.returnTo || "/integrations";
+  const isAdMob = stored.providerKey === "google_admob";
+  const provider = isAdMob ? "admob" : "google_ads";
+
+  const oauthError = url.searchParams.get("error");
+  if (oauthError) return fail(returnTo, oauthError === "access_denied" ? "Google access was not granted." : "Google sign-in failed.", provider);
+  const code = url.searchParams.get("code");
+  const clientId = (isAdMob && process.env.ADMOB_OAUTH_CLIENT_ID) || process.env.GOOGLE_OAUTH_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = (isAdMob && process.env.ADMOB_OAUTH_CLIENT_SECRET) || process.env.GOOGLE_OAUTH_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
+  const redirectUri = (isAdMob && process.env.ADMOB_OAUTH_REDIRECT_URI) || process.env.GOOGLE_OAUTH_REDIRECT_URI || `${url.origin}/api/google-ads/callback`;
+  if (!code || !clientId || !clientSecret) return fail(returnTo, "Google sign-in isn't configured on this server.", provider);
 
   try {
-    if (stateParam) {
-      const decoded = JSON.parse(Buffer.from(stateParam, "base64url").toString("utf-8"));
-      if (typeof decoded.returnTo === "string" && /^\/(?![\/\\])/.test(decoded.returnTo)) returnTo = decoded.returnTo;
-      if (decoded.providerKey) providerKey = decoded.providerKey;
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: "authorization_code" })
+    });
+    const tokens = await tokenRes.json().catch(() => ({}));
+    if (!tokenRes.ok || (!tokens.access_token && !tokens.refresh_token)) {
+      console.error(`[oauth] Google token exchange failed (${tokenRes.status}):`, tokens?.error || "no tokens");
+      return fail(returnTo, "Google didn't return access. Please try again.", provider);
     }
-  } catch (e) {
-    console.warn("[OAUTH_CALLBACK] Warning: Could not decode state parameter:", e);
-  }
 
-  console.log(`[OAUTH_CALLBACK] 🎯 Provider Target: ${providerKey.toUpperCase()}`);
-  console.log(`[OAUTH_CALLBACK] 🔑 Authorization Code: ${code ? code.slice(0, 15) + "..." : "NONE"}`);
+    const platform = isAdMob ? "FIREBASE_ADMOB" : "GOOGLE_ADS";
+    const data: Record<string, unknown> = {
+      status: "CONNECTED",
+      errorMessage: null,
+      scopes: isAdMob ? ADMOB_SCOPES : ADS_SCOPES,
+      ...(tokens.access_token ? { accessTokenEncrypted: encryptSecret(tokens.access_token) } : {}),
+      ...(tokens.refresh_token ? { refreshTokenEncrypted: encryptSecret(tokens.refresh_token) } : {}),
+      ...(tokens.expires_in ? { tokenExpiresAt: new Date(Date.now() + Number(tokens.expires_in) * 1000) } : {})
+    };
 
-  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI || `${url.origin}/api/google-ads/callback`;
+    if (isAdMob && tokens.access_token) {
+      // Name the integration after the first AdMob publisher account the user can access.
+      const accounts = await fetch("https://admob.googleapis.com/v1/accounts", { headers: { Authorization: `Bearer ${tokens.access_token}` } })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+      const first = accounts?.account?.[0];
+      const publisherId = first?.publisherId || (first?.name ? String(first.name).replace("accounts/", "") : "");
+      if (publisherId) Object.assign(data, { accountId: publisherId, accountName: `AdMob (${publisherId})` });
+    }
 
-  if (code && clientId && clientSecret) {
-    try {
-      console.log(`[OAUTH_CALLBACK] 📡 Exchanging code for access & refresh tokens at Google Token Endpoint...`);
-      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          code,
-          client_id: clientId,
-          client_secret: clientSecret,
-          redirect_uri: redirectUri,
-          grant_type: "authorization_code"
-        })
+    const existing = await prisma.integration.findFirst({ where: { workspaceId: session.workspaceId, platform }, select: { id: true } });
+    if (existing) {
+      await prisma.integration.update({ where: { id: existing.id }, data: data as never });
+    } else {
+      await prisma.integration.create({
+        data: {
+          workspaceId: session.workspaceId,
+          platform,
+          providerKey: isAdMob ? "google_admob" : "google_ads",
+          accountName: isAdMob ? "AdMob" : "Google Ads",
+          ...data
+        } as never
       });
-
-      const tokens = await tokenRes.json();
-      console.log(
-        `[OAUTH_CALLBACK] 🔑 Tokens Received -> Access Token: ${Boolean(tokens.access_token)} | Refresh Token: ${Boolean(tokens.refresh_token)}`
-      );
-
-      if (tokens.access_token || tokens.refresh_token) {
-        if (providerKey === "admob") {
-          console.log("[ADMOB_OAUTH] 🔍 Querying AdMob API (https://admob.googleapis.com/v1/accounts)...");
-          let autoPublisherId = "";
-          let autoAccountName = "AdMob Publisher";
-
-          try {
-            const accountsRes = await fetch("https://admob.googleapis.com/v1/accounts", {
-              headers: { Authorization: `Bearer ${tokens.access_token}` }
-            });
-            if (accountsRes.ok) {
-              const accountsData = await accountsRes.json();
-              console.log("[ADMOB_OAUTH] 🏢 Accessible AdMob Accounts:", JSON.stringify(accountsData, null, 2));
-              if (accountsData.account && Array.isArray(accountsData.account) && accountsData.account.length > 0) {
-                const firstAcc = accountsData.account[0];
-                autoPublisherId = firstAcc.publisherId || (firstAcc.name ? firstAcc.name.replace("accounts/", "") : "");
-                autoAccountName = `AdMob (${autoPublisherId})`;
-              }
-            } else {
-              const errBody = await accountsRes.text();
-              console.warn(`[ADMOB_OAUTH] AdMob accounts lookup returned ${accountsRes.status}:`, errBody.slice(0, 150));
-            }
-          } catch (accErr) {
-            console.warn("[ADMOB_OAUTH] Could not query AdMob accounts during callback:", accErr);
-          }
-
-          const updateData: Record<string, unknown> = {
-            status: "CONNECTED",
-            accountName: autoAccountName,
-            accountId: autoPublisherId || "pub-pending",
-            lastSyncedAt: new Date(),
-            scopes: ["https://www.googleapis.com/auth/admob.readonly", "https://www.googleapis.com/auth/admob.report"]
-          };
-          if (tokens.refresh_token) updateData.refreshTokenEncrypted = encryptSecret(tokens.refresh_token);
-          if (tokens.access_token) updateData.accessTokenEncrypted = encryptSecret(tokens.access_token);
-
-          await prisma.integration.updateMany({
-            where: { platform: "FIREBASE_ADMOB" },
-            data: updateData as never
-          });
-
-          if (targetWorkspaceId) {
-            const existing = await prisma.integration.findFirst({
-              where: { workspaceId: targetWorkspaceId, platform: "FIREBASE_ADMOB" }
-            });
-            if (!existing) {
-              await prisma.integration.create({
-                data: {
-                  workspaceId: targetWorkspaceId,
-                  platform: "FIREBASE_ADMOB",
-                  providerKey: "google_admob",
-                  accountName: autoAccountName,
-                  accountId: autoPublisherId || "pub-pending",
-                  status: "CONNECTED",
-                  lastSyncedAt: new Date(),
-                  scopes: ["https://www.googleapis.com/auth/admob.readonly", "https://www.googleapis.com/auth/admob.report"],
-                  ...updateData
-                } as never
-              });
-            }
-          }
-
-          console.log("[ADMOB_OAUTH] ✅ Encrypted OAuth tokens saved for AdMob successfully!");
-          console.log("=======================================================\n");
-          return NextResponse.redirect(new URL(`${returnTo}?oauth=success&provider=admob`, url.origin));
-        } else {
-          // Google Ads flow
-          const updateData: Record<string, unknown> = {
-            status: "CONNECTED",
-            lastSyncedAt: new Date(),
-            scopes: ["https://www.googleapis.com/auth/adwords"]
-          };
-          if (tokens.refresh_token) updateData.refreshTokenEncrypted = encryptSecret(tokens.refresh_token);
-          if (tokens.access_token) updateData.accessTokenEncrypted = encryptSecret(tokens.access_token);
-
-          await prisma.integration.updateMany({
-            where: { platform: "GOOGLE_ADS" },
-            data: updateData as never
-          });
-
-          console.log("[GOOGLE_ADS_OAUTH] ✅ Encrypted OAuth tokens saved for Google Ads successfully!");
-          console.log("=======================================================\n");
-          return NextResponse.redirect(new URL(`${returnTo}?oauth=success&provider=google_ads`, url.origin));
-        }
-      }
-    } catch (e) {
-      console.error("[OAUTH_CALLBACK] ❌ Token exchange failed:", e);
     }
+    return NextResponse.redirect(new URL(`${returnTo}?oauth=success&provider=${provider}`, url.origin));
+  } catch (error) {
+    console.error("[oauth] Google callback failed:", error);
+    return fail(returnTo, "Connecting to Google failed. Please try again.", provider);
   }
-
-  console.log("=======================================================\n");
-  return NextResponse.redirect(new URL(`${returnTo}?oauth=success&provider=${providerKey}`, url.origin));
 }
